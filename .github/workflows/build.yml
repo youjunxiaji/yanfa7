@@ -84,9 +84,7 @@ jobs:
 
       - name: Build Electron app (Windows)
         working-directory: frontend
-        run: npm run build:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build && npx electron-builder --win --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
