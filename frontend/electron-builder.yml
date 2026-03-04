@@ -19,8 +19,7 @@ asarUnpack:
 win:
   executableName: 研发七部工具包
   icon: resources/app_icon.ico
-  signingHashAlgorithms: null
-  sign: null
+  signAndEditExecutable: false
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
