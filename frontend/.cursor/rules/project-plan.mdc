@@ -1,0 +1,109 @@
+---
+alwaysApply: true
+---
+
+# Edge Stress 项目计划
+
+## 一、FilePreviewDialog 改造（已完成）
+
+将 `FilePreviewDialog.vue` 从仅显示文件名的简单 dialog 改造为功能完整的**报告预览对话框**，展示解析完成后生成的所有图表和报告文件。
+
+## 二、Plotly 前端化迁移（已完成）
+
+将 Plotly 图表渲染从后端 HTML 生成迁移到前端 npm 包直接渲染。
+
+### 方案
+
+- 后端 `reporter.py` 提供 `build_chart_data()` 静态方法，构建 Plotly 图表数据（不写文件）
+- 后端通过 `DatasetCache` 缓存解析结果，提供 REST API `GET /api/chart-data` 按需返回数据
+- 前端 `plotly.js-dist-min` npm 包，预览窗口通过 HTTP API 获取数据后 `Plotly.newPlot()` 渲染
+- 不再生成 HTML 报告和 JSON 文件，每个 RollerColumn 仅生成 6 个 PNG
+
+### 数据流
+
+```
+解析完成 → DatasetCache.save(dataset)
+用户预览 → 前端 fetch /api/chart-data?file_stem=...&col_index=...&position=inner
+         → 后端 DatasetCache.get_column() → build_chart_data()
+         → 返回 JSON → 前端 Plotly.newPlot()
+```
+
+## 三、雷达图设置迁移至预览窗口（已完成）
+
+将雷达图的"载荷最小值"和"应力最小值"设置从主界面迁移到报告预览窗口，作为针对单个文件的独立配置。
+
+### 已完成
+
+- [x] 主界面 `EdgeStressView.vue` 移除雷达图设置区块
+- [x] 预览窗口 `ReportPreviewView.vue` 控制栏添加载荷最小值和应力最小值输入框（纯 UI）
+- [x] 默认值统一为 0（前端 store + 后端 dataset）
+
+### 待完成
+
+- [x] 后端新增 API `POST /api/regenerate-polar`，接收 `file_stem`、`col_index`、`load_polar_min`、`press_polar_min`，重新生成雷达图 PNG
+- [x] 前端预览窗口：修改最小值后调用后端 API 重新生成雷达图
+- [x] 前端预览窗口：重新生成后刷新右栏雷达图图片（使用 cache buster）
+- [x] 拖拽编辑后同步更新最大应力汇总.xlsx（含 xlsx 占用预检查）
+- [x] 修复雷达图 r_min 逻辑：用户设置非零值时优先使用，不再被自动计算覆盖
+
+### 数据流（目标）
+
+```
+用户在预览窗口修改最小值
+→ 前端 POST /api/regenerate-polar { file_stem, col_index, load_polar_min, press_polar_min }
+→ 后端 DatasetCache.get_column() → 重新生成雷达图 PNG
+→ 返回 { ok, regenerated }
+→ 前端刷新右栏雷达图图片
+```
+
+---
+
+## 参考信息
+
+### 报告预览触发方式
+
+- 用户在文件列表中点击**眼睛图标**触发（仅在解析完成后有内容）
+
+### 预览窗口布局
+
+使用三栏布局（Electron 独立 BrowserWindow）：
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ 文件名 [列号选择器] [内滚道/外滚道] | 载荷最小值[  ] 应力最小值[  ] │
+├──────────────┬──────────────┬──────────────────────────────── │
+│              │              │                        │
+│  Plotly 图表  │  应力曲线图   │  雷达图                │
+│  (Vue组件)   │  (PNG x2)   │  (PNG x2)              │
+│  原始+去峰   │  中文+英文    │  载荷+应力              │
+│  受内/外圈    │  受内/外圈    │  不受内/外圈影响         │
+│  切换影响     │  切换影响     │                        │
+│              │              │                        │
+├──────────────┴──────────────┴──────────────────────  │
+└─────────────────────────────────────────────────────┘
+```
+
+### 文件路径拼接规则
+
+基础路径: `{outputDir}/res-output/{groupName}/`
+
+```
+文件名                                            用途
+{stem}-内滚道接触应力-第{N}列-中.png               中栏 - 内圈中文应力曲线
+{stem}-内滚道接触应力-第{N}列-英.png               中栏 - 内圈英文应力曲线
+{stem}-外滚道接触应力-第{N}列-中.png               中栏 - 外圈中文应力曲线
+{stem}-外滚道接触应力-第{N}列-英.png               中栏 - 外圈英文应力曲线
+{stem}-第{N}列-载荷雷达图.png                      右栏 - 载荷雷达图
+{stem}-第{N}列-应力雷达图.png                      右栏 - 应力雷达图
+```
+
+### 相关文件
+
+- `src/renderer/src/views/ReportPreviewView.vue` — 报告预览页面（独立窗口）
+- `src/renderer/src/components/FileResultPopover.vue` — 文件结果悬浮弹窗
+- `src/renderer/src/stores/edgeStress.ts` — 状态管理
+- `src/renderer/src/views/EdgeStressView.vue` — 主页面
+- `src/renderer/src/api/edgeStress.ts` — WsMessage 类型定义
+- `src/main/index.ts` — Electron 主进程
+- `src/preload/index.ts` — preload 脚本
+- `src/renderer/index.html` — CSP 配置

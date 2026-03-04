@@ -1,0 +1,25 @@
+---
+description: Electron IPC 和主进程开发规范
+globs: frontend/src/main/**/*.ts,frontend/src/preload/**/*.ts
+alwaysApply: false
+---
+
+# Electron IPC 规范
+
+## Preload 脚本
+- 通过 `contextBridge.exposeInMainWorld('electronAPI', ...)` 暴露自定义 API
+- `@electron-toolkit/preload` 的 API 通过 `window.electron` 访问
+- 自定义 API 通过 `window.electronAPI` 访问
+- 类型声明在 `src/preload/index.d.ts`
+
+## IPC 命名规范
+```
+dialog:openFile       # 文件选择对话框
+dialog:openDirectory  # 目录选择对话框
+window:openNew        # 打开新窗口
+```
+
+## 安全原则
+- 不启用 `nodeIntegration`
+- 使用 `sandbox: false` 仅因预加载脚本需要
+- 所有 IPC 调用都经过 preload 中转，不直接暴露 `ipcRenderer`

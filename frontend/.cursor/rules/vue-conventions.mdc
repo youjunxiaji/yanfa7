@@ -1,0 +1,30 @@
+---
+description: Vue 组件开发规范
+globs: frontend/src/renderer/src/**/*.vue
+alwaysApply: false
+---
+
+# Vue 组件规范
+
+## UI 框架
+- 使用 **Naive UI** 组件库，不要混用其他 UI 框架
+- 图标使用 `@vicons/ionicons5`
+- 通知消息使用 `stores/notification.ts` 中的 `useNotificationStore()`
+
+## 组件风格
+- 使用 `<script setup lang="ts">` 组合式 API
+- 卡片使用 `border-radius: 12px` 圆角 + 轻微阴影
+- 页面背景色: `#f5f5f7`
+
+## 状态管理
+- 使用 Pinia **Options API** 风格定义 store（避免 Vue 3.5 类型兼容问题）
+- Store 文件放在 `stores/` 目录
+
+## 导入路径
+```typescript
+// ✅ 正确
+import { useEdgeStressStore } from '@renderer/stores/edgeStress'
+
+// ❌ 错误 - @ 别名未配置
+import { useEdgeStressStore } from '@/stores/edgeStress'
+```

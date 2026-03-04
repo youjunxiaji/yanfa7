@@ -1,0 +1,72 @@
+# electron-vite 开发规范
+
+## 多窗口架构（官方推荐做法）
+
+本项目遵循 electron-vite 官方推荐的多窗口方案：每个窗口对应独立的 HTML 入口 + preload + Vue 应用入口。
+
+### 文件结构
+
+```
+src/
+├── main/
+│   └── index.ts              # 主进程，管理所有 BrowserWindow
+├── preload/
+│   ├── index.ts              # 主窗口 preload
+│   └── preview.ts            # 预览窗口 preload
+└── renderer/
+    ├── index.html            # 主窗口 HTML 入口
+    ├── preview.html          # 预览窗口 HTML 入口
+    └── src/
+        ├── main.ts           # 主窗口 Vue 应用入口
+        └── preview.ts        # 预览窗口 Vue 应用入口（轻量，无 Router/Pinia）
+```
+
+### 构建配置
+
+`electron.vite.config.ts` 中需要配置多入口：
+
+```ts
+preload: {
+  build: {
+    rollupOptions: {
+      input: {
+        index: resolve(__dirname, 'src/preload/index.ts'),
+        preview: resolve(__dirname, 'src/preload/preview.ts')
+      }
+    }
+  }
+},
+renderer: {
+  build: {
+    rollupOptions: {
+      input: {
+        index: resolve(__dirname, 'src/renderer/index.html'),
+        preview: resolve(__dirname, 'src/renderer/preview.html')
+      }
+    }
+  }
+}
+```
+
+### 主进程加载窗口的标准模式
+
+```ts
+// 开发环境使用 ELECTRON_RENDERER_URL，生产环境 loadFile
+if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  window.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/preview.html?${queryStr}`)
+} else {
+  window.loadFile(join(__dirname, '../renderer/preview.html'), { search: queryStr })
+}
+```
+
+### 窗口间数据传递
+
+- 通过 URL search params 传递轻量数据（推荐）
+- 子窗口通过 preload 的 `getSearchParams()` 获取参数
+- 不依赖 Pinia store（不同 BrowserWindow 不共享内存）
+
+## 自定义协议
+
+- `local-file://` 协议用于在渲染进程中安全加载本地文件（图片、HTML 报告）
+- 在 `protocol.registerSchemesAsPrivileged` 中注册，`protocol.handle` 中处理
+- 新窗口的 CSP 策略需要包含 `local-file:` 在 img-src 和 frame-src 中
