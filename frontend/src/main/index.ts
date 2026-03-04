@@ -1,4 +1,13 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron'
+import {
+    app,
+    shell,
+    BrowserWindow,
+    ipcMain,
+    dialog,
+    protocol,
+    net,
+    globalShortcut
+} from 'electron'
 import { join } from 'path'
 import { stat } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -249,6 +258,11 @@ app.whenReady().then(async () => {
             }
         }
     )
+
+    globalShortcut.register('CommandOrControl+Shift+I', () => {
+        const win = BrowserWindow.getFocusedWindow()
+        if (win) win.webContents.toggleDevTools()
+    })
 
     startBackend()
     const ready = await waitForBackend()

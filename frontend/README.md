@@ -71,53 +71,62 @@ npm run format
 
 ## 构建
 
-### 前置步骤：准备后端产物
+### CI 自动打包（推荐）
 
-打包前需将 Python 后端的打包产物复制到 `resources/backend/`：
-
-```bash
-# 1. 先打包后端（使用 auto-py-to-exe 或 build.sh）
-# 2. 复制产物
-cp -R ../backend/output/main/* resources/backend/
-```
-
-`resources/backend/` 目录结构应为：
-```
-resources/backend/
-├── main           (或 main.exe on Windows)
-└── _internal/     (PyInstaller 依赖)
-```
-
-### 打包 Electron
+项目使用 GitHub Actions 自动打包，推送 `v*` 格式的 tag 即可触发：
 
 ```bash
-# macOS
-npm run build:mac
-
-# Windows
-npm run build:win
-
-# Linux
-npm run build:linux
+git tag v1.0.0
+git push origin main --tags
 ```
 
-打包后 Electron 主进程会自动启动内嵌的 Python 后端，关闭应用时自动停止。
+工作流（`.github/workflows/build.yml`）自动完成：
+1. PyInstaller 打包 Python 后端
+2. py2pyd 加密业务代码
+3. 复制后端产物到 `frontend/resources/backend/`
+4. electron-builder 打包 Windows NSIS 安装包
+5. 创建 GitHub Release 并上传 .exe
+
+也支持在 GitHub Actions 页面手动触发（workflow_dispatch）。
+
+### 本地手动打包
+
+```bash
+# 1. 打包后端（使用 auto-py-to-exe 或 PyInstaller 命令行）
+cd backend
+pyinstaller --noconfirm --onedir --console --add-data "app_edgeStress;app_edgeStress/" main.py
+
+# 2. 复制后端产物
+xcopy /E /I /Y dist\main\* ..\frontend\resources\backend\
+
+# 3. 打包 Electron (Windows)
+cd ../frontend
+npm run build && npx electron-builder --win --publish never
+```
+
+### 后端自动启动
+
+打包后 Electron 主进程会在启动时自动 spawn 后端进程（`resources/backend/main.exe`），并轮询等待端口 8000 就绪（30 秒超时）。关闭应用时自动终止后端进程树。
+
+开发环境下不会自动启动后端，需手动运行 `uv run main.py`。
 
 ### 注意事项
 
-- macOS：`electron-builder.yml` 中 `mac.identity: null` 禁用了代码签名，适用于本地开发和内部分发。macOS 用户首次打开需在「系统设置 > 隐私与安全性」中允许。
-- Windows：无需代码签名即可正常运行。
-- `resources/backend/` 已在 `.gitignore` 中排除，不会提交到仓库。
+- Windows：无需代码签名即可正常运行
+- `resources/backend/` 已在 `.gitignore` 中排除，不会提交到仓库
+- NSIS 安装程序支持自定义安装路径（非一键安装模式）
+- 安装包命名格式：`研发七部工具包-x.x.x-setup.exe`
 
 ## 功能概述
 
-- **数据文件管理**: 支持 HTM / Excel 文件选择与管理，文件悬浮显示详情
+- **数据文件管理**: 支持 HTM 文件多次追加选择（去重）、一键清空（带确认），文件悬浮显示详情
 - **参数配置**: 峰值阈值、图片尺寸
 - **一键解析**: 点击"开始解析"即完成解析 + 去峰 + 全部报告生成
 - **进度显示**: 解析进度条 + 完成后显示生成文件数
 - **退出确认**: 关闭窗口时弹出确认对话框，防止误操作退出；macOS 下关闭窗口后彻底退出应用
 - **预览窗口复用**: 点击预览按钮复用已有窗口而非创建新窗口；主窗口关闭时自动销毁预览窗口
 - **Cmd+Q 行为**: macOS 下 Cmd+Q 不直接关闭预览窗口，统一走主窗口确认退出流程；预览窗口仅响应 Cmd+W 关闭自身
+- **DevTools 快捷键**: 打包后可通过 Ctrl+Shift+I (macOS: Cmd+Shift+I) 打开开发者工具，方便调试
 - **Plotly 工具栏定制**: 隐藏了 Zoom/ZoomIn/ZoomOut/Select/Lasso 按钮；去峰后数据图表添加"拖拽编辑"自定义按钮，启用后可按住数据点上下拖拽修改 Y 值；拖拽逻辑封装在 `usePlotlyDrag` composable 中
 - **拖拽数据同步**: 拖拽编辑数据点松手后自动同步到后端缓存（`POST /api/update-stress-point`），后端先验证 xlsx 可写性，再更新缓存数据并重新生成应力曲线 PNG、应力雷达图 PNG、最大应力汇总.xlsx，前端通过 cache busting 自动刷新图片
 - **雷达图最小值调整**: 预览窗口顶部可设置载荷最小值和应力最小值，修改后自动调用 `POST /api/regenerate-polar` 重新生成雷达图 PNG（600ms 防抖）

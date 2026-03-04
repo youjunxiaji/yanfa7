@@ -29,7 +29,7 @@ export const useEdgeStressStore = defineStore('edgeStress', {
 
         reportConfig: {
             picWidth: 10,
-            picHeight: 6,
+            picHeight: 8,
             loadPolarMin: 0,
             pressPolarMin: 0
         } as ReportConfig,
@@ -62,7 +62,9 @@ export const useEdgeStressStore = defineStore('edgeStress', {
 
     actions: {
         setFiles(newFiles: FileInfo[], type: 'htm' | 'xlsx') {
-            this.files = newFiles
+            const existingPaths = new Set(this.files.map((f) => f.path))
+            const deduped = newFiles.filter((f) => !existingPaths.has(f.path))
+            this.files.push(...deduped)
             this.fileType = type
         },
 

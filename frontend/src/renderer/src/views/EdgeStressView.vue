@@ -41,18 +41,27 @@
                             </el-icon>
                             选择 HTM 文件
                         </el-button>
-                        <el-button
-                            type="primary"
-                            plain
-                            disabled
-                            style="flex: 1;"
-                            @click="triggerFileSelect('xlsx')"
+                        <el-popconfirm
+                            title="确定清空所有文件吗？"
+                            confirm-button-text="确定"
+                            cancel-button-text="取消"
+                            width="220"
+                            @confirm="store.clearFiles()"
                         >
-                            <el-icon style="margin-right: 6px;">
-                                <FolderOpened />
-                            </el-icon>
-                            选择 Excel 文件
-                        </el-button>
+                            <template #reference>
+                                <el-button
+                                    type="danger"
+                                    plain
+                                    style="flex: 1;"
+                                    :disabled="!store.hasFiles"
+                                >
+                                    <el-icon style="margin-right: 6px;">
+                                        <Delete />
+                                    </el-icon>
+                                    一键清空
+                                </el-button>
+                            </template>
+                        </el-popconfirm>
                     </div>
 
                     <!-- 文件列表 -->
@@ -274,6 +283,7 @@ import {
     VideoPlay,
     CaretRight,
     CircleCheckFilled,
+    Delete,
 } from '@element-plus/icons-vue'
 import { ElMessage} from 'element-plus'
 import { useEdgeStressStore, type FileInfo } from '@renderer/stores/edgeStress'

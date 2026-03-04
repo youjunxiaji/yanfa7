@@ -123,16 +123,16 @@ class ReportConfig:
     Attributes
     ----------
     pic_width : float
-        图片宽度（英寸），默认 8.0。
+        图片宽度（英寸），默认值由前端维护。
     pic_height : float
-        图片高度（英寸），默认 6.0。
+        图片高度（英寸），默认值由前端维护。
     load_polar_min : float
         载荷雷达图径向最小值，默认 0.0。
     press_polar_min : float
         应力雷达图径向最小值，默认 0.0。
     """
-    pic_width: float = 8.0
-    pic_height: float = 6.0
+    pic_width: float
+    pic_height: float
     load_polar_min: float = 0.0
     press_polar_min: float = 0.0
 
@@ -199,9 +199,9 @@ class EdgeStressDataset:
     columns : list[RollerColumn]
         所有文件所有列的滚子数据。
     """
+    report_config: ReportConfig
     process_config: ProcessConfig = field(default_factory=ProcessConfig)
     input_config: InputConfig = field(default_factory=InputConfig)
-    report_config: ReportConfig = field(default_factory=ReportConfig)
     columns: list[RollerColumn] = field(default_factory=list)
 
     # ----- 查询 -----

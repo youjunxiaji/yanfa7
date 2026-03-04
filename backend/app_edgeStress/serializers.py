@@ -4,9 +4,9 @@ from pydantic import BaseModel
 
 
 class ReportConfigSerializer(BaseModel):
-    """报告配置"""
-    picWidth: float = 8.0
-    picHeight: float = 6.0
+    """报告配置（默认值由前端维护）"""
+    picWidth: float
+    picHeight: float
     loadPolarMin: float = 0.0
     pressPolarMin: float = 0.0
 
@@ -17,7 +17,7 @@ class ParseRequestSerializer(BaseModel):
     fileType: str = "htm"
     peakThreshold: float = 10.0
     outputDir: str
-    reportConfig: ReportConfigSerializer = ReportConfigSerializer()
+    reportConfig: ReportConfigSerializer
 
 
 class ProgressResponseSerializer(BaseModel):
