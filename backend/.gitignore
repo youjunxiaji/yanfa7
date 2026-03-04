@@ -1,0 +1,11 @@
+.vscode
+main-test.py
+__pycache__
+output
+*.log
+main-test.py
+
+software
+html/
+测试文件/
+.DS_Store

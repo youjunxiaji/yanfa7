@@ -21,7 +21,7 @@ win:
   icon: resources/app_icon.ico
   signAndEditExecutable: false
 nsis:
-  artifactName: 研发七部工具包-${version}-setup.${ext}
+  artifactName: yanfa7-toolkit-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
