@@ -25,7 +25,7 @@
                         第{{ item.colIndex }}列
                     </div>
                     <img
-                        :src="`local-file://${item.path}`"
+                        :src="`local-file://${item.path.replaceAll('\\', '/')}`"
                         alt="预览"
                         class="preview-img"
                     >

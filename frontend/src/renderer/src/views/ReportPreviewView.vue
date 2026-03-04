@@ -244,7 +244,7 @@ interface ChartItem {
 const params = window.previewAPI.getSearchParams()
 
 const fileStem = params.fileStem ?? ''
-const outputDir = params.outputDir ?? ''
+const outputDir = (params.outputDir ?? '').replace(/\\/g, '/')
 const columns = (params.columns ?? '').split(',').filter(Boolean).map(Number)
 
 const selectedCol = ref(columns[0] ?? 1)

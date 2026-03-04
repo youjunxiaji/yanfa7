@@ -1,6 +1,6 @@
 <template>
-    <div>
-        <el-row :gutter="20">
+    <div class="page-container">
+        <el-row :gutter="20" class="page-row">
             <el-col :span="14">
                 <el-card class="equal-height-card">
                     <template #header>
@@ -419,18 +419,32 @@ function startParse() {
 </script>
 
 <style scoped>
+.page-container {
+    height: 470px;
+}
+
+.page-row {
+    height: 100%;
+}
+
+.page-row :deep(.el-col) {
+    height: 100%;
+}
+
 .equal-height-card {
     height: 100%;
     display: flex;
     flex-direction: column;
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
 }
 
 .equal-height-card :deep(.el-card__body) {
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-height: 0;
 }
 
 .equal-height-card :deep(.el-card__body) > .empty-state {
@@ -494,6 +508,7 @@ function startParse() {
     border: 1px solid #e5e5ea;
     border-radius: 10px;
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     margin-top: 12px;
 }
