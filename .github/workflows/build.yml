@@ -11,13 +11,14 @@ permissions:
 
 jobs:
   build-windows:
+    name: Build Windows Installer
     runs-on: windows-latest
 
     steps:
+      # ─── 基础环境 ──────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ---------- Python 后端打包 ----------
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -26,25 +27,52 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v4
 
+      - name: Extract version from tag
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          echo "APP_VERSION=$version" >> $env:GITHUB_ENV
+          echo "Version: $version"
+
+      # ─── 后端打包 ──────────────────────────────────────────
       - name: Install backend dependencies
         working-directory: backend
         run: uv sync
 
       - name: Build backend with PyInstaller
         working-directory: backend
-        run: uv run pyinstaller --noconfirm --onedir --console --add-data "app_edgeStress;app_edgeStress/" main.py
+        run: |
+          uv run pyinstaller `
+            --noconfirm `
+            --onedir `
+            --console `
+            --add-data "app_edgeStress;app_edgeStress/" `
+            main.py
+
+      - name: Clean build artifacts
+        shell: pwsh
+        working-directory: backend
+        run: |
+          if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
+          Get-ChildItem "*.spec" | Remove-Item -Force
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Encrypt backend with py2pyd
         working-directory: backend
-        run: uv run py2pyd -r -d --no-confirm dist/main/_internal/app_edgeStress
+        env:
+          PYTHONUTF8: '1'
+        run: |
+          uv run py2pyd -r -d --no-confirm dist/main/_internal/app_edgeStress
 
       - name: Copy backend to frontend resources
-        run: |
-          mkdir -p frontend/resources/backend
-          xcopy /E /I /Y backend\dist\main\* frontend\resources\backend\
         shell: cmd
+        run: |
+          mkdir frontend\resources\backend
+          xcopy /E /I /Y backend\dist\main\* frontend\resources\backend\
 
-      # ---------- Electron 前端打包 ----------
+      # ─── 前端打包 ──────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -66,9 +94,10 @@ jobs:
           name: windows-installer
           path: frontend/dist/*.exe
 
-      # ---------- 发布到 GitHub Release ----------
+      # ─── 发布到 GitHub Release ─────────────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: frontend/dist/*.exe
           generate_release_notes: true
