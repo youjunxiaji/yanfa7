@@ -1,4 +1,4 @@
-appId: com.rd7.edge-stress
+appId: com.rd7.yanfa7
 productName: 研发七部工具包
 directories:
   buildResources: build
@@ -27,23 +27,4 @@ nsis:
 mac:
   icon: resources/滚珠轴承.png
   identity: null
-  entitlementsInherit: build/entitlements.mac.plist
-  extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-  notarize: false
-dmg:
-  artifactName: ${name}-${version}.${ext}
-linux:
-  target:
-    - AppImage
-    - snap
-    - deb
-  maintainer: electronjs.org
-  category: Utility
-appImage:
-  artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-afterPack: scripts/afterPack.cjs

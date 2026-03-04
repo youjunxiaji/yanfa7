@@ -4,17 +4,73 @@ import { stat } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { pathToFileURL } from 'url'
-import { ChildProcess, spawn } from 'child_process'
+import { ChildProcess, spawn, execSync } from 'child_process'
+import http from 'http'
 
 let backendProcess: ChildProcess | null = null
 let previewWindow: BrowserWindow | null = null
 let isQuitting = false
 
+const BACKEND_PORT = 8000
+const BACKEND_URL = `http://localhost:${BACKEND_PORT}`
+
+function getBackendPath(): string {
+    const exe = process.platform === 'win32' ? 'main.exe' : 'main'
+    return join(process.resourcesPath, 'backend', exe)
+}
+
+function startBackend(): void {
+    if (!app.isPackaged) {
+        console.log('[Backend] Dev mode — skipping backend launch (start manually)')
+        return
+    }
+    const backendPath = getBackendPath()
+    console.log('[Backend] Starting:', backendPath)
+    backendProcess = spawn(backendPath, [], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true
+    })
+    backendProcess.stdout?.on('data', (data) => console.log('[Backend]', data.toString().trim()))
+    backendProcess.stderr?.on('data', (data) => console.error('[Backend]', data.toString().trim()))
+    backendProcess.on('exit', (code) => {
+        console.log('[Backend] Exited with code', code)
+        backendProcess = null
+    })
+}
+
+function waitForBackend(timeoutMs = 30000): Promise<boolean> {
+    if (!app.isPackaged) return Promise.resolve(true)
+    const start = Date.now()
+    return new Promise((resolve) => {
+        const check = (): void => {
+            if (Date.now() - start > timeoutMs) {
+                console.error('[Backend] Timed out waiting for backend')
+                resolve(false)
+                return
+            }
+            const req = http.get(`${BACKEND_URL}/docs`, (res) => {
+                res.resume()
+                resolve(res.statusCode === 200)
+            })
+            req.on('error', () => setTimeout(check, 500))
+            req.setTimeout(2000, () => {
+                req.destroy()
+                setTimeout(check, 500)
+            })
+        }
+        check()
+    })
+}
+
 function killBackend(): void {
     if (!backendProcess) return
     console.log('[Backend] Stopping...')
     if (process.platform === 'win32') {
-        spawn('taskkill', ['/pid', String(backendProcess.pid), '/f', '/t'])
+        try {
+            execSync(`taskkill /pid ${backendProcess.pid} /f /t`, { stdio: 'ignore' })
+        } catch {
+            /* process may already be gone */
+        }
     } else {
         backendProcess.kill('SIGTERM')
     }
@@ -91,7 +147,7 @@ app.whenReady().then(async () => {
         return net.fetch(pathToFileURL(filePath).href)
     })
 
-    electronApp.setAppUserModelId('com.rd7.edge-stress')
+    electronApp.setAppUserModelId('com.rd7.yanfa7')
 
     app.on('browser-window-created', (_, window) => {
         optimizer.watchWindowShortcuts(window)
@@ -194,11 +250,13 @@ app.whenReady().then(async () => {
         }
     )
 
-    // startBackend()
-    // const ready = await waitForBackend()
-    // if (!ready) {
-    //     console.error('[Backend] Timed out waiting for backend to start')
-    // }
+    startBackend()
+    const ready = await waitForBackend()
+    if (!ready) {
+        dialog.showErrorBox('后端启动失败', '无法启动后端服务，应用将退出。')
+        app.quit()
+        return
+    }
 
     createWindow()
 

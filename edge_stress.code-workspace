@@ -7,10 +7,6 @@
         {
             "name": "后端",
             "path": "./backend"
-        },
-        {
-            "name": "yanfa7",
-            "path": "."
         }
     ],
 	"settings": {}
