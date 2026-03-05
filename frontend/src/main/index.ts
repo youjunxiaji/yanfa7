@@ -8,7 +8,7 @@ import {
     net,
     globalShortcut
 } from 'electron'
-import { join, normalize } from 'path'
+import { join } from 'path'
 import { stat } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -151,18 +151,10 @@ protocol.registerSchemesAsPrivileged([
 
 app.whenReady().then(async () => {
     protocol.handle('local-file', (request) => {
-        try {
-            const url = new URL(request.url)
-            let filePath = decodeURIComponent(url.pathname)
-            if (process.platform === 'win32' && /^\/[A-Za-z]:/.test(filePath)) {
-                filePath = filePath.slice(1)
-            }
-            filePath = normalize(filePath)
-            return net.fetch(pathToFileURL(filePath).href)
-        } catch (err) {
-            console.error('[local-file] failed to load:', request.url, err)
-            return new Response('Not found', { status: 404 })
-        }
+        let raw = request.url.slice('local-file:///'.length)
+        raw = raw.split('?')[0]
+        const filePath = decodeURIComponent(raw).replace(/\//g, '\\')
+        return net.fetch(pathToFileURL(filePath).href)
     })
 
     electronApp.setAppUserModelId('com.rd7.yanfa7')

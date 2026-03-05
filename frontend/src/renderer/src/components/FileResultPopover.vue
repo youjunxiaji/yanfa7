@@ -25,7 +25,7 @@
                         第{{ item.colIndex }}列
                     </div>
                     <img
-                        :src="`local-file://${item.path.replaceAll('\\', '/')}`"
+                        :src="localFileUrl(item.path)"
                         alt="预览"
                         class="preview-img"
                     >
@@ -45,6 +45,12 @@ defineProps<{
     fileName: string
     previewItems?: PreviewItem[]
 }>()
+
+function localFileUrl(filePath: string): string {
+    const normalized = filePath.replace(/\\/g, '/')
+    const encoded = normalized.split('/').map(encodeURIComponent).join('/')
+    return `local-file:///${encoded}`
+}
 </script>
 
 <style scoped>
