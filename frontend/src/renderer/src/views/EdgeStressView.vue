@@ -34,12 +34,12 @@
                         <el-button
                             type="primary"
                             style="flex: 2;"
-                            @click="triggerFileSelect('htm')"
+                            @click="triggerFolderSelect"
                         >
                             <el-icon style="margin-right: 6px;">
                                 <FolderOpened />
                             </el-icon>
-                            选择 HTM 文件
+                            选择文件夹
                         </el-button>
                         <el-popconfirm
                             title="确定清空所有文件吗？"
@@ -299,24 +299,25 @@ const progressColor = computed(() => {
 })
 
 // ========== 文件选择 ==========
-const triggerFileSelect = async (type: 'htm' | 'xlsx') => {
-    const filters = type === 'htm'
-        ? [{ name: 'HTM 文件', extensions: ['htm', 'html'] }]
-        : [{ name: 'Excel 文件', extensions: ['xlsx', 'xls'] }]
-
-    const result = await window.electronAPI.openFileDialog({
-        filters,
-        title: `选择${type === 'htm' ? 'HTM' : 'Excel'}文件`,
+const triggerFolderSelect = async () => {
+    const result = await window.electronAPI.openDirAndScan({
+        title: '选择包含 HTM 文件的文件夹',
+        extensions: ['htm'],
     })
 
-    if (result.canceled || result.filePaths.length === 0) return
+    if (result.canceled || result.filePaths.length === 0) {
+        if (!result.canceled) {
+            ElMessage.info('所选文件夹中未找到 HTM 文件')
+        }
+        return
+    }
 
     const newFiles: FileInfo[] = result.filePaths.map((fp, i) => {
         const name = fp.split(/[\\/]/).pop() || fp
         return { name, path: fp, size: result.fileSizes?.[i] ?? 0 }
     })
 
-    store.setFiles(newFiles, type)
+    store.setFiles(newFiles, 'htm')
 }
 
 /** 预览文件：在独立窗口中打开报告预览 */

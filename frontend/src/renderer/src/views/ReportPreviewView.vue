@@ -247,10 +247,8 @@ const fileStem = params.fileStem ?? ''
 const outputDir = (params.outputDir ?? '').replace(/\\/g, '/')
 
 function localFileUrl(filePath: string, cacheBuster?: number): string {
-    const normalized = filePath.replace(/\\/g, '/')
-    const encoded = normalized.split('/').map(encodeURIComponent).join('/')
-    const base = `local-file:///${encoded}`
-    return cacheBuster != null ? `${base}?t=${cacheBuster}` : base
+    const base = `local-file:///file?path=${encodeURIComponent(filePath)}`
+    return cacheBuster != null ? `${base}&t=${cacheBuster}` : base
 }
 
 const columns = (params.columns ?? '').split(',').filter(Boolean).map(Number)

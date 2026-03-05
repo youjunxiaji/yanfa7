@@ -24,7 +24,7 @@ export const useEdgeStressStore = defineStore('edgeStress', {
         outputDir: '',
 
         processConfig: {
-            peakThreshold: 0.00001
+            peakThreshold: 1
         } as ProcessConfig,
 
         reportConfig: {

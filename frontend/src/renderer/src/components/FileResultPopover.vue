@@ -47,9 +47,7 @@ defineProps<{
 }>()
 
 function localFileUrl(filePath: string): string {
-    const normalized = filePath.replace(/\\/g, '/')
-    const encoded = normalized.split('/').map(encodeURIComponent).join('/')
-    return `local-file:///${encoded}`
+    return `local-file:///file?path=${encodeURIComponent(filePath)}`
 }
 </script>
 

@@ -9,7 +9,7 @@ import {
     globalShortcut
 } from 'electron'
 import { join } from 'path'
-import { stat } from 'fs/promises'
+import { stat, readdir } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { pathToFileURL } from 'url'
@@ -151,9 +151,9 @@ protocol.registerSchemesAsPrivileged([
 
 app.whenReady().then(async () => {
     protocol.handle('local-file', (request) => {
-        let raw = request.url.slice('local-file:///'.length)
-        raw = raw.split('?')[0]
-        const filePath = decodeURIComponent(raw).replace(/\//g, '\\')
+        const url = new URL(request.url)
+        const filePath = url.searchParams.get('path')
+        if (!filePath) return new Response('Not found', { status: 404 })
         return net.fetch(pathToFileURL(filePath).href)
     })
 
@@ -187,6 +187,52 @@ app.whenReady().then(async () => {
                 })
             )
             return { ...result, fileSizes }
+        }
+    )
+
+    ipcMain.handle(
+        'dialog:openDirAndScan',
+        async (
+            _event,
+            options: { title?: string; extensions?: string[] }
+        ) => {
+            const win = BrowserWindow.getFocusedWindow()
+            if (!win) return { canceled: true, filePaths: [], fileSizes: [] }
+            const result = await dialog.showOpenDialog(win, {
+                title: options.title,
+                properties: ['openDirectory']
+            })
+            if (result.canceled || result.filePaths.length === 0) {
+                return { canceled: true, filePaths: [], fileSizes: [] }
+            }
+            const rootDir = result.filePaths[0]!
+            const exts = new Set((options.extensions ?? ['htm']).map((e) => `.${e.toLowerCase()}`))
+
+            const filePaths: string[] = []
+            const walk = async (dir: string): Promise<void> => {
+                const entries = await readdir(dir, { withFileTypes: true })
+                for (const entry of entries) {
+                    const fullPath = join(dir, entry.name)
+                    if (entry.isDirectory()) {
+                        await walk(fullPath)
+                    } else if (exts.has(`.${entry.name.split('.').pop()?.toLowerCase()}`)) {
+                        filePaths.push(fullPath)
+                    }
+                }
+            }
+            await walk(rootDir)
+            filePaths.sort()
+
+            const fileSizes = await Promise.all(
+                filePaths.map(async (fp) => {
+                    try {
+                        return (await stat(fp)).size
+                    } catch {
+                        return 0
+                    }
+                })
+            )
+            return { canceled: false, filePaths, fileSizes }
         }
     )
 

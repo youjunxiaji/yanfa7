@@ -5,6 +5,9 @@ const customAPI = {
     openFileDialog: (options: { filters?: { name: string; extensions: string[] }[]; title?: string }) =>
         ipcRenderer.invoke('dialog:openFile', options),
 
+    openDirAndScan: (options: { title?: string; extensions?: string[] }) =>
+        ipcRenderer.invoke('dialog:openDirAndScan', options),
+
     openDirectoryDialog: (options: { title?: string }) =>
         ipcRenderer.invoke('dialog:openDirectory', options),
 
