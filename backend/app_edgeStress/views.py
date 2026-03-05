@@ -55,6 +55,19 @@ async def ws_parse(ws: WebSocket):
         output_dir = base_output / "res-output"
         output_dir.mkdir(exist_ok=True)
 
+        summary_path = output_dir / "最大应力汇总.xlsx"
+        if summary_path.exists():
+            try:
+                with open(summary_path, "a"):
+                    pass
+            except (PermissionError, OSError):
+                await ws.send_json({
+                    "type": "error",
+                    "message": "最大应力汇总.xlsx 正被其他程序占用，请关闭后重试",
+                })
+                await ws.close()
+                return
+
         rc = req.reportConfig
         process_config = ProcessConfig(peak_threshold=req.peakThreshold)
         report_config = ReportConfig(

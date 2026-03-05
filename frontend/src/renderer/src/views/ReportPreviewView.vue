@@ -407,7 +407,7 @@ const renderPlots = async () => {
 
         const config: Partial<Plotly.Config> = {
             responsive: true,
-            modeBarButtonsToRemove: ['zoom2d', 'zoomIn2d', 'zoomOut2d', 'select2d', 'lasso2d'],
+            modeBarButtonsToRemove: ['zoomIn2d', 'zoomOut2d', 'select2d', 'lasso2d'],
         }
 
         if (isDraggable) {
