@@ -1,5 +1,6 @@
 """边缘应力 WebSocket 视图 & REST API"""
 
+import asyncio
 from pathlib import Path
 
 from fastapi import WebSocket, WebSocketDisconnect, HTTPException, Query
@@ -68,6 +69,23 @@ async def ws_parse(ws: WebSocket):
 
         group_reporters: dict[str, EdgeStressReporter] = {}
 
+        def _process_one(fp: Path):
+            """同步处理单个文件（CPU 密集型），在工作线程中执行。"""
+            cols = loader.load_single_file(fp, file_type)
+            processor.process(cols)
+
+            gn = _get_group_name(fp.stem)
+            if gn not in group_reporters:
+                gd = output_dir / gn
+                gd.mkdir(exist_ok=True)
+                group_reporters[gn] = EdgeStressReporter(report_config, gd)
+
+            rpt = group_reporters[gn]
+            gen: list[str] = []
+            for c in cols:
+                gen.extend(str(p) for p in rpt.generate_for_column(c))
+            return cols, gen
+
         all_columns = []
         all_generated: list[str] = []
 
@@ -80,19 +98,8 @@ async def ws_parse(ws: WebSocket):
             })
 
             try:
-                file_columns = loader.load_single_file(file_path, file_type)
-                processor.process(file_columns)
-
-                group_name = _get_group_name(file_path.stem)
-                if group_name not in group_reporters:
-                    group_dir = output_dir / group_name
-                    group_dir.mkdir(exist_ok=True)
-                    group_reporters[group_name] = EdgeStressReporter(report_config, group_dir)
-
-                reporter = group_reporters[group_name]
-                for col in file_columns:
-                    paths = reporter.generate_for_column(col)
-                    all_generated.extend(str(p) for p in paths)
+                file_columns, generated = await asyncio.to_thread(_process_one, file_path)
+                all_generated.extend(generated)
                 all_columns.extend(file_columns)
             except Exception as e:
                 logger.warning(f"跳过文件 {file_path.name}: {e}")
