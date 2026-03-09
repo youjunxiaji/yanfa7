@@ -41,6 +41,7 @@ src/
         │   └── usePlotlyDrag.ts         # Plotly 图表数据点拖拽编辑逻辑
         ├── components/      # 通用组件
         │   ├── SideNav.vue          # 侧边栏导航（el-menu，带 TMB logo + 折叠/展开）
+        │   ├── CommandPalette.vue   # 命令面板（Cmd+P 路由快捷搜索跳转）
         │   ├── FileResultPopover.vue  # 文件结果悬浮弹窗（hover 触发，仅文件名区域）
         │   ├── FilePreviewDialog.vue  # 文件预览对话框（已废弃，保留备用）
         │   └── Versions.vue
@@ -119,7 +120,8 @@ npm run build && npx electron-builder --win --publish never
 
 ## 功能概述
 
-- **首页**: 启动后默认展示首页，包含欢迎区域（logo + 标题 + 描述）、工具卡片网格（点击跳转至对应功能页面）、底部版本号（从 package.json 自动注入）
+- **首页**: 启动后默认展示首页，包含欢迎区域（logo + 标题 + 描述 + 快捷键提示）、工具卡片网格（点击跳转至对应功能页面）、底部版本号（从 package.json 自动注入）
+- **命令面板**: Cmd+P (macOS) / Ctrl+P (Windows) 唤起搜索面板，模糊匹配路由名称/路径，支持键盘上下选择 + 回车跳转 + ESC 关闭；首页描述区内嵌快捷键提示，点击亦可唤起
 - **侧边栏导航**: el-menu 侧边栏，顶部 TMB® logo + "研发七部工具包"标题，侧边栏右侧边缘中间的圆形按钮控制折叠/展开（双箭头图标），自动读取路由 meta 信息生成菜单项，底部固定「文档」「设置」占位，所有动画统一 0.3s ease-in-out 与 el-menu 同步
 - **数据文件管理**: 支持选择文件夹递归扫描 HTM 文件（多次追加去重）、一键清空（带确认），文件悬浮显示详情
 - **参数配置**: 峰值阈值、图片尺寸
@@ -150,7 +152,8 @@ npm run build && npx electron-builder --win --publish never
 | 组件 | 说明 |
 |------|------|
 | `SideNav.vue` | 侧边栏导航：el-menu + vue-router，顶部 TMB® logo 区域（展开时 logo + 标题，折叠时仅缩小 logo），自动从路由 meta（title/icon）生成菜单项，底部固定「文档」「设置」占位。折叠按钮位于 App.vue 侧边栏边缘 |
-| `HomeView.vue` | 首页：欢迎区域 + 工具卡片网格导航（可扩展）+ 底部版本号 |
+| `HomeView.vue` | 首页：欢迎区域（含快捷键提示）+ 工具卡片网格导航（可扩展）+ 底部版本号 |
+| `CommandPalette.vue` | 命令面板：Cmd+P 唤起，模糊搜索路由列表并快捷跳转（Teleport 到 body，键盘/鼠标操作） |
 | `EdgeStressView.vue` | 边缘应力分析页面：文件管理 + 参数配置 + 解析触发 |
 | `FileResultPopover.vue` | 鼠标悬浮文件名时显示详情弹窗（多列图片横向排列，仅文件名区域触发） |
 | `ReportPreviewView.vue` | 报告预览独立窗口（Electron BrowserWindow），三栏布局：Plotly 交互式图表（通过 HTTP API 获取数据，去峰图表支持拖拽编辑数据点并同步后端）+ 应力曲线 PNG + 雷达图 PNG，顶部卡片式工具栏（文件名 + 列号选择 + segmented control 滚道切换 + 雷达图最小值设置） |

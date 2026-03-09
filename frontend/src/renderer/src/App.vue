@@ -16,15 +16,29 @@
             <router-view />
         </el-main>
     </el-container>
+    <CommandPalette v-model:visible="paletteVisible" />
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
 import SideNav from '@renderer/components/SideNav.vue'
+import CommandPalette from '@renderer/components/CommandPalette.vue'
 
 const collapsed = ref(false)
 const sideWidth = computed(() => (collapsed.value ? '64px' : '200px'))
+
+const paletteVisible = ref(false)
+
+function handleKeydown(e: KeyboardEvent): void {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        e.preventDefault()
+        paletteVisible.value = !paletteVisible.value
+    }
+}
+
+onMounted(() => window.addEventListener('keydown', handleKeydown))
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 </script>
 
 <style>

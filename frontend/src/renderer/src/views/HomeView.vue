@@ -5,7 +5,13 @@
             <div class="welcome-section">
                 <img src="@renderer/assets/logo.png" alt="logo" class="welcome-logo" />
                 <h1 class="welcome-title">研发七部工具包</h1>
-                <p class="welcome-desc">轴承数据分析与报告生成工具集</p>
+                <p class="welcome-desc">
+                    轴承数据分析与报告生成工具集
+                    <span class="welcome-sep">·</span>
+                    <span class="shortcut-link" @click="openPalette">
+                        <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd><kbd>P</kbd> 快速跳转
+                    </span>
+                </p>
             </div>
 
             <!-- 工具卡片网格 -->
@@ -48,6 +54,13 @@ import { Histogram, ArrowRight } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const version = __APP_VERSION__
+const isMac = navigator.platform.toUpperCase().includes('MAC')
+
+function openPalette(): void {
+    window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'p', metaKey: isMac, ctrlKey: !isMac })
+    )
+}
 
 interface ToolItem {
     path: string
@@ -113,6 +126,28 @@ const tools: ToolItem[] = [
     font-size: 15px;
     color: #86868b;
     font-weight: 400;
+}
+
+.welcome-sep {
+    margin: 0 2px;
+}
+
+.shortcut-link {
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.shortcut-link:hover {
+    color: var(--el-color-primary);
+}
+
+.shortcut-link kbd {
+    font-size: 11px;
+    background: #ededf0;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-family: inherit;
+    margin-right: 1px;
 }
 
 /* ========== 工具卡片网格 ========== */
