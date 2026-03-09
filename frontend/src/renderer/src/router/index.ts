@@ -4,7 +4,9 @@ import type { RouteRecordRaw } from 'vue-router'
 const routes: RouteRecordRaw[] = [
     {
         path: '/',
-        redirect: '/edge-stress'
+        name: 'Home',
+        meta: { title: '首页', icon: 'HomeFilled' },
+        component: () => import('@renderer/views/HomeView.vue')
     },
     {
         path: '/edge-stress',

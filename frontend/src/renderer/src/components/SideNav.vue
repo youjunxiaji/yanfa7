@@ -52,10 +52,12 @@ import { useRoute, useRouter } from 'vue-router'
 import {
     Document,
     Setting,
-    Histogram
+    Histogram,
+    HomeFilled
 } from '@element-plus/icons-vue'
 
 const iconMap: Record<string, Component> = {
+    HomeFilled: markRaw(HomeFilled),
     Histogram: markRaw(Histogram)
 }
 
