@@ -6,7 +6,7 @@
 
 - **框架**: [Electron](https://www.electronjs.org/) + [Vue 3](https://vuejs.org/)
 - **构建工具**: [electron-vite](https://electron-vite.org/)
-- **UI 组件**: [Element Plus](https://element-plus.org/)
+- **UI 组件**: [Element Plus](https://element-plus.org/) (el-* 前缀)
 - **状态管理**: [Pinia](https://pinia.vuejs.org/)
 - **路由**: [Vue Router 4](https://router.vuejs.org/)
 - **语言**: TypeScript
@@ -50,9 +50,6 @@ src/
 scripts/
 └── afterPack.cjs            # electron-builder 打包钩子 (macOS 后端签名)
 resources/
-├── icon.png                 # 默认图标
-├── app_icon.ico             # Windows 图标
-├── 滚珠轴承.png              # macOS 图标
 └── backend/                 # Python 后端打包产物 (不提交到 git)
 ```
 

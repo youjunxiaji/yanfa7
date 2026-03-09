@@ -1,15 +1,14 @@
 ---
-description: Vue 组件开发规范
-globs: frontend/src/renderer/src/**/*.vue
+description: Vue 组件开发规范（Element Plus、Pinia、导入路径）
+globs: src/renderer/src/**/*.vue,src/renderer/src/**/*.ts
 alwaysApply: false
 ---
 
 # Vue 组件规范
 
 ## UI 框架
-- 使用 **Naive UI** 组件库，不要混用其他 UI 框架
-- 图标使用 `@vicons/ionicons5`
-- 通知消息使用 `stores/notification.ts` 中的 `useNotificationStore()`
+- 使用 **Element Plus** 组件库（`el-*` 前缀），不要混用其他 UI 框架
+- 图标使用 `@element-plus/icons-vue`
 
 ## 组件风格
 - 使用 `<script setup lang="ts">` 组合式 API

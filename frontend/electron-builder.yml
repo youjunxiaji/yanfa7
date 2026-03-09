@@ -18,7 +18,6 @@ asarUnpack:
   - resources/**
 win:
   executableName: 研发七部工具包
-  icon: resources/app_icon.ico
   signAndEditExecutable: false
 nsis:
   artifactName: yanfa7-toolkit-${version}-setup.${ext}
@@ -28,6 +27,5 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
 mac:
-  icon: resources/滚珠轴承.png
   identity: null
 npmRebuild: false

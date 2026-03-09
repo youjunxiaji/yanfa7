@@ -1,31 +1,33 @@
 ---
-description: 项目整体架构和约定
+description: 研发七部工具包整体架构、技术栈和开发约定
 alwaysApply: true
 ---
 
-# Edge Stress 项目概述
+# 研发七部工具包 项目概述
 
-这是一个 **边缘应力分析桌面工具**，前后端分离架构。
+这是一个**轴承数据分析桌面工具包**，前后端分离架构，当前包含「边缘应力分析」模块，后续可扩展更多工具。
 
 ## 技术栈
-- **前端**: Electron + Vue 3 + TypeScript + Naive UI + Pinia
+- **前端**: Electron + Vue 3 + TypeScript + Element Plus + Pinia
 - **构建**: electron-vite
 - **后端**: Python (FastAPI)
 
 ## 项目结构
 ```
-edge_stress/
+yanfa7/
 ├── frontend/          # Electron + Vue 前端
 │   └── src/
 │       ├── main/      # Electron 主进程
 │       ├── preload/   # 预加载脚本
 │       └── renderer/  # Vue 渲染进程
 │           └── src/
-│               ├── views/     # 页面组件
-│               ├── stores/    # Pinia 状态管理
-│               ├── api/       # 后端 HTTP 接口
-│               ├── router/    # Vue Router
-│               └── components/# 通用组件
+│               ├── views/      # 页面组件
+│               ├── stores/     # Pinia 状态管理
+│               ├── api/        # 后端 HTTP 接口
+│               ├── router/     # Vue Router
+│               ├── composables/# Vue Composables
+│               ├── components/ # 通用组件
+│               └── assets/     # 静态资源（logo、图标等）
 └── backend/           # Python 后端服务
 ```
 
@@ -34,6 +36,8 @@ edge_stress/
 - 前后端通信: 渲染进程 → HTTP API → Python 后端
 - Electron IPC: 渲染进程 → preload → 主进程 (仅用于系统级操作如文件对话框)
 - 窗口标题: 研发七部工具包
+- 静态资源（logo、SVG 图标等）放在 `src/renderer/src/assets/` 目录
+- `resources/` 目录仅用于存放打包时的后端产物（`resources/backend/`）
 
 ## 对话流程规则
 - **对话开始时**: 必须先阅读 `frontend/README.md` 和 `backend/README.md`，了解项目最新状态后再开始工作

@@ -1,3 +1,9 @@
+---
+description: electron-vite 多窗口架构、构建配置和自定义协议规范
+globs: src/main/**/*.ts,src/preload/**/*.ts,src/renderer/*.html,electron.vite.config.ts
+alwaysApply: false
+---
+
 # electron-vite 开发规范
 
 ## 多窗口架构（官方推荐做法）
@@ -51,7 +57,6 @@ renderer: {
 ### 主进程加载窗口的标准模式
 
 ```ts
-// 开发环境使用 ELECTRON_RENDERER_URL，生产环境 loadFile
 if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
   window.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/preview.html?${queryStr}`)
 } else {

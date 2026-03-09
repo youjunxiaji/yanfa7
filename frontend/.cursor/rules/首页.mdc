@@ -1,0 +1,36 @@
+---
+description: 首页布局结构和新工具卡片扩展方式
+globs: src/renderer/src/views/HomeView.vue
+alwaysApply: false
+---
+
+# 首页规范
+
+## 页面结构
+
+首页采用居中布局，从上到下依次为：
+1. **欢迎区域**: logo + 标题「研发七部工具包」+ 描述
+2. **工具卡片网格**: 垂直排列的可点击卡片，每张卡片对应一个功能模块
+3. **底部版本信息**: 版本号（从 package.json 自动注入）+ TMB® 品牌
+
+## 添加新工具
+
+在 `tools` 数组中追加一项即可：
+
+```ts
+const tools: ToolItem[] = [
+    {
+        path: '/edge-stress',     // 对应 router 路径
+        name: '边缘应力分析',
+        desc: 'HTM 数据解析、去峰处理与报告生成',
+        icon: markRaw(Histogram),  // @element-plus/icons-vue 图标
+        iconColor: '#0071e3',
+        bgColor: 'rgba(0, 113, 227, 0.08)'
+    }
+    // 在此追加新工具...
+]
+```
+
+同时需要：
+- 在 `router/index.ts` 中添加对应路由（含 `meta.title` 和 `meta.icon`）
+- 创建对应的 View 组件

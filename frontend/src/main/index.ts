@@ -11,7 +11,6 @@ import {
 import { join } from 'path'
 import { stat, readdir } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
 import { pathToFileURL } from 'url'
 import { ChildProcess, spawn, execSync } from 'child_process'
 import http from 'http'
@@ -94,7 +93,6 @@ function createWindow(): void {
         height: 600,
         show: false,
         autoHideMenuBar: true,
-        ...(process.platform === 'linux' ? { icon } : {}),
         webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
             sandbox: false

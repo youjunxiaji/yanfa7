@@ -1,0 +1,61 @@
+---
+description: 边缘应力分析模块的架构和开发参考
+alwaysApply: false
+---
+# 边缘应力分析模块
+
+## 数据流
+
+```
+用户选择文件夹 → 扫描 HTM 文件
+→ 点击"开始解析" → WS /ws/parse 推送进度
+→ 解析完成 → DatasetCache 缓存结果 + 生成 PNG
+→ 用户点击预览 → 前端 GET /api/chart-data → Plotly.newPlot() 渲染
+→ 拖拽编辑数据点 → POST /api/update-stress-point → 重新生成 PNG + xlsx
+→ 修改雷达图最小值 → POST /api/regenerate-polar → 重新生成雷达图 PNG
+```
+
+## 预览窗口布局
+
+使用三栏布局（Electron 独立 BrowserWindow）：
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ 文件名 [列号选择器] [内滚道/外滚道] | 载荷最小值[  ] 应力最小值[  ] │
+├──────────────┬──────────────┬──────────────────────────────── │
+│              │              │                                 │
+│  Plotly 图表  │  应力曲线图   │  雷达图                         │
+│  (Vue组件)   │  (PNG x2)   │  (PNG x2)                       │
+│  原始+去峰   │  中文+英文    │  载荷+应力                       │
+│  受内/外圈    │  受内/外圈    │  不受内/外圈影响                  │
+│  切换影响     │  切换影响     │                                 │
+│              │              │                                 │
+└──────────────┴──────────────┴─────────────────────────────────┘
+```
+
+## 文件路径拼接规则
+
+基础路径: `{outputDir}/res-output/{groupName}/`
+
+每个 RollerColumn 生成 6 个文件：
+
+```
+{stem}-内滚道接触应力-第{N}列-中.png    中栏 - 内圈中文应力曲线
+{stem}-内滚道接触应力-第{N}列-英.png    中栏 - 内圈英文应力曲线
+{stem}-外滚道接触应力-第{N}列-中.png    中栏 - 外圈中文应力曲线
+{stem}-外滚道接触应力-第{N}列-英.png    中栏 - 外圈英文应力曲线
+{stem}-第{N}列-载荷雷达图.png          右栏 - 载荷雷达图
+{stem}-第{N}列-应力雷达图.png          右栏 - 应力雷达图
+```
+
+## 相关文件
+
+- `src/renderer/src/views/EdgeStressView.vue` — 主页面（文件管理 + 参数配置 + 解析）
+- `src/renderer/src/views/ReportPreviewView.vue` — 报告预览独立窗口
+- `src/renderer/src/stores/edgeStress.ts` — Pinia 状态管理
+- `src/renderer/src/api/edgeStress.ts` — API 接口 + WsMessage 类型
+- `src/renderer/src/composables/usePlotlyDrag.ts` — Plotly 数据点拖拽编辑
+- `src/renderer/src/components/FileResultPopover.vue` — 文件结果悬浮弹窗
+- `src/renderer/src/components/FilePreviewDialog.vue` — 已废弃，保留备用
+- `src/renderer/index.html` — 主窗口 CSP 配置
+- `src/renderer/preview.html` — 预览窗口 CSP 配置

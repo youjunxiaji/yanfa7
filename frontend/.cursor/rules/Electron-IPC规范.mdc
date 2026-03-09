@@ -1,6 +1,6 @@
 ---
-description: Electron IPC 和主进程开发规范
-globs: frontend/src/main/**/*.ts,frontend/src/preload/**/*.ts
+description: Electron IPC 通信、Preload 脚本和主进程开发规范
+globs: src/main/**/*.ts,src/preload/**/*.ts
 alwaysApply: false
 ---
 
