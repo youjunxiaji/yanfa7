@@ -25,10 +25,9 @@ interface CustomElectronAPI {
     onConfirmQuit: (callback: () => void) => void
     confirmQuit: () => void
 
-    settings: {
-        get: (key: string) => Promise<unknown>
-        set: (key: string, value: unknown) => Promise<void>
-        getAll: () => Promise<Record<string, unknown>>
+    theme: {
+        set: (mode: 'light' | 'dark' | 'system') => Promise<boolean>
+        get: () => Promise<{ source: string; shouldUseDarkColors: boolean }>
     }
 }
 

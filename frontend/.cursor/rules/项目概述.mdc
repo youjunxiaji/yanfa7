@@ -1,5 +1,4 @@
 ---
-description: 研发七部工具包整体架构、技术栈和开发约定
 alwaysApply: true
 ---
 
@@ -40,6 +39,16 @@ yanfa7/
 - 静态资源（logo、SVG 图标等）放在 `src/renderer/src/assets/` 目录
 - `resources/` 目录仅用于存放打包时的后端产物（`resources/backend/`）
 - 侧边栏底部菜单项通过路由 meta `bottomNav: true` 标记，与主菜单项区分
+
+## 暗色模式
+- 使用 Electron 官方 `nativeTheme` API 管理主题，设置 `nativeTheme.themeSource` 后所有窗口的 `prefers-color-scheme` 自动同步
+- 主进程启动时从 electron-store 读取主题设置并应用到 `nativeTheme.themeSource`
+- 每个窗口入口（`main.ts`/`preview.ts`）通过 `matchMedia('(prefers-color-scheme: dark)')` 监听变化，自动 toggle `html.dark` class
+- Element Plus 组件通过 `element-plus/theme-chalk/dark/css-vars.css` 自动适配暗色
+- **自定义样式的暗色覆盖**统一写在 `src/renderer/src/assets/main.css` 中，使用 `html.dark .xxx` 选择器
+- 新增页面/组件时，若含硬编码颜色值，必须在 `main.css` 中添加对应的 `html.dark` 覆盖样式
+- 暗色模式色板参考: 背景 `#1c1c1e`/`#2c2c2e`/`#3a3a3c`，文字 `#f5f5f7`/`#a1a1a6`/`#636366`，边框 `#38383a`/`#48484a`
+- IPC: `theme:set(mode)` 设置主题，`theme:get()` 获取当前主题信息
 
 ## 文档约定
 - **`yanfa7/README.md`**（项目根目录）: 面向用户的使用说明（功能介绍、使用步骤、快捷键等），会在应用内「文档」页面中通过 `@root/README.md?raw` 导入并渲染展示

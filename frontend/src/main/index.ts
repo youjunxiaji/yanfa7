@@ -6,7 +6,8 @@ import {
     dialog,
     protocol,
     net,
-    globalShortcut
+    globalShortcut,
+    nativeTheme
 } from 'electron'
 import { join } from 'path'
 import { stat, readdir } from 'fs/promises'
@@ -162,16 +163,20 @@ app.whenReady().then(async () => {
 
     ipcMain.on('ping', () => console.log('pong'))
 
-    ipcMain.handle('settings:get', (_event, key: string) => {
-        return store.get(key)
+    const savedTheme = (store.get('appearance') as string) || 'light'
+    nativeTheme.themeSource = savedTheme as 'light' | 'dark' | 'system'
+
+    ipcMain.handle('theme:set', (_event, mode: 'light' | 'dark' | 'system') => {
+        nativeTheme.themeSource = mode
+        store.set('appearance', mode)
+        return nativeTheme.shouldUseDarkColors
     })
 
-    ipcMain.handle('settings:set', (_event, key: string, value: unknown) => {
-        store.set(key, value)
-    })
-
-    ipcMain.handle('settings:getAll', () => {
-        return store.store
+    ipcMain.handle('theme:get', () => {
+        return {
+            source: nativeTheme.themeSource,
+            shouldUseDarkColors: nativeTheme.shouldUseDarkColors
+        }
     })
 
     ipcMain.handle(

@@ -59,19 +59,14 @@ function handleKeydown(e: KeyboardEvent): void {
     }
 }
 
-async function restoreTheme(): Promise<void> {
-    const saved = await window.electronAPI.settings.get('appearance') as string | null
-    let dark = false
-    if (saved === 'dark') {
-        dark = true
-    } else if (saved === 'system') {
-        dark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    }
+function syncDarkClass(): void {
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
     document.documentElement.classList.toggle('dark', dark)
 }
 
 onMounted(() => {
-    restoreTheme()
+    syncDarkClass()
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncDarkClass)
     window.addEventListener('keydown', handleKeydown)
     window.electronAPI.onConfirmQuit(() => {
         quitVisible.value = true

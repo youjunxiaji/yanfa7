@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, markRaw, type Component } from 'vue'
+import { ref, onMounted, markRaw, type Component } from 'vue'
 import { Sunny, Moon, Monitor, ChatLineSquare } from '@element-plus/icons-vue'
 
 type AppearanceMode = 'light' | 'dark' | 'system'
@@ -69,35 +69,25 @@ const appearanceOptions: AppearanceOption[] = [
 const appearance = ref<AppearanceMode>('light')
 const language = ref('zh-CN')
 
-const systemDark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches)
+const mql = window.matchMedia('(prefers-color-scheme: dark)')
+const isDark = ref(mql.matches)
 
-const isDark = computed(() => {
-    if (appearance.value === 'system') return systemDark.value
-    return appearance.value === 'dark'
-})
-
-const applyTheme = (dark: boolean): void => {
-    document.documentElement.classList.toggle('dark', dark)
-}
-
-const setAppearance = (mode: AppearanceMode): void => {
+const setAppearance = async (mode: AppearanceMode): Promise<void> => {
     appearance.value = mode
-    window.electronAPI.settings.set('appearance', mode)
+    const dark = await window.electronAPI.theme.set(mode)
+    isDark.value = dark
 }
-
-watch(isDark, (val) => applyTheme(val), { immediate: true })
 
 onMounted(async () => {
-    const saved = await window.electronAPI.settings.get('appearance') as AppearanceMode | null
-    if (saved && ['light', 'dark', 'system'].includes(saved)) {
-        appearance.value = saved
+    const info = await window.electronAPI.theme.get()
+    if (['light', 'dark', 'system'].includes(info.source)) {
+        appearance.value = info.source as AppearanceMode
     }
+    isDark.value = info.shouldUseDarkColors
 
-    const mql = window.matchMedia('(prefers-color-scheme: dark)')
-    const handler = (e: MediaQueryListEvent): void => {
-        systemDark.value = e.matches
-    }
-    mql.addEventListener('change', handler)
+    mql.addEventListener('change', (e) => {
+        isDark.value = e.matches
+    })
 })
 </script>
 

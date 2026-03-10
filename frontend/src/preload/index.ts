@@ -20,10 +20,9 @@ const customAPI = {
 
     confirmQuit: () => ipcRenderer.send('app:quit-confirmed'),
 
-    settings: {
-        get: (key: string) => ipcRenderer.invoke('settings:get', key),
-        set: (key: string, value: unknown) => ipcRenderer.invoke('settings:set', key, value),
-        getAll: () => ipcRenderer.invoke('settings:getAll')
+    theme: {
+        set: (mode: 'light' | 'dark' | 'system') => ipcRenderer.invoke('theme:set', mode),
+        get: () => ipcRenderer.invoke('theme:get') as Promise<{ source: string; shouldUseDarkColors: boolean }>
     }
 }
 
