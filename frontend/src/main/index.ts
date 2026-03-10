@@ -107,26 +107,17 @@ function createWindow(): void {
     mainWindow.on('close', (event) => {
         if (forceClose) return
         event.preventDefault()
-        dialog
-            .showMessageBox(mainWindow, {
-                type: 'question',
-                buttons: ['取消', '退出'],
-                defaultId: 1,
-                cancelId: 0,
-                title: '确认退出',
-                message: '确定要退出应用吗？'
-            })
-            .then(({ response }) => {
-                if (response === 1) {
-                    if (previewWindow && !previewWindow.isDestroyed()) {
-                        previewWindow.destroy()
-                        previewWindow = null
-                    }
-                    forceClose = true
-                    isQuitting = true
-                    mainWindow.close()
-                }
-            })
+        mainWindow.webContents.send('app:confirm-quit')
+    })
+
+    ipcMain.on('app:quit-confirmed', () => {
+        if (previewWindow && !previewWindow.isDestroyed()) {
+            previewWindow.destroy()
+            previewWindow = null
+        }
+        forceClose = true
+        isQuitting = true
+        mainWindow.close()
     })
 
     mainWindow.webContents.setWindowOpenHandler((details) => {

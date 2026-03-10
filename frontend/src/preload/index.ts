@@ -12,7 +12,13 @@ const customAPI = {
         ipcRenderer.invoke('dialog:openDirectory', options),
 
     openPreviewWindow: (options: { fileStem: string; outputDir: string; columns: string; title?: string }) =>
-        ipcRenderer.invoke('window:openPreview', options)
+        ipcRenderer.invoke('window:openPreview', options),
+
+    onConfirmQuit: (callback: () => void) => {
+        ipcRenderer.on('app:confirm-quit', () => callback())
+    },
+
+    confirmQuit: () => ipcRenderer.send('app:quit-confirmed')
 }
 
 if (process.contextIsolated) {

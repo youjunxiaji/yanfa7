@@ -54,7 +54,7 @@ import { Histogram, ArrowRight } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const version = __APP_VERSION__
-const isMac = navigator.platform.toUpperCase().includes('MAC')
+const isMac = window.electron.process.platform === 'darwin'
 
 function openPalette(): void {
     window.dispatchEvent(

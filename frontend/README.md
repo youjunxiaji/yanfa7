@@ -127,7 +127,7 @@ npm run build && npx electron-builder --win --publish never
 - **参数配置**: 峰值阈值、图片尺寸
 - **一键解析**: 点击"开始解析"即完成解析 + 去峰 + 全部报告生成
 - **进度显示**: 解析进度条 + 完成后显示生成文件数
-- **退出确认**: 关闭窗口时弹出确认对话框，防止误操作退出；macOS 下关闭窗口后彻底退出应用
+- **退出确认**: 关闭窗口时弹出自定义确认对话框（渲染进程内 Apple 风格弹窗，替代 Electron 原生 dialog），主进程通过 IPC `app:confirm-quit` / `app:quit-confirmed` 与渲染进程通信；macOS 下关闭窗口后彻底退出应用
 - **预览窗口复用**: 点击预览按钮复用已有窗口而非创建新窗口；主窗口关闭时自动销毁预览窗口
 - **Cmd+Q 行为**: macOS 下 Cmd+Q 不直接关闭预览窗口，统一走主窗口确认退出流程；预览窗口仅响应 Cmd+W 关闭自身
 - **DevTools 快捷键**: 打包后可通过 Ctrl+Shift+I (macOS: Cmd+Shift+I) 打开开发者工具，方便调试

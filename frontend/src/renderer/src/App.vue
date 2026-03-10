@@ -17,6 +17,23 @@
         </el-main>
     </el-container>
     <CommandPalette v-model:visible="paletteVisible" />
+
+    <!-- 退出确认 -->
+    <Teleport to="body">
+        <Transition name="quit-fade">
+            <div v-if="quitVisible" class="quit-overlay" @click.self="quitVisible = false">
+                <Transition name="quit-dialog" appear>
+                    <div v-if="quitVisible" class="quit-dialog">
+                        <p class="quit-message">确定要退出应用吗？</p>
+                        <div class="quit-actions">
+                            <button class="quit-btn quit-btn-cancel" @click="quitVisible = false">取消</button>
+                            <button class="quit-btn quit-btn-confirm" @click="doQuit">退出</button>
+                        </div>
+                    </div>
+                </Transition>
+            </div>
+        </Transition>
+    </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -29,6 +46,11 @@ const collapsed = ref(false)
 const sideWidth = computed(() => (collapsed.value ? '64px' : '200px'))
 
 const paletteVisible = ref(false)
+const quitVisible = ref(false)
+
+function doQuit(): void {
+    window.electronAPI.confirmQuit()
+}
 
 function handleKeydown(e: KeyboardEvent): void {
     if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
@@ -37,7 +59,12 @@ function handleKeydown(e: KeyboardEvent): void {
     }
 }
 
-onMounted(() => window.addEventListener('keydown', handleKeydown))
+onMounted(() => {
+    window.addEventListener('keydown', handleKeydown)
+    window.electronAPI.onConfirmQuit(() => {
+        quitVisible.value = true
+    })
+})
 onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 </script>
 
@@ -81,5 +108,95 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
     padding: 20px 24px 24px;
     background-color: #f5f5f7;
     overflow-y: auto;
+}
+
+/* ========== 退出确认对话框 ========== */
+.quit-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quit-dialog {
+    background: #fff;
+    border-radius: 14px;
+    padding: 28px 32px 20px;
+    width: 320px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14), 0 4px 16px rgba(0, 0, 0, 0.08);
+    text-align: center;
+}
+
+.quit-message {
+    font-size: 15px;
+    font-weight: 500;
+    color: #1d1d1f;
+    margin: 0 0 24px;
+}
+
+.quit-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.quit-btn {
+    flex: 1;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.quit-btn:active {
+    opacity: 0.75;
+}
+
+.quit-btn-cancel {
+    background: #f0f0f3;
+    color: #1d1d1f;
+}
+
+.quit-btn-cancel:hover {
+    background: #e5e5ea;
+}
+
+.quit-btn-confirm {
+    background: var(--el-color-primary);
+    color: #fff;
+}
+
+.quit-btn-confirm:hover {
+    background: var(--el-color-primary-light-3);
+}
+
+/* ========== 退出对话框动画 ========== */
+.quit-fade-enter-active,
+.quit-fade-leave-active {
+    transition: opacity 0.2s ease;
+}
+.quit-fade-enter-from,
+.quit-fade-leave-to {
+    opacity: 0;
+}
+
+.quit-dialog-enter-active {
+    transition: all 0.2s ease-out;
+}
+.quit-dialog-leave-active {
+    transition: all 0.15s ease-in;
+}
+.quit-dialog-enter-from {
+    opacity: 0;
+    transform: scale(0.95);
+}
+.quit-dialog-leave-to {
+    opacity: 0;
+    transform: scale(0.97);
 }
 </style>

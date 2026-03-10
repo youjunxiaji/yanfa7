@@ -21,6 +21,9 @@ interface CustomElectronAPI {
         columns: string
         title?: string
     }) => Promise<void>
+
+    onConfirmQuit: (callback: () => void) => void
+    confirmQuit: () => void
 }
 
 declare global {
