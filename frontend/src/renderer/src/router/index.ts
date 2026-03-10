@@ -13,6 +13,12 @@ const routes: RouteRecordRaw[] = [
         name: 'EdgeStress',
         meta: { title: '边缘应力', icon: 'Histogram' },
         component: () => import('@renderer/views/EdgeStressView.vue')
+    },
+    {
+        path: '/docs',
+        name: 'Docs',
+        meta: { title: '文档', icon: 'Document', bottomNav: true },
+        component: () => import('@renderer/views/DocsView.vue')
     }
 ]
 

@@ -34,9 +34,15 @@
 
             <div class="menu-spacer" />
 
-            <el-menu-item index="/docs" disabled>
-                <el-icon><Document /></el-icon>
-                <template #title>文档</template>
+            <el-menu-item
+                v-for="route in bottomRoutes"
+                :key="route.path"
+                :index="route.path"
+            >
+                <el-icon>
+                    <component :is="iconMap[route.meta?.icon as string]" />
+                </el-icon>
+                <template #title>{{ route.meta?.title }}</template>
             </el-menu-item>
             <el-menu-item index="/settings" disabled>
                 <el-icon><Setting /></el-icon>
@@ -58,7 +64,8 @@ import {
 
 const iconMap: Record<string, Component> = {
     HomeFilled: markRaw(HomeFilled),
-    Histogram: markRaw(Histogram)
+    Histogram: markRaw(Histogram),
+    Document: markRaw(Document)
 }
 
 const collapsed = defineModel<boolean>('collapsed', { default: false })
@@ -69,7 +76,11 @@ const router = useRouter()
 const activeMenu = computed(() => route.path)
 
 const menuRoutes = computed(() =>
-    router.options.routes.filter((r) => r.meta?.title && r.meta?.icon)
+    router.options.routes.filter((r) => r.meta?.title && r.meta?.icon && !r.meta?.bottomNav)
+)
+
+const bottomRoutes = computed(() =>
+    router.options.routes.filter((r) => r.meta?.bottomNav)
 )
 
 </script>

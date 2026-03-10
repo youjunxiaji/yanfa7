@@ -70,7 +70,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 
 <style>
 .app-layout {
-    min-height: 100vh;
+    height: 100vh;
 }
 
 .app-aside {

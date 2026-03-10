@@ -32,13 +32,20 @@ yanfa7/
 ```
 
 ## 关键约定
-- 路径别名统一使用 `@renderer` (映射到 `src/renderer/src/`)
+- 路径别名: `@renderer` (映射到 `src/renderer/src/`)、`@root` (映射到项目根目录 `frontend/`)
 - 前后端通信: 渲染进程 → HTTP API → Python 后端
 - Electron IPC: 渲染进程 → preload → 主进程 (仅用于系统级操作如文件对话框)
 - 窗口标题: 研发七部工具包
 - 静态资源（logo、SVG 图标等）放在 `src/renderer/src/assets/` 目录
 - `resources/` 目录仅用于存放打包时的后端产物（`resources/backend/`）
+- 侧边栏底部菜单项通过路由 meta `bottomNav: true` 标记，与主菜单项区分
+
+## 文档约定
+- **`yanfa7/README.md`**（项目根目录）: 面向用户的使用说明（功能介绍、使用步骤、快捷键等），会在应用内「文档」页面中通过 `@root/README.md?raw` 导入并渲染展示
+- **`.cursor/rules/`**: 面向开发者的技术规范和架构说明（项目结构、组件规范、开发约定等）
+- 对话结束时，面向用户的改动更新到根目录 README.md，面向开发者的改动更新到对应的 rule 文件
+- 前端/后端子目录不再各自维护 README.md
 
 ## 对话流程规则
-- **对话开始时**: 必须先阅读 `frontend/README.md` 和 `backend/README.md`，了解项目最新状态后再开始工作
-- **对话结束时**: 当用户表示可以结束对话，除了输出改动总结和 git 提交命令外，还必须同步更新 `frontend/README.md` 和 `backend/README.md`，确保文档反映最新的项目状态
+- **对话开始时**: 阅读相关的 `.cursor/rules/` rule 文件了解项目架构和开发约定
+- **对话结束时**: 当用户表示可以结束对话，除了输出改动总结和 git 提交命令外，还必须同步更新根目录 `README.md`（面向用户的使用说明）和对应的 rule 文件（面向开发者的技术规范），确保两类文档各自反映最新状态

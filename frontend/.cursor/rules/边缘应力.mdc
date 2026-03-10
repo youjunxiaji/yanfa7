@@ -15,6 +15,142 @@ alwaysApply: false
 → 修改雷达图最小值 → POST /api/regenerate-polar → 重新生成雷达图 PNG
 ```
 
+## 后端技术栈
+
+| 技术 | 用途 |
+|------|------|
+| Python >= 3.12 | 运行时 |
+| FastAPI | WebSocket 服务框架 |
+| uvicorn | ASGI 服务器 |
+| pandas / numpy | 数据处理 |
+| scipy | 峰值检测与去除 |
+| matplotlib / Plotly | 图表生成 |
+| BeautifulSoup | HTM 文件解析 |
+| openpyxl | Excel 读写 |
+| Jinja2 | 报告模板 |
+
+## 后端项目结构
+
+```
+backend/
+├── main.py                  # FastAPI 入口 (app 初始化 + uvicorn 启动)
+├── pyproject.toml           # 项目配置 & 依赖
+├── uv.lock                  # uv 锁文件
+├── app_edgeStress/          # 核心边缘应力模块 (Django 风格命名)
+│   ├── urls.py              # WebSocket 路由定义
+│   ├── views.py             # 视图函数 (业务逻辑)
+│   ├── serializers.py       # Pydantic 请求/响应模型
+│   ├── module/
+│   │   ├── dataset.py       # 数据模型 (枚举 + dataclass)
+│   │   ├── processor.py     # 数据加载器 + 去峰处理器
+│   │   ├── reporter.py      # 报告生成器 (PNG/Plotly 数据)
+│   │   └── cache.py         # DatasetCache 内存缓存管理器
+```
+
+## 后端核心模块
+
+### dataset.py — 数据模型
+
+- `FileType` / `StressPosition`: 枚举
+- `StressData`: 原始 + 去峰后的应力 DataFrame
+- `RollerColumn`: 单列滚子完整数据
+- `ProcessConfig` / `ReportConfig` / `InputConfig`: 配置类
+- `EdgeStressDataset`: 数据集容器 + 查询/汇总接口
+
+### processor.py — 数据处理
+
+- `EdgeStressLoader`: HTM / Excel 文件解析，生成 RollerColumn 列表
+- `EdgeStressProcessor`: 使用 scipy.signal.find_peaks 去除异常峰值
+
+### reporter.py — 报告生成
+
+- `calc_legend_ncol()`: 根据图例条目数和画布高度自动计算图例列数
+- `EdgeStressReporter.generate_stress_chart()`: 应力分布曲线 PNG（图例列数自动计算）
+- `EdgeStressReporter.generate_polar_chart()`: 雷达图 PNG
+- `EdgeStressReporter.build_chart_data()`: 构建 Plotly 图表数据（静态方法，不写文件）
+- `EdgeStressReporter.export_processed_excel()`: 去峰数据 Excel（当前已注释）
+- `EdgeStressReporter.generate_all()`: 批量生成所有报告
+
+### cache.py — 数据缓存
+
+- `DatasetCache.save()`: 保存 dataset 到内存缓存
+- `DatasetCache.load()`: 读取缓存的 dataset
+- `DatasetCache.get_column()`: 获取指定 RollerColumn
+- `DatasetCache.update()`: 替换指定 RollerColumn（为后续数据编辑预留）
+
+## API 接口
+
+### GET /api/chart-data
+
+返回指定滚子列的 Plotly 图表数据（原始 + 去峰后），供前端 Plotly.newPlot() 消费。
+
+**请求参数（Query）:**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| file_stem | string | 文件名 stem（不含扩展名） |
+| col_index | int | 列号（从 1 开始） |
+| position | string | `inner` 或 `outer` |
+
+**响应:** JSON 数组，每项包含 `label` / `traces` / `layout`。
+
+**前置条件:** 需先通过 WebSocket 解析文件（触发 DatasetCache 缓存），否则返回 400。
+
+### POST /api/update-stress-point
+
+修改去峰后数据中的单个应力值，更新内存缓存并重新生成相关 PNG。
+
+**请求体（JSON）:**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| file_stem | string | 文件名 stem（不含扩展名） |
+| col_index | int | 列号（从 1 开始） |
+| position | string | `inner` 或 `outer` |
+| trace_index | int | 前端图表中的曲线索引（对应偏移+排序+跳零后的角度） |
+| point_index | int | 曲线中的数据点索引 |
+| new_value | float | 新的应力值 |
+
+**副作用:** 先验证 xlsx 可写性（文件被占用时返回 400），再修改缓存、重新生成最大应力汇总.xlsx、应力曲线 PNG（中/英文）和应力雷达图 PNG。
+
+### POST /api/regenerate-polar
+
+使用自定义最小值重新生成雷达图 PNG。
+
+**请求体（JSON）:**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| file_stem | string | 文件名 stem（不含扩展名） |
+| col_index | int | 列号（从 1 开始） |
+| load_polar_min | float | 载荷雷达图径向最小值 |
+| press_polar_min | float | 应力雷达图径向最小值 |
+
+**副作用:** 使用传入的最小值创建临时 ReportConfig，重新生成对应列的载荷雷达图和应力雷达图 PNG。
+
+### WS /ws/parse
+
+WebSocket 接口。连接后发送 JSON 请求，服务端逐文件处理并实时推送进度。
+
+**客户端发送:**
+
+```json
+{
+  "filePaths": ["/path/to/file1.htm"],
+  "fileType": "htm",
+  "peakThreshold": 0.00001,
+  "outputDir": "/path/to/output",
+  "reportConfig": {
+    "picWidth": 10, "picHeight": 8,
+    "loadPolarMin": 0, "pressPolarMin": 0
+  }
+}
+```
+
+**服务端推送:** `progress`（进度）→ `done`（完成，含 fileNames/columns/generatedFiles/previewMap）→ `error`（错误）
+
+> `previewMap` 以源文件 stem 为 key，值为该文件每个滚子列的内圈中文应力曲线 PNG 绝对路径。
+
 ## 预览窗口布局
 
 使用三栏布局（Electron 独立 BrowserWindow）：
@@ -37,6 +173,8 @@ alwaysApply: false
 
 基础路径: `{outputDir}/res-output/{groupName}/`
 
+组名由文件名中第一个 `(` 之前的部分确定（去末尾空格），例如 `滚动轴承 1 (1.Extreme Tilt)` 的组名为 `滚动轴承 1`。
+
 每个 RollerColumn 生成 6 个文件：
 
 ```
@@ -48,7 +186,31 @@ alwaysApply: false
 {stem}-第{N}列-应力雷达图.png          右栏 - 应力雷达图
 ```
 
-## 相关文件
+另外全局生成 `最大应力汇总.xlsx`（所有文件所有列的最大应力值）。
+
+## 后端开发
+
+```bash
+cd backend
+uv sync          # 安装依赖
+uv run main.py   # 启动 FastAPI (端口 8000, 热重载)
+```
+
+### 打包
+
+**CI 自动打包（推荐）:** 推送 `v*` tag 触发 GitHub Actions：PyInstaller → py2pyd 加密 → 复制到前端 resources → 打包 Windows 安装包
+
+**本地手动打包:**
+```bash
+cd backend
+pyinstaller --noconfirm --onedir --console --add-data "app_edgeStress;app_edgeStress/" main.py
+py2pyd -r -d --no-confirm dist/main/_internal/app_edgeStress
+xcopy /E /I /Y dist\main\* ..\frontend\resources\backend\
+```
+
+**main.py 打包兼容:** 区分 `sys.frozen=True`（打包: 直接传 app 对象）和开发环境（import 字符串 + 热重载）。打包后首次运行会建 matplotlib 字体缓存（`~/.edge_stress_mpl/`）。
+
+## 前端相关文件
 
 - `src/renderer/src/views/EdgeStressView.vue` — 主页面（文件管理 + 参数配置 + 解析）
 - `src/renderer/src/views/ReportPreviewView.vue` — 报告预览独立窗口

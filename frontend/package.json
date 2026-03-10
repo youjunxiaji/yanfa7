@@ -29,6 +29,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@element-plus/icons-vue": "^2.3.2",
     "element-plus": "^2.13.2",
+    "markdown-it": "^14.1.1",
     "pinia": "^2.3.1",
     "plotly.js-dist-min": "^3.4.0",
     "vue-router": "^4.6.4"
@@ -37,6 +38,7 @@
     "@electron-toolkit/eslint-config-prettier": "3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.19.1",
     "@vitejs/plugin-vue": "^6.0.2",
     "electron": "^39.2.6",
