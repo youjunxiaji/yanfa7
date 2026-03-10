@@ -24,6 +24,12 @@ interface CustomElectronAPI {
 
     onConfirmQuit: (callback: () => void) => void
     confirmQuit: () => void
+
+    settings: {
+        get: (key: string) => Promise<unknown>
+        set: (key: string, value: unknown) => Promise<void>
+        getAll: () => Promise<Record<string, unknown>>
+    }
 }
 
 declare global {

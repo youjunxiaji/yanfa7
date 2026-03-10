@@ -34,7 +34,8 @@ yanfa7/
 ## 关键约定
 - 路径别名: `@renderer` (映射到 `src/renderer/src/`)、`@root` (映射到项目根目录 `frontend/`)
 - 前后端通信: 渲染进程 → HTTP API → Python 后端
-- Electron IPC: 渲染进程 → preload → 主进程 (仅用于系统级操作如文件对话框)
+- Electron IPC: 渲染进程 → preload → 主进程 (用于系统级操作如文件对话框、设置持久化等)
+- 设置持久化: 使用 electron-store (ESM-only, 需在 electron.vite.config.ts 中 `externalizeDeps.exclude`)
 - 窗口标题: 研发七部工具包
 - 静态资源（logo、SVG 图标等）放在 `src/renderer/src/assets/` 目录
 - `resources/` 目录仅用于存放打包时的后端产物（`resources/backend/`）

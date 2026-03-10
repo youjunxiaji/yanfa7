@@ -44,10 +44,6 @@
                 </el-icon>
                 <template #title>{{ route.meta?.title }}</template>
             </el-menu-item>
-            <el-menu-item index="/settings" disabled>
-                <el-icon><Setting /></el-icon>
-                <template #title>设置</template>
-            </el-menu-item>
         </el-menu>
     </div>
 </template>
@@ -65,7 +61,8 @@ import {
 const iconMap: Record<string, Component> = {
     HomeFilled: markRaw(HomeFilled),
     Histogram: markRaw(Histogram),
-    Document: markRaw(Document)
+    Document: markRaw(Document),
+    Setting: markRaw(Setting)
 }
 
 const collapsed = defineModel<boolean>('collapsed', { default: false })

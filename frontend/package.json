@@ -28,6 +28,7 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@element-plus/icons-vue": "^2.3.2",
+    "electron-store": "^11.0.2",
     "element-plus": "^2.13.2",
     "markdown-it": "^14.1.1",
     "pinia": "^2.3.1",

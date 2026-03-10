@@ -14,6 +14,14 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { pathToFileURL } from 'url'
 import { ChildProcess, spawn, execSync } from 'child_process'
 import http from 'http'
+import Store from 'electron-store'
+
+const store = new Store({
+    defaults: {
+        appearance: 'light',
+        language: 'zh-CN'
+    }
+})
 
 let backendProcess: ChildProcess | null = null
 let previewWindow: BrowserWindow | null = null
@@ -153,6 +161,18 @@ app.whenReady().then(async () => {
     })
 
     ipcMain.on('ping', () => console.log('pong'))
+
+    ipcMain.handle('settings:get', (_event, key: string) => {
+        return store.get(key)
+    })
+
+    ipcMain.handle('settings:set', (_event, key: string, value: unknown) => {
+        store.set(key, value)
+    })
+
+    ipcMain.handle('settings:getAll', () => {
+        return store.store
+    })
 
     ipcMain.handle(
         'dialog:openFile',

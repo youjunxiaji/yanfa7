@@ -18,7 +18,13 @@ const customAPI = {
         ipcRenderer.on('app:confirm-quit', () => callback())
     },
 
-    confirmQuit: () => ipcRenderer.send('app:quit-confirmed')
+    confirmQuit: () => ipcRenderer.send('app:quit-confirmed'),
+
+    settings: {
+        get: (key: string) => ipcRenderer.invoke('settings:get', key),
+        set: (key: string, value: unknown) => ipcRenderer.invoke('settings:set', key, value),
+        getAll: () => ipcRenderer.invoke('settings:getAll')
+    }
 }
 
 if (process.contextIsolated) {

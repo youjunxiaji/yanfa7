@@ -4,7 +4,13 @@ import vue from '@vitejs/plugin-vue'
 import pkg from './package.json'
 
 export default defineConfig({
-    main: {},
+    main: {
+        build: {
+            externalizeDeps: {
+                exclude: ['electron-store']
+            }
+        }
+    },
     preload: {
         build: {
             rollupOptions: {
