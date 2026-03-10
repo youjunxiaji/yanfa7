@@ -61,7 +61,10 @@
             </div>
 
             <!-- 三栏内容 -->
-            <el-splitter class="content-splitter">
+            <el-splitter
+                class="content-splitter"
+                @resize-end="onSplitterResizeEnd"
+            >
                 <!-- 左栏: Plotly 交互式图表 -->
                 <el-splitter-panel
                     :size="40"
@@ -425,6 +428,13 @@ const renderPlots = async () => {
         if (isDraggable) {
             setupDragListeners(el)
         }
+    }
+}
+
+const onSplitterResizeEnd = (index: number) => {
+    if (index !== 0) return
+    for (const el of plotRefs) {
+        if (el) Plotly.Plots.resize(el)
     }
 }
 

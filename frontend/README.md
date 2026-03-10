@@ -131,7 +131,8 @@ npm run build && npx electron-builder --win --publish never
 - **预览窗口复用**: 点击预览按钮复用已有窗口而非创建新窗口；主窗口关闭时自动销毁预览窗口
 - **Cmd+Q 行为**: macOS 下 Cmd+Q 不直接关闭预览窗口，统一走主窗口确认退出流程；预览窗口仅响应 Cmd+W 关闭自身
 - **DevTools 快捷键**: 打包后可通过 Ctrl+Shift+I (macOS: Cmd+Shift+I) 打开开发者工具，方便调试
-- **Plotly 工具栏定制**: 隐藏了 Zoom/ZoomIn/ZoomOut/Select/Lasso 按钮；去峰后数据图表添加"拖拽编辑"自定义按钮，启用后可按住数据点上下拖拽修改 Y 值；拖拽逻辑封装在 `usePlotlyDrag` composable 中
+- **Plotly 工具栏定制**: 隐藏了 Zoom/ZoomIn/ZoomOut/Select/Lasso 按钮；去峰后数据图表添加"拖拽编辑"自定义按钮，启用后可按住数据点上下拖拽修改 Y 值；点击其他 Plotly 工具按钮时自动取消拖拽编辑状态；拖拽逻辑封装在 `usePlotlyDrag` composable 中
+- **Plotly 图表跟随分栏 resize**: 拖拽第一根 el-splitter 分割线结束后，自动调用 `Plotly.Plots.resize()` 让左栏图表适应新宽度
 - **拖拽数据同步**: 拖拽编辑数据点松手后自动同步到后端缓存（`POST /api/update-stress-point`），后端先验证 xlsx 可写性，再更新缓存数据并重新生成应力曲线 PNG、应力雷达图 PNG、最大应力汇总.xlsx，前端通过 cache busting 自动刷新图片
 - **雷达图最小值调整**: 预览窗口顶部可设置载荷最小值和应力最小值，修改后自动调用 `POST /api/regenerate-polar` 重新生成雷达图 PNG（600ms 防抖）
 

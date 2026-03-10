@@ -158,6 +158,18 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
 
     const boundMouseDownHandlers = new WeakMap<HTMLElement, (e: MouseEvent) => void>()
 
+    const boundRelayoutHandlers = new WeakMap<HTMLElement, (data: Record<string, unknown>) => void>()
+
+    function onRelayout(el: HTMLElement, data: Record<string, unknown>) {
+        if (!dragModeEnabled.value) return
+        if ('dragmode' in data && data.dragmode !== false) {
+            dragModeEnabled.value = false
+            if (drag.active) endDrag()
+            dragTargetEl = null
+            updateDragButtonStyle(el)
+        }
+    }
+
     function setupDragListeners(el: HTMLElement) {
         const plotArea = el.querySelector('.nsewdrag') as HTMLElement | null
         const target = plotArea || el
@@ -165,6 +177,11 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
         const handler = (e: MouseEvent) => onPlotMouseDown(el, e)
         boundMouseDownHandlers.set(el, handler)
         target.addEventListener('mousedown', handler)
+
+        const relayoutHandler = (data: Record<string, unknown>) => onRelayout(el, data)
+        boundRelayoutHandlers.set(el, relayoutHandler)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(el as any).on('plotly_relayout', relayoutHandler)
     }
 
     function teardownDragListeners(el: HTMLElement) {
@@ -174,6 +191,13 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
         if (handler) {
             target.removeEventListener('mousedown', handler)
             boundMouseDownHandlers.delete(el)
+        }
+
+        const relayoutHandler = boundRelayoutHandlers.get(el)
+        if (relayoutHandler) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ;(el as any).removeListener?.('plotly_relayout', relayoutHandler)
+            boundRelayoutHandlers.delete(el)
         }
     }
 
