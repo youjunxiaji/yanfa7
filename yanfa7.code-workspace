@@ -7,6 +7,9 @@
         {
             "name": "后端",
             "path": "./backend"
+        },
+        {
+            "path": "../tmb_yanfa7/simpleLoad/app_pMax"
         }
     ],
 	"settings": {}

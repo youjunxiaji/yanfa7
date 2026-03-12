@@ -55,12 +55,14 @@ import {
     Document,
     Setting,
     Histogram,
+    TrendCharts,
     HomeFilled
 } from '@element-plus/icons-vue'
 
 const iconMap: Record<string, Component> = {
     HomeFilled: markRaw(HomeFilled),
     Histogram: markRaw(Histogram),
+    TrendCharts: markRaw(TrendCharts),
     Document: markRaw(Document),
     Setting: markRaw(Setting)
 }

@@ -50,7 +50,7 @@
 <script setup lang="ts">
 import { markRaw, type Component } from 'vue'
 import { useRouter } from 'vue-router'
-import { Histogram, ArrowRight } from '@element-plus/icons-vue'
+import { Histogram, TrendCharts, ArrowRight } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const version = __APP_VERSION__
@@ -79,6 +79,14 @@ const tools: ToolItem[] = [
         icon: markRaw(Histogram),
         iconColor: '#0071e3',
         bgColor: 'rgba(0, 113, 227, 0.08)'
+    },
+    {
+        path: '/pmax',
+        name: 'Pmax时间占比',
+        desc: '轴承最大接触应力区间分析与柱状图生成',
+        icon: markRaw(TrendCharts),
+        iconColor: '#34c759',
+        bgColor: 'rgba(52, 199, 89, 0.08)'
     }
 ]
 </script>

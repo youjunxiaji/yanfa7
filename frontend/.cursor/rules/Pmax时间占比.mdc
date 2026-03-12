@@ -1,0 +1,113 @@
+---
+description: Pmax 时间占比分析模块的架构和开发参考
+alwaysApply: false
+---
+# Pmax 时间占比分析模块
+
+## 功能概述
+
+分析轴承最大接触应力（Pmax）的时间占比分布。用户输入时间序列和前/后轴承 Pmax 数据，按自定义区间分箱，计算各区间时间占比，生成柱状图。
+
+## 数据流
+
+```
+用户粘贴表格数据（持续时间 + Pmax）
+→ 前端表格展示 + 统计摘要（min/max）
+→ 用户设置分箱参数（Min/Max/Step）+ 图形参数
+→ POST /api/pmax/analyze
+→ 后端 pd.cut 分箱 → groupby 统计占比 → matplotlib 柱状图
+→ 返回 SVG/PNG → 前端展示前/后轴承柱状图
+```
+
+## 输入数据格式
+
+| 列 | 含义 |
+|----|------|
+| 持续时间 [h] | 工况持续时间（前轴承） |
+| Pmax (MPa)-前 | 前轴承最大接触应力 |
+| 持续时间 [h] | 工况持续时间（后轴承，可复用前轴承的列） |
+| Pmax (MPa)-后 | 后轴承最大接触应力 |
+
+注：表格为 4 列，但实际使用列 0、1（前轴承）和列 0/2、3（后轴承）。
+
+## 参数配置
+
+### 分箱参数（前/后轴承各一组）
+
+| 参数 | 说明 | 默认值（前/后） |
+|------|------|----------------|
+| Min | 最小区间起点 (MPa) | 800 / 400 |
+| Max | 最大区间终点 (MPa) | 1700 / 1200 |
+| Step | 区间步长 (MPa) | 100 / 50 |
+
+分箱逻辑：`[-∞, Min), [Min, Min+Step], ..., (Max, +∞]`
+
+### 图表样式参数
+
+| 参数 | 说明 | 默认值 |
+|------|------|--------|
+| 标题字号 | 图表标题 | 25 |
+| 标签字号 | 坐标轴标签 | 20 |
+| 刻度字号 | 刻度标签 | 20 |
+| 标注字号 | 柱子上方数值 | 25 |
+| 图形宽度 | figsize 宽度 | 20 |
+| 图形高度 | figsize 高度 | 15 |
+
+### 图表语言
+
+- 使用全局 `Language` 枚举（`constants/language.ts`）
+- `Language.ZH`（中文）/ `Language.EN`（English）
+- 通过 Segmented Control 切换
+
+## 前端文件
+
+- `src/renderer/src/views/PmaxView.vue` — 主页面（无 Pinia store，状态自管理）
+- `src/renderer/src/constants/language.ts` — 语言枚举（跨模块复用）
+
+## 后端结构（待实现）
+
+```
+backend/
+├── app_pmax/
+│   ├── urls.py              # 路由注册
+│   ├── views.py             # 视图逻辑
+│   ├── serializers.py       # Pydantic 请求/响应模型
+│   └── module/
+│       ├── calculator.py    # 分箱计算逻辑
+│       └── chart.py         # matplotlib 柱状图生成
+```
+
+## API 接口（待实现）
+
+### POST /api/pmax/analyze
+
+接收表格数据和参数，执行分箱计算并生成柱状图。
+
+**请求体（JSON）:**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| data | array | 表格数据，每行为 [持续时间, Pmax] |
+| bearing | string | `front` 或 `rear` |
+| binConfig | object | `{ min, max, step }` |
+| chartConfig | object | `{ titleFontSize, labelFontSize, tickFontSize, textFontSize, width, height }` |
+| language | string | `Language.ZH` 或 `Language.EN` |
+
+**响应:** 生成的图表（Base64 SVG/PNG）+ 分箱统计数据
+
+## 核心算法
+
+```python
+bin_user = list(np.arange(min_val, max_val + 1, step))
+bin_user.insert(0, -np.inf)
+bin_user.append(np.inf)
+
+labels = ['<{}'.format(bin_user[1])]
+for i in range(1, len(bin_user) - 2):
+    labels.append('({0}, {1}]'.format(bin_user[i], bin_user[i + 1]))
+labels.append('>{}'.format(bin_user[-2]))
+
+df_binned = pd.cut(df[pmax_col], bin_user, include_lowest=False, labels=labels)
+result = df.groupby(df_binned, observed=False).sum()
+result = result.apply(lambda x: x / x.sum() * 100)  # 时间占比 %
+```

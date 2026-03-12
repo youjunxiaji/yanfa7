@@ -15,6 +15,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@renderer/views/EdgeStressView.vue')
     },
     {
+        path: '/pmax',
+        name: 'Pmax',
+        meta: { title: 'Pmax占比', icon: 'TrendCharts' },
+        component: () => import('@renderer/views/PmaxView.vue')
+    },
+    {
         path: '/docs',
         name: 'Docs',
         meta: { title: '文档', icon: 'Document', bottomNav: true },

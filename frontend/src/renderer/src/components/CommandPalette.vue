@@ -43,11 +43,12 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, type Component, markRaw } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, HomeFilled, Histogram } from '@element-plus/icons-vue'
+import { Search, HomeFilled, Histogram, TrendCharts } from '@element-plus/icons-vue'
 
 const iconMap: Record<string, Component> = {
     HomeFilled: markRaw(HomeFilled),
-    Histogram: markRaw(Histogram)
+    Histogram: markRaw(Histogram),
+    TrendCharts: markRaw(TrendCharts)
 }
 
 const visible = defineModel<boolean>('visible', { default: false })
