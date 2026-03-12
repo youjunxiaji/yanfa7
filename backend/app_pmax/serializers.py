@@ -37,9 +37,17 @@ class BinItem(BaseModel):
     percentage: float
 
 
+class StatsInfo(BaseModel):
+    timeMin: float
+    timeMax: float
+    pmaxMin: float
+    pmaxMax: float
+
+
 class BearingResult(BaseModel):
     chartPath: str
     bins: list[BinItem]
+    stats: StatsInfo
 
 
 class AnalyzeResponse(BaseModel):

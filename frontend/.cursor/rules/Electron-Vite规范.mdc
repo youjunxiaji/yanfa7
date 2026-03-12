@@ -75,3 +75,22 @@ if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
 - `local-file://` 协议用于在渲染进程中安全加载本地文件（图片、HTML 报告）
 - 在 `protocol.registerSchemesAsPrivileged` 中注册，`protocol.handle` 中处理
 - 新窗口的 CSP 策略需要包含 `local-file:` 在 img-src 和 frame-src 中
+
+### 图片缓存破坏（Cache Busting）
+
+当后端生成的图片文件路径固定不变（如 `front.png`）时，Chromium 会缓存同 URL 的图片，导致重新生成后显示的仍是旧图。
+
+**统一解决方案（所有模块必须遵循）：**
+
+1. 定义响应式时间戳：`const imgCacheBuster = ref(Date.now())`
+2. URL 工具函数支持可选的 cacheBuster 参数：
+   ```ts
+   const localFileUrl = (filePath: string, cacheBuster?: number): string => {
+       const base = `local-file://localhost?path=${encodeURIComponent(filePath)}`
+       return cacheBuster != null ? `${base}&t=${cacheBuster}` : base
+   }
+   ```
+3. 模板中需要刷新的图片传入 cacheBuster：`:src="localFileUrl(path, imgCacheBuster)"`
+4. 只在后端图片更新成功后更新时间戳：`imgCacheBuster.value = Date.now()`
+
+> 注意：`el-dialog` 的 `destroy-on-close` 只销毁 DOM，不清除 Chromium 网络层缓存，不能替代此方案。

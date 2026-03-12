@@ -5,9 +5,17 @@ export interface BinItem {
     percentage: number
 }
 
+export interface StatsInfo {
+    timeMin: number
+    timeMax: number
+    pmaxMin: number
+    pmaxMax: number
+}
+
 export interface BearingResult {
     chartPath: string
     bins: BinItem[]
+    stats: StatsInfo
 }
 
 export interface AnalyzeResponse {

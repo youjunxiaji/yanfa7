@@ -13,13 +13,13 @@ alwaysApply: false
 ```
 用户粘贴表格数据（持续时间 + Pmax）
 → 前端表格展示
-→ 用户点击「解析数据」→ 统计摘要（min/max）
 → 用户设置分箱参数（Min/Max/Step）+ 图形参数
 → 点击「生成图表」→ POST /api/pmax/analyze
-→ 后端 pd.cut 分箱 → groupby 统计占比 → matplotlib 柱状图
-→ PNG 保存到临时目录 → 返回文件路径
-→ 前端 Dialog 展示（local-file:// 协议）
-→ 用户可拖拽图片到 Word（Electron startDrag IPC）
+→ 后端 pd.DataFrame 解析 → pd.cut 分箱 → groupby 统计占比
+→ 计算 min/max 统计摘要 + matplotlib 柱状图
+→ PNG 保存到临时目录 → 返回文件路径 + 统计数据
+→ 前端 Dialog 展示（local-file:// 协议 + imgCacheBuster 防缓存）
+→ 前端显示统计摘要 + 用户可拖拽图片到 Word（Electron startDrag IPC）
 ```
 
 ## 输入数据格式
@@ -65,7 +65,7 @@ alwaysApply: false
 
 ## 前端文件
 
-- `src/renderer/src/views/PmaxView.vue` — 主页面（无 Pinia store，状态自管理）
+- `src/renderer/src/views/PmaxView.vue` — 主页面（无 Pinia store，状态自管理；统计摘要从后端响应获取）
 - `src/renderer/src/api/pmax.ts` — 后端 API 调用封装
 - `src/renderer/src/constants/language.ts` — 语言枚举（跨模块复用）
 
@@ -105,11 +105,13 @@ backend/
 {
   "front": {
     "chartPath": "/tmp/yanfa7_pmax/front.png",
-    "bins": [{ "label": "<800", "percentage": 5.23 }, ...]
+    "bins": [{ "label": "<800", "percentage": 5.23 }, ...],
+    "stats": { "timeMin": 23.01, "timeMax": 2324.94, "pmaxMin": 1050.40, "pmaxMax": 1397.50 }
   },
   "rear": {
     "chartPath": "/tmp/yanfa7_pmax/rear.png",
-    "bins": [...]
+    "bins": [...],
+    "stats": { "timeMin": ..., "timeMax": ..., "pmaxMin": ..., "pmaxMax": ... }
   }
 }
 ```

@@ -79,7 +79,7 @@
                         </div>
 
                         <!-- 统计摘要 -->
-                        <div v-if="statsData" class="stats-section">
+                        <div v-if="analyzeResult" class="stats-section">
                             <div class="stats-label">数据统计（共 {{ tableData.length }} 行）</div>
                             <el-table :data="statsTableData" size="small" border class="stats-table">
                                 <el-table-column prop="metric" label="" width="60" />
@@ -193,16 +193,8 @@
                             </div>
                             <el-button
                                 type="primary"
-                                plain
                                 class="action-btn-full"
-                                @click="parseData"
-                            >
-                                解析数据
-                            </el-button>
-                            <el-button
-                                type="primary"
-                                class="action-btn-full"
-                                :disabled="!statsData"
+                                :disabled="tableData.length === 0"
                                 :loading="generating"
                                 @click="generateCharts"
                             >
@@ -319,12 +311,11 @@
             title="图表预览"
             width="90%"
             top="5vh"
-            destroy-on-close
         >
             <div class="chart-images">
                 <div v-if="chartPaths.front" class="chart-item">
                     <img
-                        :src="toLocalFileUrl(chartPaths.front)"
+                        :src="toLocalFileUrl(chartPaths.front, imgCacheBuster)"
                         alt="前轴承"
                         class="chart-img"
                         draggable="true"
@@ -334,7 +325,7 @@
                 </div>
                 <div v-if="chartPaths.rear" class="chart-item">
                     <img
-                        :src="toLocalFileUrl(chartPaths.rear)"
+                        :src="toLocalFileUrl(chartPaths.rear, imgCacheBuster)"
                         alt="后轴承"
                         class="chart-img"
                         draggable="true"
@@ -361,7 +352,7 @@ import {
     Operation
 } from '@element-plus/icons-vue'
 import { Language, LANGUAGE_OPTIONS } from '@renderer/constants/language'
-import { analyzePmax } from '@renderer/api/pmax'
+import { analyzePmax, type AnalyzeResponse } from '@renderer/api/pmax'
 
 const isMac = window.electron.process.platform === 'darwin'
 
@@ -370,7 +361,7 @@ const pasteWrapperRef = ref<HTMLElement>()
 const tableMaxHeight = ref(400)
 let resizeObserver: ResizeObserver | null = null
 
-function updateTableHeight(): void {
+const updateTableHeight = (): void => {
     if (!pasteWrapperRef.value) return
     const h = pasteWrapperRef.value.clientHeight
     if (h > 100) {
@@ -416,29 +407,24 @@ interface TableRow {
 
 const tableData = ref<TableRow[]>([])
 
-interface StatsInfo {
-    timeFront: { min: number; max: number }
-    pmaxFront: { min: number; max: number }
-    pmaxRear: { min: number; max: number }
-}
-
-const statsData = ref<StatsInfo | null>(null)
+const analyzeResult = ref<AnalyzeResponse | null>(null)
 
 const statsTableData = computed(() => {
-    if (!statsData.value) return []
-    const s = statsData.value
+    if (!analyzeResult.value) return []
+    const f = analyzeResult.value.front.stats
+    const r = analyzeResult.value.rear.stats
     return [
         {
             metric: 'Min',
-            timeFront: s.timeFront.min.toFixed(2),
-            pmaxFront: s.pmaxFront.min.toFixed(2),
-            pmaxRear: s.pmaxRear.min.toFixed(2)
+            timeFront: f.timeMin.toFixed(2),
+            pmaxFront: f.pmaxMin.toFixed(2),
+            pmaxRear: r.pmaxMin.toFixed(2)
         },
         {
             metric: 'Max',
-            timeFront: s.timeFront.max.toFixed(2),
-            pmaxFront: s.pmaxFront.max.toFixed(2),
-            pmaxRear: s.pmaxRear.max.toFixed(2)
+            timeFront: f.timeMax.toFixed(2),
+            pmaxFront: f.pmaxMax.toFixed(2),
+            pmaxRear: r.pmaxMax.toFixed(2)
         }
     ]
 })
@@ -449,18 +435,20 @@ const chartPaths = reactive({
     rear: ''
 })
 const chartDialogVisible = ref(false)
+const imgCacheBuster = ref(Date.now())
 
-function toLocalFileUrl(filePath: string): string {
-    return `local-file://localhost?path=${encodeURIComponent(filePath)}`
+const toLocalFileUrl = (filePath: string, cacheBuster?: number): string => {
+    const base = `local-file://localhost?path=${encodeURIComponent(filePath)}`
+    return cacheBuster != null ? `${base}&t=${cacheBuster}` : base
 }
 
-function handleDragStart(event: DragEvent, filePath: string): void {
+const handleDragStart = (event: DragEvent, filePath: string): void => {
     event.preventDefault()
     window.electronAPI.startDrag(filePath)
 }
 
 // ========== 粘贴处理 ==========
-function handlePaste(event: ClipboardEvent): void {
+const handlePaste = (event: ClipboardEvent): void => {
     const text = event.clipboardData?.getData('text/plain')
     if (!text) return
     event.preventDefault()
@@ -489,61 +477,23 @@ function handlePaste(event: ClipboardEvent): void {
     ElMessage.success(`已粘贴 ${parsed.length} 行数据`)
 }
 
-function onCellChange(_index: number): void {
-    statsData.value = null
-}
-
-// ========== 解析数据 ==========
-function parseData(): void {
-    if (tableData.value.length === 0) {
-        ElMessage.warning('请先粘贴或输入数据')
-        return
-    }
-
-    const timeFrontValues: number[] = []
-    const pmaxFrontValues: number[] = []
-    const pmaxRearValues: number[] = []
-
-    for (const row of tableData.value) {
-        const tf = parseFloat(row.timeFront)
-        const pf = parseFloat(row.pmaxFront)
-        const pr = parseFloat(row.pmaxRear)
-
-        if (!isNaN(tf)) timeFrontValues.push(tf)
-        if (!isNaN(pf)) pmaxFrontValues.push(pf)
-        if (!isNaN(pr)) pmaxRearValues.push(pr)
-    }
-
-    if (pmaxFrontValues.length === 0 && pmaxRearValues.length === 0) {
-        ElMessage.warning('未找到有效的数值数据')
-        return
-    }
-
-    statsData.value = {
-        timeFront: {
-            min: timeFrontValues.length ? Math.min(...timeFrontValues) : 0,
-            max: timeFrontValues.length ? Math.max(...timeFrontValues) : 0
-        },
-        pmaxFront: {
-            min: pmaxFrontValues.length ? Math.min(...pmaxFrontValues) : 0,
-            max: pmaxFrontValues.length ? Math.max(...pmaxFrontValues) : 0
-        },
-        pmaxRear: {
-            min: pmaxRearValues.length ? Math.min(...pmaxRearValues) : 0,
-            max: pmaxRearValues.length ? Math.max(...pmaxRearValues) : 0
-        }
-    }
-
-    ElMessage.success('数据解析完成')
+const onCellChange = (_index: number): void => {
+    analyzeResult.value = null
 }
 
 // ========== 生成图表 ==========
 const generating = ref(false)
 
-async function generateCharts(): Promise<void> {
+const generateCharts = async (): Promise<void> => {
+    if (tableData.value.length === 0) {
+        ElMessage.warning('请先粘贴或输入数据')
+        return
+    }
+
     generating.value = true
     chartPaths.front = ''
     chartPaths.rear = ''
+    analyzeResult.value = null
     try {
         const data = tableData.value.map((r) => [r.timeFront, r.pmaxFront, r.timeRear, r.pmaxRear])
         const res = await analyzePmax({
@@ -555,8 +505,10 @@ async function generateCharts(): Promise<void> {
             chartConfig: { ...chartConfig },
             language: language.value
         })
+        analyzeResult.value = res
         chartPaths.front = res.front.chartPath
         chartPaths.rear = res.rear.chartPath
+        imgCacheBuster.value = Date.now()
         chartDialogVisible.value = true
         ElMessage.success('图表生成完成')
     } catch (err: unknown) {
@@ -568,9 +520,9 @@ async function generateCharts(): Promise<void> {
 }
 
 // ========== 清空 ==========
-function clearTable(): void {
+const clearTable = (): void => {
     tableData.value = []
-    statsData.value = null
+    analyzeResult.value = null
     chartPaths.front = ''
     chartPaths.rear = ''
 }
