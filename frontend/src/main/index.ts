@@ -7,10 +7,13 @@ import {
     protocol,
     net,
     globalShortcut,
-    nativeTheme
+    nativeTheme,
+    nativeImage
 } from 'electron'
 import { join } from 'path'
 import { stat, readdir } from 'fs/promises'
+import { existsSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { pathToFileURL } from 'url'
 import { ChildProcess, spawn, execSync } from 'child_process'
@@ -31,12 +34,12 @@ let isQuitting = false
 const BACKEND_PORT = 8000
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`
 
-function getBackendPath(): string {
+const getBackendPath = (): string => {
     const exe = process.platform === 'win32' ? 'main.exe' : 'main'
     return join(process.resourcesPath, 'backend', exe)
 }
 
-function startBackend(): void {
+const startBackend = (): void => {
     if (!app.isPackaged) {
         console.log('[Backend] Dev mode — skipping backend launch (start manually)')
         return
@@ -55,7 +58,7 @@ function startBackend(): void {
     })
 }
 
-function waitForBackend(timeoutMs = 30000): Promise<boolean> {
+const waitForBackend = (timeoutMs = 30000): Promise<boolean> => {
     if (!app.isPackaged) return Promise.resolve(true)
     const start = Date.now()
     return new Promise((resolve) => {
@@ -79,7 +82,17 @@ function waitForBackend(timeoutMs = 30000): Promise<boolean> {
     })
 }
 
-function killBackend(): void {
+const PMAX_TEMP_DIR = join(tmpdir(), 'yanfa7_pmax')
+
+const cleanupPmaxTemp = (): void => {
+    try {
+        rmSync(PMAX_TEMP_DIR, { recursive: true, force: true })
+    } catch {
+        /* dir may not exist */
+    }
+}
+
+const killBackend = (): void => {
     if (!backendProcess) return
     console.log('[Backend] Stopping...')
     if (process.platform === 'win32') {
@@ -94,8 +107,7 @@ function killBackend(): void {
     backendProcess = null
 }
 
-function createWindow(): void {
-    // Create the browser window.
+const createWindow = (): void => {
     const mainWindow = new BrowserWindow({
         title: '研发七部工具包',
         width: 1000,
@@ -262,6 +274,12 @@ app.whenReady().then(async () => {
         }
     )
 
+    ipcMain.on('drag:start', (event, filePath: string) => {
+        if (!existsSync(filePath)) return
+        const icon = nativeImage.createFromPath(filePath).resize({ width: 200 })
+        event.sender.startDrag({ file: filePath, icon })
+    })
+
     ipcMain.handle(
         'window:openPreview',
         async (
@@ -341,6 +359,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
+    cleanupPmaxTemp()
     killBackend()
     app.quit()
 })

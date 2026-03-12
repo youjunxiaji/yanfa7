@@ -203,10 +203,11 @@
                                 type="primary"
                                 class="action-btn-full"
                                 :disabled="!statsData"
+                                :loading="generating"
                                 @click="generateCharts"
                             >
-                                <el-icon style="margin-right: 6px;"><TrendCharts /></el-icon>
-                                生成图表
+                                <el-icon v-if="!generating" style="margin-right: 6px;"><TrendCharts /></el-icon>
+                                {{ generating ? '生成中...' : '生成图表' }}
                             </el-button>
                             <el-button
                                 plain
@@ -238,6 +239,7 @@
                     </template>
 
                     <div
+                        ref="pasteWrapperRef"
                         class="paste-table-wrapper"
                         @paste="handlePaste"
                         tabindex="0"
@@ -247,7 +249,7 @@
                             :data="tableData"
                             border
                             size="small"
-                            max-height="520"
+                            :max-height="tableMaxHeight"
                             class="data-table"
                         >
                             <el-table-column type="index" label="#" width="50" align="center" />
@@ -311,37 +313,42 @@
             </el-col>
         </el-row>
 
-        <!-- 下半部分：图表预览 -->
-        <div v-if="chartImages.front || chartImages.rear" class="chart-preview-section">
-            <el-card class="chart-card">
-                <template #header>
-                    <div class="card-header">
-                        <div class="card-header-left">
-                            <el-icon :size="16" color="#0071e3"><TrendCharts /></el-icon>
-                            <span class="card-title">图表预览</span>
-                        </div>
-                        <el-button size="small" text type="primary" @click="clearCharts">
-                            清除预览
-                        </el-button>
-                    </div>
-                </template>
-                <div class="chart-images">
-                    <div v-if="chartImages.front" class="chart-item">
-                        <img :src="chartImages.front" alt="前轴承" class="chart-img" />
-                        <span class="chart-label">前轴承</span>
-                    </div>
-                    <div v-if="chartImages.rear" class="chart-item">
-                        <img :src="chartImages.rear" alt="后轴承" class="chart-img" />
-                        <span class="chart-label">后轴承</span>
-                    </div>
+        <!-- 图表预览 Dialog -->
+        <el-dialog
+            v-model="chartDialogVisible"
+            title="图表预览"
+            width="90%"
+            top="5vh"
+            destroy-on-close
+        >
+            <div class="chart-images">
+                <div v-if="chartPaths.front" class="chart-item">
+                    <img
+                        :src="toLocalFileUrl(chartPaths.front)"
+                        alt="前轴承"
+                        class="chart-img"
+                        draggable="true"
+                        @dragstart="handleDragStart($event, chartPaths.front)"
+                    />
+                    <span class="chart-label">前轴承（可拖拽到 Word）</span>
                 </div>
-            </el-card>
-        </div>
+                <div v-if="chartPaths.rear" class="chart-item">
+                    <img
+                        :src="toLocalFileUrl(chartPaths.rear)"
+                        alt="后轴承"
+                        class="chart-img"
+                        draggable="true"
+                        @dragstart="handleDragStart($event, chartPaths.rear)"
+                    />
+                    <span class="chart-label">后轴承（可拖拽到 Word）</span>
+                </div>
+            </div>
+        </el-dialog>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
     Setting,
@@ -354,8 +361,33 @@ import {
     Operation
 } from '@element-plus/icons-vue'
 import { Language, LANGUAGE_OPTIONS } from '@renderer/constants/language'
+import { analyzePmax } from '@renderer/api/pmax'
 
 const isMac = window.electron.process.platform === 'darwin'
+
+// ========== 表格自适应高度 ==========
+const pasteWrapperRef = ref<HTMLElement>()
+const tableMaxHeight = ref(400)
+let resizeObserver: ResizeObserver | null = null
+
+function updateTableHeight(): void {
+    if (!pasteWrapperRef.value) return
+    const h = pasteWrapperRef.value.clientHeight
+    if (h > 100) {
+        tableMaxHeight.value = h
+    }
+}
+
+onMounted(() => {
+    resizeObserver = new ResizeObserver(updateTableHeight)
+    if (pasteWrapperRef.value) {
+        resizeObserver.observe(pasteWrapperRef.value)
+    }
+})
+
+onBeforeUnmount(() => {
+    resizeObserver?.disconnect()
+})
 
 // ========== 参数配置 ==========
 const binConfig = reactive({
@@ -412,10 +444,20 @@ const statsTableData = computed(() => {
 })
 
 // ========== 图表 ==========
-const chartImages = reactive({
+const chartPaths = reactive({
     front: '',
     rear: ''
 })
+const chartDialogVisible = ref(false)
+
+function toLocalFileUrl(filePath: string): string {
+    return `local-file://localhost?path=${encodeURIComponent(filePath)}`
+}
+
+function handleDragStart(event: DragEvent, filePath: string): void {
+    event.preventDefault()
+    window.electronAPI.startDrag(filePath)
+}
 
 // ========== 粘贴处理 ==========
 function handlePaste(event: ClipboardEvent): void {
@@ -445,7 +487,6 @@ function handlePaste(event: ClipboardEvent): void {
 
     tableData.value = parsed
     ElMessage.success(`已粘贴 ${parsed.length} 行数据`)
-    parseData()
 }
 
 function onCellChange(_index: number): void {
@@ -496,23 +537,44 @@ function parseData(): void {
     ElMessage.success('数据解析完成')
 }
 
-// ========== 生成图表（暂未联后端） ==========
-function generateCharts(): void {
-    ElMessage.info('图表生成功能将在后端接入后启用')
+// ========== 生成图表 ==========
+const generating = ref(false)
+
+async function generateCharts(): Promise<void> {
+    generating.value = true
+    chartPaths.front = ''
+    chartPaths.rear = ''
+    try {
+        const data = tableData.value.map((r) => [r.timeFront, r.pmaxFront, r.timeRear, r.pmaxRear])
+        const res = await analyzePmax({
+            data,
+            binConfig: {
+                front: { ...binConfig.front },
+                rear: { ...binConfig.rear }
+            },
+            chartConfig: { ...chartConfig },
+            language: language.value
+        })
+        chartPaths.front = res.front.chartPath
+        chartPaths.rear = res.rear.chartPath
+        chartDialogVisible.value = true
+        ElMessage.success('图表生成完成')
+    } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : '图表生成失败'
+        ElMessage.error(msg)
+    } finally {
+        generating.value = false
+    }
 }
 
 // ========== 清空 ==========
 function clearTable(): void {
     tableData.value = []
     statsData.value = null
-    chartImages.front = ''
-    chartImages.rear = ''
+    chartPaths.front = ''
+    chartPaths.rear = ''
 }
 
-function clearCharts(): void {
-    chartImages.front = ''
-    chartImages.rear = ''
-}
 </script>
 
 <style scoped>
@@ -786,18 +848,6 @@ function clearCharts(): void {
 }
 
 /* ========== 图表预览 ========== */
-.chart-preview-section {
-    margin-top: 20px;
-}
-
-.chart-card {
-    border-radius: 12px;
-}
-
-.chart-card :deep(.el-card__header) {
-    padding: 12px 16px;
-}
-
 .chart-images {
     display: flex;
     gap: 20px;

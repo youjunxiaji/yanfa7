@@ -1,9 +1,7 @@
 ---
 description: Electron IPC 通信、Preload 脚本和主进程开发规范
-globs: src/main/**/*.ts,src/preload/**/*.ts
 alwaysApply: false
 ---
-
 # Electron IPC 规范
 
 ## Preload 脚本
@@ -17,6 +15,7 @@ alwaysApply: false
 dialog:openFile       # 文件选择对话框
 dialog:openDirectory  # 目录选择对话框
 window:openNew        # 打开新窗口
+drag:start            # 原生文件拖拽（ipcMain.on，非 handle）
 ```
 
 ## 安全原则

@@ -23,7 +23,9 @@ const customAPI = {
     theme: {
         set: (mode: 'light' | 'dark' | 'system') => ipcRenderer.invoke('theme:set', mode),
         get: () => ipcRenderer.invoke('theme:get') as Promise<{ source: string; shouldUseDarkColors: boolean }>
-    }
+    },
+
+    startDrag: (filePath: string) => ipcRenderer.send('drag:start', filePath)
 }
 
 if (process.contextIsolated) {

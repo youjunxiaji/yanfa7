@@ -6,17 +6,20 @@ alwaysApply: false
 
 ## 功能概述
 
-分析轴承最大接触应力（Pmax）的时间占比分布。用户输入时间序列和前/后轴承 Pmax 数据，按自定义区间分箱，计算各区间时间占比，生成柱状图。
+分析轴承最大接触应力（Pmax）的时间占比分布。用户粘贴时间序列和前/后轴承 Pmax 数据，按自定义区间分箱，计算各区间时间占比，生成柱状图。图表可拖拽到 Word。
 
 ## 数据流
 
 ```
 用户粘贴表格数据（持续时间 + Pmax）
-→ 前端表格展示 + 统计摘要（min/max）
+→ 前端表格展示
+→ 用户点击「解析数据」→ 统计摘要（min/max）
 → 用户设置分箱参数（Min/Max/Step）+ 图形参数
-→ POST /api/pmax/analyze
+→ 点击「生成图表」→ POST /api/pmax/analyze
 → 后端 pd.cut 分箱 → groupby 统计占比 → matplotlib 柱状图
-→ 返回 SVG/PNG → 前端展示前/后轴承柱状图
+→ PNG 保存到临时目录 → 返回文件路径
+→ 前端 Dialog 展示（local-file:// 协议）
+→ 用户可拖拽图片到 Word（Electron startDrag IPC）
 ```
 
 ## 输入数据格式
@@ -25,10 +28,10 @@ alwaysApply: false
 |----|------|
 | 持续时间 [h] | 工况持续时间（前轴承） |
 | Pmax (MPa)-前 | 前轴承最大接触应力 |
-| 持续时间 [h] | 工况持续时间（后轴承，可复用前轴承的列） |
+| 持续时间 [h] | 工况持续时间（后轴承） |
 | Pmax (MPa)-后 | 后轴承最大接触应力 |
 
-注：表格为 4 列，但实际使用列 0、1（前轴承）和列 0/2、3（后轴承）。
+注：表格为 4 列，实际使用列 0、1（前轴承）和列 2、3（后轴承）。
 
 ## 参数配置
 
@@ -55,29 +58,33 @@ alwaysApply: false
 
 ### 图表语言
 
-- 使用全局 `Language` 枚举（`constants/language.ts`）
-- `Language.ZH`（中文）/ `Language.EN`（English）
-- 通过 Segmented Control 切换
+- 使用全局 `Language` 枚举
+- 前端：`constants/language.ts` — `Language.ZH = '中文'` / `Language.EN = 'English'`
+- 后端：`common/constants.py` — `Language.ZH = "中文"` / `Language.EN = "English"`
+- 前后端值必须保持一致
 
 ## 前端文件
 
 - `src/renderer/src/views/PmaxView.vue` — 主页面（无 Pinia store，状态自管理）
+- `src/renderer/src/api/pmax.ts` — 后端 API 调用封装
 - `src/renderer/src/constants/language.ts` — 语言枚举（跨模块复用）
 
-## 后端结构（待实现）
+## 后端结构
 
 ```
 backend/
+├── common/
+│   └── constants.py            # 全局共享常量（Language 枚举等）
 ├── app_pmax/
-│   ├── urls.py              # 路由注册
-│   ├── views.py             # 视图逻辑
-│   ├── serializers.py       # Pydantic 请求/响应模型
+│   ├── urls.py                 # 路由注册（POST /api/pmax/analyze）
+│   ├── views.py                # 视图逻辑
+│   ├── serializers.py          # Pydantic 请求/响应模型
 │   └── module/
-│       ├── calculator.py    # 分箱计算逻辑
-│       └── chart.py         # matplotlib 柱状图生成
+│       ├── calculator.py       # 分箱计算逻辑
+│       └── chart.py            # matplotlib 柱状图生成 → PNG 文件
 ```
 
-## API 接口（待实现）
+## API 接口
 
 ### POST /api/pmax/analyze
 
@@ -87,27 +94,52 @@ backend/
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| data | array | 表格数据，每行为 [持续时间, Pmax] |
-| bearing | string | `front` 或 `rear` |
-| binConfig | object | `{ min, max, step }` |
+| data | `string[][]` | 表格数据，每行 4 列 [持续时间, Pmax前, 持续时间, Pmax后] |
+| binConfig | object | `{ front: { min, max, step }, rear: { min, max, step } }` |
 | chartConfig | object | `{ titleFontSize, labelFontSize, tickFontSize, textFontSize, width, height }` |
-| language | string | `Language.ZH` 或 `Language.EN` |
+| language | Language | `"中文"` 或 `"English"` |
 
-**响应:** 生成的图表（Base64 SVG/PNG）+ 分箱统计数据
+**响应体（JSON）:**
+
+```json
+{
+  "front": {
+    "chartPath": "/tmp/yanfa7_pmax/front.png",
+    "bins": [{ "label": "<800", "percentage": 5.23 }, ...]
+  },
+  "rear": {
+    "chartPath": "/tmp/yanfa7_pmax/rear.png",
+    "bins": [...]
+  }
+}
+```
+
+## 图表文件管理
+
+- PNG 保存到系统临时目录：`os.path.join(tempfile.gettempdir(), "yanfa7_pmax")`
+- 固定文件名 `front.png` / `rear.png`，每次生成覆盖写入
+- 每次生成前调用 `cleanup_temp_files()` 清理旧文件
+- 应用退出时 Electron 主进程同步删除临时目录（`rmSync`）
+
+## 拖拽到 Word
+
+- Electron 渲染进程中 `<img>` 无法直接拖拽到外部应用
+- 通过 IPC `drag:start` → 主进程 `webContents.startDrag({ file, icon })` 实现原生文件拖拽
+- `icon` 使用 `nativeImage.createFromPath(filePath).resize({ width: 200 })` 生成缩略图
 
 ## 核心算法
 
 ```python
-bin_user = list(np.arange(min_val, max_val + 1, step))
-bin_user.insert(0, -np.inf)
-bin_user.append(np.inf)
+bin_edges = list(np.arange(min_val, max_val + 1, step))
+bin_edges.insert(0, -np.inf)
+bin_edges.append(np.inf)
 
-labels = ['<{}'.format(bin_user[1])]
-for i in range(1, len(bin_user) - 2):
-    labels.append('({0}, {1}]'.format(bin_user[i], bin_user[i + 1]))
-labels.append('>{}'.format(bin_user[-2]))
+labels = [f"<{bin_edges[1]:.0f}"]
+for i in range(1, len(bin_edges) - 2):
+    labels.append(f"({bin_edges[i]:.0f}, {bin_edges[i + 1]:.0f}]")
+labels.append(f">{bin_edges[-2]:.0f}")
 
-df_binned = pd.cut(df[pmax_col], bin_user, include_lowest=False, labels=labels)
-result = df.groupby(df_binned, observed=False).sum()
-result = result.apply(lambda x: x / x.sum() * 100)  # 时间占比 %
+df["bins"] = pd.cut(df["pmax"], bin_edges, include_lowest=False, labels=labels)
+result = df.groupby("bins", observed=False)["time"].sum()
+result = result / result.sum() * 100  # 时间占比 %
 ```

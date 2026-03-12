@@ -5,6 +5,7 @@
 """
 
 from app_edgeStress.urls import router as edge_stress_router
+from app_pmax.urls import router as pmax_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
@@ -22,6 +23,7 @@ app.add_middleware(
 )
 
 app.include_router(edge_stress_router)
+app.include_router(pmax_router)
 
 
 if __name__ == "__main__":

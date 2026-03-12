@@ -29,6 +29,8 @@ interface CustomElectronAPI {
         set: (mode: 'light' | 'dark' | 'system') => Promise<boolean>
         get: () => Promise<{ source: string; shouldUseDarkColors: boolean }>
     }
+
+    startDrag: (filePath: string) => void
 }
 
 declare global {
