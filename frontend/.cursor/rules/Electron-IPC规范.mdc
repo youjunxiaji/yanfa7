@@ -13,10 +13,17 @@ alwaysApply: false
 ## IPC 命名规范
 ```
 dialog:openFile       # 文件选择对话框
-dialog:openDirectory  # 目录选择对话框
+dialog:openDir        # 目录选择对话框（仅选择目录，返回路径）
+dialog:openDirectory  # 目录选择对话框（通用）
+fs:scanDir            # 递归扫描目录中的指定扩展名文件
 window:openNew        # 打开新窗口
 drag:start            # 原生文件拖拽（ipcMain.on，非 handle）
 ```
+
+### 文件扫描两步模式
+选择目录并扫描文件拆为两个 IPC，以便前端在扫描期间显示 loading 状态：
+1. `dialog:openDir` — 弹出系统目录选择对话框，返回 `{ canceled, rootDir }`
+2. `fs:scanDir` — 接收 `{ rootDir, extensions }`, 递归扫描并返回 `{ filePaths, fileSizes }`
 
 ## 安全原则
 - 不启用 `nodeIntegration`

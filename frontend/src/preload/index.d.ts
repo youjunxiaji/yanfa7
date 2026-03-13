@@ -6,10 +6,14 @@ interface CustomElectronAPI {
         title?: string
     }) => Promise<{ canceled: boolean; filePaths: string[]; fileSizes: number[] }>
 
-    openDirAndScan: (options: {
+    openDir: (options: {
         title?: string
+    }) => Promise<{ canceled: boolean; rootDir: string }>
+
+    scanDir: (options: {
+        rootDir: string
         extensions?: string[]
-    }) => Promise<{ canceled: boolean; filePaths: string[]; fileSizes: number[] }>
+    }) => Promise<{ filePaths: string[]; fileSizes: number[] }>
 
     openDirectoryDialog: (options: {
         title?: string

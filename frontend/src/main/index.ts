@@ -217,23 +217,31 @@ app.whenReady().then(async () => {
     )
 
     ipcMain.handle(
-        'dialog:openDirAndScan',
+        'dialog:openDir',
         async (
             _event,
-            options: { title?: string; extensions?: string[] }
+            options: { title?: string }
         ) => {
             const win = BrowserWindow.getFocusedWindow()
-            if (!win) return { canceled: true, filePaths: [], fileSizes: [] }
+            if (!win) return { canceled: true, rootDir: '' }
             const result = await dialog.showOpenDialog(win, {
                 title: options.title,
                 properties: ['openDirectory']
             })
             if (result.canceled || result.filePaths.length === 0) {
-                return { canceled: true, filePaths: [], fileSizes: [] }
+                return { canceled: true, rootDir: '' }
             }
-            const rootDir = result.filePaths[0]!
-            const exts = new Set((options.extensions ?? ['htm']).map((e) => `.${e.toLowerCase()}`))
+            return { canceled: false, rootDir: result.filePaths[0]! }
+        }
+    )
 
+    ipcMain.handle(
+        'fs:scanDir',
+        async (
+            _event,
+            options: { rootDir: string; extensions?: string[] }
+        ) => {
+            const exts = new Set((options.extensions ?? ['htm']).map((e) => `.${e.toLowerCase()}`))
             const filePaths: string[] = []
             const walk = async (dir: string): Promise<void> => {
                 const entries = await readdir(dir, { withFileTypes: true })
@@ -246,7 +254,7 @@ app.whenReady().then(async () => {
                     }
                 }
             }
-            await walk(rootDir)
+            await walk(options.rootDir)
             filePaths.sort()
 
             const fileSizes = await Promise.all(
@@ -258,7 +266,7 @@ app.whenReady().then(async () => {
                     }
                 })
             )
-            return { canceled: false, filePaths, fileSizes }
+            return { filePaths, fileSizes }
         }
     )
 

@@ -34,12 +34,13 @@
                         <el-button
                             type="primary"
                             style="flex: 2;"
+                            :loading="scanning"
                             @click="triggerFolderSelect"
                         >
-                            <el-icon style="margin-right: 6px;">
+                            <el-icon v-if="!scanning" style="margin-right: 6px;">
                                 <FolderOpened />
                             </el-icon>
-                            选择文件夹
+                            {{ scanning ? '扫描中…' : '选择文件夹' }}
                         </el-button>
                         <el-popconfirm
                             title="确定清空所有文件吗？"
@@ -110,6 +111,22 @@
                                 </el-button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- 扫描中状态 -->
+                    <div
+                        v-else-if="scanning"
+                        class="empty-state scanning-state"
+                    >
+                        <el-icon
+                            :size="40"
+                            color="#0071e3"
+                            class="scanning-icon"
+                        >
+                            <Loading />
+                        </el-icon>
+                        <div class="scanning-title">正在扫描文件夹…</div>
+                        <div class="scanning-desc">请稍候，正在查找 HTM 文件</div>
                     </div>
 
                     <!-- 空状态 -->
@@ -270,7 +287,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import {
     FolderOpened,
     Document,
@@ -284,8 +301,9 @@ import {
     CaretRight,
     CircleCheckFilled,
     Delete,
+    Loading,
 } from '@element-plus/icons-vue'
-import { ElMessage} from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import { useEdgeStressStore, type FileInfo } from '@renderer/stores/edgeStress'
 import { parseWithProgress, type WsMessage } from '@renderer/api/edgeStress'
 import FileResultPopover from '@renderer/components/FileResultPopover.vue'
@@ -299,25 +317,40 @@ const progressColor = computed(() => {
 })
 
 // ========== 文件选择 ==========
+const scanning = ref(false)
+
 const triggerFolderSelect = async () => {
-    const result = await window.electronAPI.openDirAndScan({
+    const { canceled, rootDir } = await window.electronAPI.openDir({
         title: '选择包含 HTM 文件的文件夹',
-        extensions: ['htm'],
     })
+    if (canceled || !rootDir) return
 
-    if (result.canceled || result.filePaths.length === 0) {
-        if (!result.canceled) {
+    scanning.value = true
+    try {
+        const { filePaths, fileSizes } = await window.electronAPI.scanDir({
+            rootDir,
+            extensions: ['htm'],
+        })
+
+        if (filePaths.length === 0) {
             ElMessage.info('所选文件夹中未找到 HTM 文件')
+            return
         }
-        return
+
+        const newFiles: FileInfo[] = filePaths.map((fp, i) => {
+            const name = fp.split(/[\\/]/).pop() || fp
+            return { name, path: fp, size: fileSizes[i] ?? 0 }
+        })
+
+        store.setFiles(newFiles, 'htm')
+        ElNotification.success({
+            title: '扫描完成',
+            message: `已扫描到 ${newFiles.length} 个 HTM 文件`,
+            duration: 3000,
+        })
+    } finally {
+        scanning.value = false
     }
-
-    const newFiles: FileInfo[] = result.filePaths.map((fp, i) => {
-        const name = fp.split(/[\\/]/).pop() || fp
-        return { name, path: fp, size: result.fileSizes?.[i] ?? 0 }
-    })
-
-    store.setFiles(newFiles, 'htm')
 }
 
 /** 预览文件：在独立窗口中打开报告预览 */
@@ -567,6 +600,35 @@ function startParse() {
     font-size: 13px;
     color: #86868b;
     margin-top: 12px;
+}
+
+/* ========== 扫描中状态 ========== */
+.scanning-state {
+    border-color: #0071e3;
+    border-style: dashed;
+    background: rgba(0, 113, 227, 0.03);
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.scanning-icon {
+    animation: spin 1.2s linear infinite;
+}
+
+.scanning-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0071e3;
+    margin-top: 12px;
+}
+
+.scanning-desc {
+    font-size: 13px;
+    color: #86868b;
+    margin-top: 4px;
 }
 
 /* ========== 分区标签 ========== */
