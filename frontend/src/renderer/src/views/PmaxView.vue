@@ -1,14 +1,13 @@
 <template>
     <div class="page-container">
-        <!-- 上半部分：参数 + 表格 -->
         <el-row :gutter="20" class="page-row">
             <!-- 左侧参数面板 -->
             <el-col :span="10">
-                <div class="param-panel">
+                <el-collapse v-model="expandedPanels" class="param-collapse">
                     <!-- 分箱参数 -->
-                    <el-card class="param-card">
-                        <template #header>
-                            <div class="card-header">
+                    <el-collapse-item name="bin">
+                        <template #title>
+                            <div class="collapse-title">
                                 <el-icon :size="16" color="#0071e3"><Setting /></el-icon>
                                 <span class="card-title">分箱参数</span>
                             </div>
@@ -77,23 +76,12 @@
                                 />
                             </div>
                         </div>
-
-                        <!-- 统计摘要 -->
-                        <div v-if="analyzeResult" class="stats-section">
-                            <div class="stats-label">数据统计（共 {{ tableData.length }} 行）</div>
-                            <el-table :data="statsTableData" size="small" border class="stats-table">
-                                <el-table-column prop="metric" label="" width="60" />
-                                <el-table-column prop="timeFront" label="时间-前" align="center" />
-                                <el-table-column prop="pmaxFront" label="Pmax-前" align="center" />
-                                <el-table-column prop="pmaxRear" label="Pmax-后" align="center" />
-                            </el-table>
-                        </div>
-                    </el-card>
+                    </el-collapse-item>
 
                     <!-- 字体参数 -->
-                    <el-card class="param-card">
-                        <template #header>
-                            <div class="card-header">
+                    <el-collapse-item name="font">
+                        <template #title>
+                            <div class="collapse-title">
                                 <el-icon :size="16" color="#0071e3"><EditPen /></el-icon>
                                 <span class="card-title">字体参数</span>
                             </div>
@@ -140,12 +128,12 @@
                                 />
                             </div>
                         </div>
-                    </el-card>
+                    </el-collapse-item>
 
-                    <!-- 图形比例 + 操作按钮 -->
-                    <el-card class="param-card">
-                        <template #header>
-                            <div class="card-header">
+                    <!-- 图形比例 -->
+                    <el-collapse-item name="size">
+                        <template #title>
+                            <div class="collapse-title">
                                 <el-icon :size="16" color="#0071e3"><PictureFilled /></el-icon>
                                 <span class="card-title">图形比例</span>
                             </div>
@@ -172,12 +160,12 @@
                                 />
                             </div>
                         </div>
-                    </el-card>
+                    </el-collapse-item>
 
-                    <!-- 语言 + 操作按钮 -->
-                    <el-card class="param-card">
-                        <template #header>
-                            <div class="card-header">
+                    <!-- 操作 -->
+                    <el-collapse-item name="action">
+                        <template #title>
+                            <div class="collapse-title">
                                 <el-icon :size="16" color="#0071e3"><Operation /></el-icon>
                                 <span class="card-title">操作</span>
                             </div>
@@ -205,141 +193,145 @@
                                 plain
                                 class="action-btn-full"
                                 :disabled="tableData.length === 0"
-                                @click="clearTable"
+                                @click="clearAll"
                             >
                                 <el-icon style="margin-right: 6px;"><Delete /></el-icon>
-                                清空表格
+                                清空数据
                             </el-button>
                         </div>
-                    </el-card>
-                </div>
+                    </el-collapse-item>
+                </el-collapse>
             </el-col>
 
-            <!-- 右侧数据表格 -->
+            <!-- 右侧图表展示区 -->
             <el-col :span="14">
-                <el-card class="table-card">
+                <el-card class="chart-card">
                     <template #header>
                         <div class="card-header">
                             <div class="card-header-left">
-                                <el-icon :size="16" color="#0071e3"><Grid /></el-icon>
-                                <span class="card-title">数据表格</span>
+                                <el-icon :size="16" color="#0071e3"><PictureFilled /></el-icon>
+                                <span class="card-title">图表预览</span>
                             </div>
-                            <el-tag v-if="tableData.length > 0" type="info" size="small" round>
-                                {{ tableData.length }} 行
-                            </el-tag>
+                            <el-button size="small" text @click="pasteDialogVisible = true">
+                                <el-icon style="margin-right: 4px;"><DocumentCopy /></el-icon>
+                                粘贴数据
+                                <el-tag v-if="tableData.length > 0" type="info" size="small" round style="margin-left: 6px;">
+                                    {{ tableData.length }} 行
+                                </el-tag>
+                            </el-button>
                         </div>
                     </template>
 
-                    <div
-                        ref="pasteWrapperRef"
-                        class="paste-table-wrapper"
-                        @paste="handlePaste"
-                        tabindex="0"
-                    >
-                        <el-table
-                            v-if="tableData.length > 0"
-                            :data="tableData"
-                            border
-                            size="small"
-                            :max-height="tableMaxHeight"
-                            class="data-table"
-                        >
-                            <el-table-column type="index" label="#" width="50" align="center" />
-                            <el-table-column prop="timeFront" label="持续时间 [h]" align="center" min-width="120">
-                                <template #default="{ row, $index }">
-                                    <el-input
-                                        v-model="row.timeFront"
-                                        size="small"
-                                        class="cell-input"
-                                        @change="onCellChange($index)"
+                    <div class="chart-display-area">
+                        <!-- 有图表时 -->
+                        <template v-if="chartPaths.front || chartPaths.rear">
+                            <!-- 统计摘要 -->
+                            <div v-if="analyzeResult" class="stats-section">
+                                <div class="stats-label">数据统计（共 {{ tableData.length }} 行）</div>
+                                <el-table :data="statsTableData" size="small" border class="stats-table">
+                                    <el-table-column prop="metric" label="" width="60" />
+                                    <el-table-column prop="timeFront" label="时间-前" align="center" />
+                                    <el-table-column prop="pmaxFront" label="Pmax-前" align="center" />
+                                    <el-table-column prop="pmaxRear" label="Pmax-后" align="center" />
+                                </el-table>
+                            </div>
+                            <div class="chart-images">
+                                <div v-if="chartPaths.front" class="chart-item">
+                                    <img
+                                        :src="toLocalFileUrl(chartPaths.front, imgCacheBuster)"
+                                        alt="前轴承"
+                                        class="chart-img"
+                                        draggable="true"
+                                        @dragstart="handleDragStart($event, chartPaths.front)"
                                     />
-                                </template>
-                            </el-table-column>
-                            <el-table-column prop="pmaxFront" label="Pmax (MPa)-前" align="center" min-width="130">
-                                <template #default="{ row, $index }">
-                                    <el-input
-                                        v-model="row.pmaxFront"
-                                        size="small"
-                                        class="cell-input"
-                                        @change="onCellChange($index)"
+                                </div>
+                                <div v-if="chartPaths.rear" class="chart-item">
+                                    <img
+                                        :src="toLocalFileUrl(chartPaths.rear, imgCacheBuster)"
+                                        alt="后轴承"
+                                        class="chart-img"
+                                        draggable="true"
+                                        @dragstart="handleDragStart($event, chartPaths.rear)"
                                     />
-                                </template>
-                            </el-table-column>
-                            <el-table-column prop="timeRear" label="持续时间 [h]" align="center" min-width="120">
-                                <template #default="{ row, $index }">
-                                    <el-input
-                                        v-model="row.timeRear"
-                                        size="small"
-                                        class="cell-input"
-                                        @change="onCellChange($index)"
-                                    />
-                                </template>
-                            </el-table-column>
-                            <el-table-column prop="pmaxRear" label="Pmax (MPa)-后" align="center" min-width="130">
-                                <template #default="{ row, $index }">
-                                    <el-input
-                                        v-model="row.pmaxRear"
-                                        size="small"
-                                        class="cell-input"
-                                        @change="onCellChange($index)"
-                                    />
-                                </template>
-                            </el-table-column>
-                        </el-table>
+                                </div>
+                            </div>
+                        </template>
 
-                        <!-- 空状态 -->
-                        <div v-else class="empty-paste-area">
-                            <el-icon :size="40" color="#c0c4cc"><DocumentCopy /></el-icon>
-                            <p class="empty-title">从 Excel 粘贴数据</p>
-                            <p class="empty-desc">
-                                点击此区域后按
-                                <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd><kbd>V</kbd>
-                                粘贴，支持 4 列数据
-                            </p>
-                            <p class="empty-hint">
-                                持续时间 [h] | Pmax (MPa)-前 | 持续时间 [h] | Pmax (MPa)-后
-                            </p>
+                        <!-- 已导入数据但未生成图表 -->
+                        <div v-else-if="tableData.length > 0" class="empty-chart-area">
+                            <el-icon :size="48" color="#c0c4cc"><TrendCharts /></el-icon>
+                            <p class="empty-title">已导入 {{ tableData.length }} 行数据</p>
+                            <p class="empty-desc">设置参数后点击「生成图表」查看结果</p>
+                        </div>
+
+                        <!-- 初始空状态 -->
+                        <div v-else class="empty-chart-area">
+                            <el-icon :size="48" color="#c0c4cc"><PictureFilled /></el-icon>
+                            <p class="empty-title">暂无图表</p>
+                            <p class="empty-desc">请先粘贴数据，再生成图表</p>
                         </div>
                     </div>
                 </el-card>
             </el-col>
         </el-row>
 
-        <!-- 图表预览 Dialog -->
+        <!-- 粘贴数据 Dialog -->
         <el-dialog
-            v-model="chartDialogVisible"
-            title="图表预览"
-            width="90%"
-            top="5vh"
+            v-model="pasteDialogVisible"
+            title="粘贴数据"
+            width="640px"
+            :close-on-click-modal="false"
+            @opened="onPasteDialogOpen"
         >
-            <div class="chart-images">
-                <div v-if="chartPaths.front" class="chart-item">
-                    <img
-                        :src="toLocalFileUrl(chartPaths.front, imgCacheBuster)"
-                        alt="前轴承"
-                        class="chart-img"
-                        draggable="true"
-                        @dragstart="handleDragStart($event, chartPaths.front)"
-                    />
-                    <span class="chart-label">前轴承（可拖拽到 Word）</span>
-                </div>
-                <div v-if="chartPaths.rear" class="chart-item">
-                    <img
-                        :src="toLocalFileUrl(chartPaths.rear, imgCacheBuster)"
-                        alt="后轴承"
-                        class="chart-img"
-                        draggable="true"
-                        @dragstart="handleDragStart($event, chartPaths.rear)"
-                    />
-                    <span class="chart-label">后轴承（可拖拽到 Word）</span>
-                </div>
+            <div
+                ref="pasteAreaRef"
+                class="paste-dialog-area"
+                tabindex="0"
+                @paste="handlePaste"
+            >
+                <template v-if="pendingData.length > 0">
+                    <el-table
+                        :data="pendingData"
+                        border
+                        size="small"
+                        max-height="400"
+                        class="paste-preview-table"
+                    >
+                        <el-table-column type="index" label="#" width="50" align="center" />
+                        <el-table-column prop="timeFront" label="持续时间 [h]" align="center" />
+                        <el-table-column prop="pmaxFront" label="Pmax-前" align="center" />
+                        <el-table-column prop="timeRear" label="持续时间 [h]" align="center" />
+                        <el-table-column prop="pmaxRear" label="Pmax-后" align="center" />
+                    </el-table>
+                    <div class="paste-info">
+                        已解析 <strong>{{ pendingData.length }}</strong> 行数据，点击确认导入
+                    </div>
+                </template>
+                <template v-else>
+                    <el-icon :size="40" color="#c0c4cc"><DocumentCopy /></el-icon>
+                    <p class="empty-title">从 Excel 粘贴数据</p>
+                    <p class="empty-desc">
+                        点击此区域后按
+                        <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd><kbd>V</kbd>
+                        粘贴，支持 4 列数据
+                    </p>
+                    <p class="empty-hint">
+                        持续时间 [h] | Pmax (MPa)-前 | 持续时间 [h] | Pmax (MPa)-后
+                    </p>
+                </template>
             </div>
+            <template #footer>
+                <el-button @click="cancelPaste">取消</el-button>
+                <el-button type="primary" :disabled="pendingData.length === 0" @click="confirmPaste">
+                    确认导入（{{ pendingData.length }} 行）
+                </el-button>
+            </template>
         </el-dialog>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
     Setting,
@@ -347,7 +339,6 @@ import {
     PictureFilled,
     TrendCharts,
     Delete,
-    Grid,
     DocumentCopy,
     Operation
 } from '@element-plus/icons-vue'
@@ -355,30 +346,6 @@ import { Language, LANGUAGE_OPTIONS } from '@renderer/constants/language'
 import { analyzePmax, type AnalyzeResponse } from '@renderer/api/pmax'
 
 const isMac = window.electron.process.platform === 'darwin'
-
-// ========== 表格自适应高度 ==========
-const pasteWrapperRef = ref<HTMLElement>()
-const tableMaxHeight = ref(400)
-let resizeObserver: ResizeObserver | null = null
-
-const updateTableHeight = (): void => {
-    if (!pasteWrapperRef.value) return
-    const h = pasteWrapperRef.value.clientHeight
-    if (h > 100) {
-        tableMaxHeight.value = h
-    }
-}
-
-onMounted(() => {
-    resizeObserver = new ResizeObserver(updateTableHeight)
-    if (pasteWrapperRef.value) {
-        resizeObserver.observe(pasteWrapperRef.value)
-    }
-})
-
-onBeforeUnmount(() => {
-    resizeObserver?.disconnect()
-})
 
 // ========== 参数配置 ==========
 const binConfig = reactive({
@@ -396,6 +363,8 @@ const chartConfig = reactive({
 })
 
 const language = ref<Language>(Language.ZH)
+
+const expandedPanels = ref<string[]>(['bin', 'action'])
 
 // ========== 表格数据 ==========
 interface TableRow {
@@ -430,11 +399,7 @@ const statsTableData = computed(() => {
 })
 
 // ========== 图表 ==========
-const chartPaths = reactive({
-    front: '',
-    rear: ''
-})
-const chartDialogVisible = ref(false)
+const chartPaths = reactive({ front: '', rear: '' })
 const imgCacheBuster = ref(Date.now())
 
 const toLocalFileUrl = (filePath: string, cacheBuster?: number): string => {
@@ -447,7 +412,11 @@ const handleDragStart = (event: DragEvent, filePath: string): void => {
     window.electronAPI.startDrag(filePath)
 }
 
-// ========== 粘贴处理 ==========
+// ========== 粘贴数据 Dialog ==========
+const pasteDialogVisible = ref(false)
+const pasteAreaRef = ref<HTMLElement>()
+const pendingData = ref<TableRow[]>([])
+
 const handlePaste = (event: ClipboardEvent): void => {
     const text = event.clipboardData?.getData('text/plain')
     if (!text) return
@@ -459,7 +428,6 @@ const handlePaste = (event: ClipboardEvent): void => {
     for (const row of rows) {
         const cols = row.split('\t')
         if (cols.length < 2) continue
-
         parsed.push({
             timeFront: cols[0]?.trim() ?? '',
             pmaxFront: cols[1]?.trim() ?? '',
@@ -473,12 +441,22 @@ const handlePaste = (event: ClipboardEvent): void => {
         return
     }
 
-    tableData.value = parsed
-    ElMessage.success(`已粘贴 ${parsed.length} 行数据`)
+    pendingData.value = parsed
 }
 
-const onCellChange = (_index: number): void => {
+const confirmPaste = (): void => {
+    tableData.value = pendingData.value
     analyzeResult.value = null
+    chartPaths.front = ''
+    chartPaths.rear = ''
+    ElMessage.success(`已导入 ${pendingData.value.length} 行数据`)
+    pendingData.value = []
+    pasteDialogVisible.value = false
+}
+
+const cancelPaste = (): void => {
+    pendingData.value = []
+    pasteDialogVisible.value = false
 }
 
 // ========== 生成图表 ==========
@@ -486,7 +464,7 @@ const generating = ref(false)
 
 const generateCharts = async (): Promise<void> => {
     if (tableData.value.length === 0) {
-        ElMessage.warning('请先粘贴或输入数据')
+        ElMessage.warning('请先粘贴数据')
         return
     }
 
@@ -509,7 +487,6 @@ const generateCharts = async (): Promise<void> => {
         chartPaths.front = res.front.chartPath
         chartPaths.rear = res.rear.chartPath
         imgCacheBuster.value = Date.now()
-        chartDialogVisible.value = true
         ElMessage.success('图表生成完成')
     } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : '图表生成失败'
@@ -520,11 +497,16 @@ const generateCharts = async (): Promise<void> => {
 }
 
 // ========== 清空 ==========
-const clearTable = (): void => {
+const clearAll = (): void => {
     tableData.value = []
     analyzeResult.value = null
     chartPaths.front = ''
     chartPaths.rear = ''
+}
+
+// Dialog 打开时自动聚焦粘贴区域
+const onPasteDialogOpen = (): void => {
+    nextTick(() => pasteAreaRef.value?.focus())
 }
 
 </script>
@@ -534,32 +516,13 @@ const clearTable = (): void => {
     padding: 20px;
     height: 100%;
     overflow-y: auto;
-
 }
 
 .page-row {
-    margin-bottom: 20px;
+    height: 100%;
 }
 
-/* ========== 参数面板 ========== */
-.param-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.param-card {
-    border-radius: 12px;
-}
-
-.param-card :deep(.el-card__header) {
-    padding: 12px 16px;
-}
-
-.param-card :deep(.el-card__body) {
-    padding: 12px 16px;
-}
-
+/* ========== 卡片通用 ========== */
 .card-header {
     display: flex;
     align-items: center;
@@ -622,9 +585,9 @@ const clearTable = (): void => {
 
 /* ========== 统计摘要 ========== */
 .stats-section {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--el-border-color-lighter);
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .stats-label {
@@ -635,6 +598,52 @@ const clearTable = (): void => {
 
 .stats-table {
     width: 100%;
+}
+
+/* ========== 折叠面板 ========== */
+.param-collapse {
+    border: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.param-collapse :deep(.el-collapse-item__header) {
+    height: 44px;
+    line-height: 44px;
+    padding: 0 16px;
+    background: var(--el-bg-color-overlay);
+    border-radius: 12px;
+    border: 1px solid var(--el-border-color-light);
+    font-size: 14px;
+}
+
+.param-collapse :deep(.el-collapse-item__wrap) {
+    border: 1px solid var(--el-border-color-light);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+}
+
+.param-collapse :deep(.el-collapse-item__content) {
+    padding: 12px 16px;
+}
+
+.param-collapse :deep(.el-collapse-item.is-active .el-collapse-item__header) {
+    border-radius: 12px 12px 0 0;
+}
+
+.param-collapse :deep(.el-collapse-item__header) {
+    border-bottom: none;
+}
+
+.param-collapse :deep(.el-collapse-item.is-active .el-collapse-item__header) {
+    border-bottom: 1px solid var(--el-border-color-light);
+}
+
+.collapse-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 /* ========== 字体参数 ========== */
@@ -706,68 +715,76 @@ const clearTable = (): void => {
     margin-left: 0;
 }
 
-/* ========== 数据表格 ========== */
-.table-card {
+/* ========== 右侧图表展示卡片 ========== */
+.chart-card {
     border-radius: 12px;
     height: 100%;
     display: flex;
     flex-direction: column;
 }
 
-.table-card :deep(.el-card__header) {
+.chart-card :deep(.el-card__header) {
     padding: 12px 16px;
     flex-shrink: 0;
 }
 
-.table-card :deep(.el-card__body) {
-    padding: 12px 16px;
+.chart-card :deep(.el-card__body) {
+    padding: 16px;
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    overflow-y: auto;
 }
 
-.paste-table-wrapper {
-    outline: none;
+.chart-display-area {
     flex: 1;
     display: flex;
     flex-direction: column;
 }
 
-.paste-table-wrapper:focus-within {
-    outline: none;
+.chart-images {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    align-items: center;
 }
 
-.data-table {
+.chart-item {
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
 }
 
-.cell-input :deep(.el-input__wrapper) {
-    box-shadow: none;
-    padding: 0 4px;
+.chart-img {
+    width: 100%;
+    max-width: 700px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 8px;
+    transition: box-shadow 0.2s;
+    cursor: grab;
 }
 
-.cell-input :deep(.el-input__inner) {
-    text-align: center;
+.chart-img:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-label {
     font-size: 13px;
+    font-weight: 500;
+    color: #86868b;
 }
 
 /* ========== 空状态 ========== */
-.empty-paste-area {
+.empty-chart-area {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     flex: 1;
-    min-height: 200px;
-    border: 2px dashed #e4e7ed;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: border-color 0.2s;
-}
-
-.empty-paste-area:hover {
-    border-color: var(--el-color-primary);
+    min-height: 300px;
 }
 
 .empty-title {
@@ -783,7 +800,27 @@ const clearTable = (): void => {
     color: #909399;
 }
 
-.empty-desc kbd {
+/* ========== 粘贴数据 Dialog ========== */
+.paste-dialog-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 50vh;
+    border: 2px dashed #e4e7ed;
+    border-radius: 8px;
+    padding: 20px;
+    outline: none;
+    transition: border-color 0.2s;
+    overflow: hidden;
+}
+
+.paste-dialog-area:focus,
+.paste-dialog-area:focus-within {
+    border-color: var(--el-color-primary);
+}
+
+.paste-dialog-area .empty-desc kbd {
     font-size: 11px;
     background: #f0f0f0;
     border-radius: 3px;
@@ -793,42 +830,26 @@ const clearTable = (): void => {
     border: 1px solid #d9d9d9;
 }
 
-.empty-hint {
+.paste-dialog-area .empty-hint {
     font-size: 12px;
     color: #c0c4cc;
     margin-top: 12px;
 }
 
-/* ========== 图表预览 ========== */
-.chart-images {
-    display: flex;
-    gap: 20px;
-    justify-content: center;
-}
-
-.chart-item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-
-.chart-img {
+.paste-preview-table {
     width: 100%;
-    max-width: 600px;
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: 8px;
-    transition: box-shadow 0.2s;
+    flex: 1;
+    min-height: 0;
 }
 
-.chart-img:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.chart-label {
+.paste-info {
+    margin-top: 12px;
     font-size: 13px;
-    font-weight: 500;
-    color: #86868b;
+    color: #909399;
+    text-align: center;
+}
+
+.paste-info strong {
+    color: var(--el-color-primary);
 }
 </style>

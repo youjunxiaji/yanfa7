@@ -243,8 +243,6 @@ html.dark .markdown-body hr {
 }
 
 /* Pmax 时间占比页 */
-html.dark .param-card,
-html.dark .table-card,
 html.dark .chart-card {
     background: #2c2c2e;
     border-color: #38383a;
@@ -259,10 +257,6 @@ html.dark .chart-label {
 html.dark .bin-label,
 html.dark .font-label {
     color: #a1a1a6;
-}
-
-html.dark .empty-paste-area {
-    border-color: #48484a;
 }
 
 html.dark .empty-title {
@@ -292,7 +286,25 @@ html.dark .lang-label {
 }
 
 html.dark .stats-section {
-    border-top-color: #38383a;
+    border-bottom-color: #38383a;
+}
+
+html.dark .param-collapse .el-collapse-item__header {
+    background: #2c2c2e;
+    border-color: #38383a;
+}
+
+html.dark .param-collapse .el-collapse-item__wrap {
+    background: #2c2c2e;
+    border-color: #38383a;
+}
+
+html.dark .paste-dialog-area {
+    border-color: #48484a;
+}
+
+html.dark .paste-info {
+    color: #a1a1a6;
 }
 
 /* 报告预览窗口 */
