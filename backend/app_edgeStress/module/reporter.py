@@ -37,6 +37,11 @@ TITLE_EN = {
     StressPosition.OUTER: "Contact Stress Distribution of Outer Ring",
 }
 
+CONTOUR_TITLE_EN = {
+    StressPosition.INNER: "Inner Raceway Contact Stress",
+    StressPosition.OUTER: "Outer Raceway Contact Stress",
+}
+
 
 LEGEND_ENTRY_HEIGHT = 0.2  # 单条图例条目的近似高度（英寸）
 
@@ -167,6 +172,95 @@ class EdgeStressReporter:
         png_file = (
             self.output_dir
             / f"{col.filename}-{position.value}-第{col.col_index}列-{lang_tag}.png"
+        )
+        fig.savefig(str(png_file), bbox_inches="tight")
+        plt.close(fig)
+        return png_file
+
+    # ============================================================
+    # 应力等高线图 (matplotlib)
+    # ============================================================
+
+    def generate_contour_chart(
+        self,
+        col: RollerColumn,
+        position: StressPosition,
+    ) -> Path:
+        """
+        生成应力等高线图（contourf），X 轴为角位置(degree)，Y 轴为沿滚子距离(mm)。
+
+        使用去峰后数据；角度经过 +180° 偏移与排序，与应力曲线图一致。
+
+        Args:
+            col: 滚子列数据。
+            position: 内圈 / 外圈。
+
+        Returns:
+            保存的 PNG 文件路径。
+        """
+        stress = col.get_stress(position)
+        df = stress.processed if stress.processed is not None else stress.origin
+        df = df.copy()
+
+        new_level_0 = ((df.index.levels[0].astype(float) + 180) % 360).round(3)
+        df.index = df.index.set_levels(new_level_0, level=0)
+        df = df.sort_index()
+
+        angles = df.index.get_level_values(0).unique().astype(float)
+        distances = df.index.get_level_values(1).unique().astype(float)
+
+        y_max = int(np.ceil(distances.max() / 10)) * 10
+
+        all_distances_set: set[float] = set()
+        angle_data: dict[float, pd.Series] = {}
+        for angle in angles:
+            series = df.loc[angle, "接触应力 (MPa)"]
+            dists = series.index.astype(float)
+            all_distances_set.update(dists.tolist())
+            angle_data[angle] = pd.Series(series.values, index=dists)
+
+        distances = np.array(sorted(all_distances_set))
+
+        Z = np.zeros((len(distances), len(angles)))
+        for j, angle in enumerate(angles):
+            s = angle_data[angle]
+            for i, d in enumerate(distances):
+                if d in s.index:
+                    Z[i, j] = s[d]
+
+        contour_height = self.config.pic_height * 0.55
+        fig, ax = plt.subplots(
+            figsize=(self.config.pic_width, contour_height),
+            constrained_layout=True,
+        )
+
+        z_max = float(np.nanmax(Z))
+        levels = np.linspace(0, z_max, 15)
+
+        cf = ax.contourf(
+            angles, distances, Z,
+            levels=levels,
+            cmap="jet",
+            extend="neither",
+        )
+        cbar = fig.colorbar(cf, ax=ax, pad=0.02)
+        cbar.set_label("Contact Stress (MPa)", fontsize=12)
+
+        ax.set_ylim(0, y_max)
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(5))
+
+        ax.set_xlabel("Angular Position (degree)", fontsize=12)
+        ax.set_ylabel("Along the Roller Length (mm)", fontsize=12)
+        ax.set_title(
+            f"{CONTOUR_TITLE_EN[position]}",
+            fontsize=20,
+            fontweight="bold",
+        )
+
+        png_file = (
+            self.output_dir
+            / f"{col.filename}-{position.value}-第{col.col_index}列-contour.png"
         )
         fig.savefig(str(png_file), bbox_inches="tight")
         plt.close(fig)
@@ -383,6 +477,7 @@ class EdgeStressReporter:
         for position in StressPosition:
             for is_cn in [True, False]:
                 files.append(self.generate_stress_chart(col, position, is_cn))
+            files.append(self.generate_contour_chart(col, position))
 
         polar_load = self.generate_polar_chart(col, is_load=True)
         if polar_load:
@@ -403,6 +498,7 @@ class EdgeStressReporter:
 
         每个 RollerColumn 生成：
         - 应力分布曲线图（内圈中/英 + 外圈中/英 = 4 张 PNG）
+        - 应力等高线图（内圈 + 外圈 = 2 张 PNG）
         - 雷达图（载荷 + 应力 = 2 张 PNG）
 
         Parameters

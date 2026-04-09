@@ -66,6 +66,7 @@ backend/
 
 - `calc_legend_ncol()`: 根据图例条目数和画布高度自动计算图例列数
 - `EdgeStressReporter.generate_stress_chart()`: 应力分布曲线 PNG（图例列数自动计算）
+- `EdgeStressReporter.generate_contour_chart()`: 应力等高线图 PNG（contourf, jet 色带）
 - `EdgeStressReporter.generate_polar_chart()`: 雷达图 PNG
 - `EdgeStressReporter.build_chart_data()`: 构建 Plotly 图表数据（静态方法，不写文件）
 - `EdgeStressReporter.export_processed_excel()`: 去峰数据 Excel（当前已注释）
@@ -111,7 +112,7 @@ backend/
 | point_index | int | 曲线中的数据点索引 |
 | new_value | float | 新的应力值 |
 
-**副作用:** 先验证 xlsx 可写性（文件被占用时返回 400），再修改缓存、重新生成最大应力汇总.xlsx、应力曲线 PNG（中/英文）和应力雷达图 PNG。
+**副作用:** 先验证 xlsx 可写性（文件被占用时返回 400），再修改缓存、重新生成最大应力汇总.xlsx、应力曲线 PNG（中/英文）、应力等高线图 PNG 和应力雷达图 PNG。
 
 ### POST /api/regenerate-polar
 
@@ -165,7 +166,12 @@ WebSocket 接口。连接后发送 JSON 请求，服务端逐文件处理并实�
 │  原始+去峰   │  中文+英文    │  载荷+应力                       │
 │  受内/外圈    │  受内/外圈    │  不受内/外圈影响                  │
 │  切换影响     │  切换影响     │                                 │
-│              │              │                                 │
+│              │ ──────────── │                                 │
+│              │  等高线图     │                                 │
+│              │  (PNG x1)   │                                 │
+│              │  受内/外圈    │                                 │
+│              │  切换影响     │                                 │
+│              │  无点击预览   │                                 │
 └──────────────┴──────────────┴─────────────────────────────────┘
 ```
 
@@ -175,15 +181,17 @@ WebSocket 接口。连接后发送 JSON 请求，服务端逐文件处理并实�
 
 组名由文件名中第一个 `(` 之前的部分确定（去末尾空格），例如 `滚动轴承 1 (1.Extreme Tilt)` 的组名为 `滚动轴承 1`。
 
-每个 RollerColumn 生成 6 个文件：
+每个 RollerColumn 生成 8 个文件：
 
 ```
-{stem}-内滚道接触应力-第{N}列-中.png    中栏 - 内圈中文应力曲线
-{stem}-内滚道接触应力-第{N}列-英.png    中栏 - 内圈英文应力曲线
-{stem}-外滚道接触应力-第{N}列-中.png    中栏 - 外圈中文应力曲线
-{stem}-外滚道接触应力-第{N}列-英.png    中栏 - 外圈英文应力曲线
-{stem}-第{N}列-载荷雷达图.png          右栏 - 载荷雷达图
-{stem}-第{N}列-应力雷达图.png          右栏 - 应力雷达图
+{stem}-内滚道接触应力-第{N}列-中.png       中栏 - 内圈中文应力曲线
+{stem}-内滚道接触应力-第{N}列-英.png       中栏 - 内圈英文应力曲线
+{stem}-内滚道接触应力-第{N}列-contour.png  中栏 - 内圈应力等高线图
+{stem}-外滚道接触应力-第{N}列-中.png       中栏 - 外圈中文应力曲线
+{stem}-外滚道接触应力-第{N}列-英.png       中栏 - 外圈英文应力曲线
+{stem}-外滚道接触应力-第{N}列-contour.png  中栏 - 外圈应力等高线图
+{stem}-第{N}列-载荷雷达图.png             右栏 - 载荷雷达图
+{stem}-第{N}列-应力雷达图.png             右栏 - 应力雷达图
 ```
 
 另外全局生成 `最大应力汇总.xlsx`（所有文件所有列的最大应力值）。

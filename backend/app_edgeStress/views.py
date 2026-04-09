@@ -259,6 +259,7 @@ async def update_stress_point(req: UpdateStressPointRequest) -> JSONResponse:
 
     regenerated.append(str(reporter.generate_stress_chart(col, pos, is_cn=True)))
     regenerated.append(str(reporter.generate_stress_chart(col, pos, is_cn=False)))
+    regenerated.append(str(reporter.generate_contour_chart(col, pos)))
     polar = reporter.generate_polar_chart(col, is_load=False)
     if polar:
         regenerated.append(str(polar))

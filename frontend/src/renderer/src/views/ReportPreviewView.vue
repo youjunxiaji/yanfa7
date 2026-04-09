@@ -149,6 +149,18 @@
                                     class="image-placeholder"
                                 >图片不存在</div>
                             </div>
+                            <div class="image-group">
+                                <div class="image-label">等高线图</div>
+                                <img
+                                    v-if="contourChartPath"
+                                    :src="localFileUrl(contourChartPath, imgCacheBuster)"
+                                    class="chart-img chart-img-static"
+                                >
+                                <div
+                                    v-else
+                                    class="image-placeholder"
+                                >图片不存在</div>
+                            </div>
                         </div>
                     </div>
                 </el-splitter-panel>
@@ -295,6 +307,11 @@ const stressChartCnPath = computed(() => {
 const stressChartEnPath = computed(() => {
     if (!basePath.value || columns.length === 0) return ''
     return `${basePath.value}/${fileStem}-${positionLabel.value}-第${selectedCol.value}列-英.png`
+})
+
+const contourChartPath = computed(() => {
+    if (!basePath.value || columns.length === 0) return ''
+    return `${basePath.value}/${fileStem}-${positionLabel.value}-第${selectedCol.value}列-contour.png`
 })
 
 const loadPolarPath = computed(() => {
@@ -657,6 +674,14 @@ watch([loadPolarMin, pressPolarMin], () => {
 
 .chart-img:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-img.chart-img-static {
+    cursor: default;
+}
+
+.chart-img.chart-img-static:hover {
+    box-shadow: none;
 }
 
 .image-placeholder {
