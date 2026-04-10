@@ -187,7 +187,7 @@ class EdgeStressReporter:
         self,
         col: RollerColumn,
         position: StressPosition,
-    ) -> Path | None:
+    ) -> Path:
         """
         生成应力等高线图（contourf），X 轴为角位置(degree)，Y 轴为沿滚子距离(mm)。
 
@@ -232,8 +232,7 @@ class EdgeStressReporter:
 
         z_max = float(np.nanmax(Z))
         if z_max <= 0:
-            logger.info(f"跳过等高线图: {col.filename} 第{col.col_index}列 {position.value} 应力全为零")
-            return None
+            z_max = 1.0
 
         contour_height = self.config.pic_height * 0.55
         fig, ax = plt.subplots(
@@ -488,9 +487,7 @@ class EdgeStressReporter:
         for position in StressPosition:
             for is_cn in [True, False]:
                 files.append(self.generate_stress_chart(col, position, is_cn))
-            contour = self.generate_contour_chart(col, position)
-            if contour:
-                files.append(contour)
+            files.append(self.generate_contour_chart(col, position))
 
         polar_load = self.generate_polar_chart(col, is_load=True)
         if polar_load:
