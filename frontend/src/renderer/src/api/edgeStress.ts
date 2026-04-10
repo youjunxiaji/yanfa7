@@ -5,11 +5,17 @@ export interface PreviewItem {
     path: string
 }
 
+export interface SkippedFile {
+    filename: string
+    reason: string
+}
+
 export interface ParseResult {
     fileNames: string[]
     columns: Record<string, number[]>
     generatedFiles: string[]
     previewMap: Record<string, PreviewItem[]>
+    skippedFiles: SkippedFile[]
 }
 
 export interface ProgressMessage {

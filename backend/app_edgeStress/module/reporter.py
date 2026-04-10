@@ -159,12 +159,14 @@ class EdgeStressReporter:
             ax.set_xlabel("Along the Roller Length(mm)")
             ax.set_ylabel("Contact Stress (MPa)")
 
-        n_entries = len(ax.get_legend_handles_labels()[1])
-        ncol = calc_legend_ncol(n_entries, self.config.pic_height)
-        ax.legend(
-            loc="center left", bbox_to_anchor=(1, 0.5),
-            ncol=ncol, frameon=False,
-        )
+        handles, labels = ax.get_legend_handles_labels()
+        if labels:
+            ncol = calc_legend_ncol(len(labels), self.config.pic_height)
+            ax.legend(
+                handles, labels,
+                loc="center left", bbox_to_anchor=(1, 0.5),
+                ncol=ncol, frameon=False,
+            )
         ax.grid(ls="dotted", lw=1.5, alpha=0.6, c="black")
 
         # 保存
@@ -185,7 +187,7 @@ class EdgeStressReporter:
         self,
         col: RollerColumn,
         position: StressPosition,
-    ) -> Path:
+    ) -> Path | None:
         """
         生成应力等高线图（contourf），X 轴为角位置(degree)，Y 轴为沿滚子距离(mm)。
 
@@ -228,13 +230,17 @@ class EdgeStressReporter:
                 if d in s.index:
                     Z[i, j] = s[d]
 
+        z_max = float(np.nanmax(Z))
+        if z_max <= 0:
+            logger.info(f"跳过等高线图: {col.filename} 第{col.col_index}列 {position.value} 应力全为零")
+            return None
+
         contour_height = self.config.pic_height * 0.55
         fig, ax = plt.subplots(
             figsize=(self.config.pic_width, contour_height),
             constrained_layout=True,
         )
 
-        z_max = float(np.nanmax(Z))
         levels = np.linspace(0, z_max, 15)
 
         cf = ax.contourf(
@@ -311,12 +317,17 @@ class EdgeStressReporter:
         df = pd.concat([df, df.iloc[[0]]], axis=0)
         df.index = np.radians(df.index.astype(float))  # type: ignore[assignment]
 
+        r_max = df.max().max()
+        if r_max <= 0:
+            chart_type = "载荷雷达图" if is_load else "应力雷达图"
+            logger.info(f"跳过{chart_type}: {col.filename} 第{col.col_index}列 数据全为零")
+            return None
+
         fig = plt.figure(figsize=(self.config.pic_width, self.config.pic_height))
         ax = fig.add_subplot(111, polar=True)
 
         # r 轴范围
         user_r_min = self.config.load_polar_min if is_load else self.config.press_polar_min
-        r_max = df.max().max()
 
         if user_r_min != 0:
             r_min = user_r_min
@@ -477,7 +488,9 @@ class EdgeStressReporter:
         for position in StressPosition:
             for is_cn in [True, False]:
                 files.append(self.generate_stress_chart(col, position, is_cn))
-            files.append(self.generate_contour_chart(col, position))
+            contour = self.generate_contour_chart(col, position)
+            if contour:
+                files.append(contour)
 
         polar_load = self.generate_polar_chart(col, is_load=True)
         if polar_load:

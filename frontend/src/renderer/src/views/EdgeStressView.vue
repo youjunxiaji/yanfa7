@@ -282,7 +282,21 @@
             </el-col>
         </el-row>
 
-        
+        <!-- 跳过文件 Dialog -->
+        <el-dialog
+            v-model="skippedDialogVisible"
+            title="部分文件被跳过"
+            width="560"
+            align-center
+        >
+            <el-table :data="skippedTableData" stripe style="width: 100%;">
+                <el-table-column prop="filename" label="文件名" min-width="200" show-overflow-tooltip />
+                <el-table-column prop="reason" label="跳过原因" min-width="260" show-overflow-tooltip />
+            </el-table>
+            <template #footer>
+                <el-button type="primary" @click="skippedDialogVisible = false">知道了</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -305,10 +319,13 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElNotification } from 'element-plus'
 import { useEdgeStressStore, type FileInfo } from '@renderer/stores/edgeStress'
-import { parseWithProgress, type WsMessage } from '@renderer/api/edgeStress'
+import { parseWithProgress, type WsMessage, type SkippedFile } from '@renderer/api/edgeStress'
 import FileResultPopover from '@renderer/components/FileResultPopover.vue'
 
 const store = useEdgeStressStore()
+
+const skippedDialogVisible = ref(false)
+const skippedTableData = ref<SkippedFile[]>([])
 
 const progressColor = computed(() => {
     if (store.isDone) return '#34c759'
@@ -438,6 +455,11 @@ function startParse() {
                 }
                 if (msg.columns) {
                     store.setResultColumns(msg.columns)
+                }
+                const skipped = msg.skippedFiles ?? []
+                if (skipped.length > 0) {
+                    skippedTableData.value = skipped
+                    skippedDialogVisible.value = true
                 }
                 ElMessage.success(`解析完成！已生成 ${msg.generatedFiles.length} 个文件`)
             } else if (msg.type === 'error') {

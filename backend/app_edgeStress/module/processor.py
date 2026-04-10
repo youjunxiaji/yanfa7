@@ -109,7 +109,13 @@ class EdgeStressLoader:
             r"(滚子轮廓与内圈接触结果|滚子轮廓与外圈接触结果"
             r"|滚子与滚道接触载荷表|滚子载荷分配)"
         )
-        df_list = pd.read_html(str(file_path), match=pattern)
+        try:
+            df_list = pd.read_html(str(file_path), match=pattern)
+        except ValueError:
+            raise ValueError(f"未找到应力数据表格，该文件可能不是应力分析结果文件")
+
+        if len(df_list) < 3:
+            raise ValueError(f"表格数量不足 ({len(df_list)}个)，无法解析完整的滚子列数据")
 
         num_cols = len(df_list) // 3  # 每列有 3 个表格
 

@@ -101,6 +101,7 @@ async def ws_parse(ws: WebSocket):
 
         all_columns = []
         all_generated: list[str] = []
+        skipped_files: list[dict] = []
 
         for i, file_path in enumerate(files):
             await ws.send_json({
@@ -116,6 +117,7 @@ async def ws_parse(ws: WebSocket):
                 all_columns.extend(file_columns)
             except Exception as e:
                 logger.warning(f"跳过文件 {file_path.name}: {e}")
+                skipped_files.append({"filename": file_path.name, "reason": str(e)})
 
         input_config = InputConfig(files=files, file_type=file_type, output_dir=output_dir)
         dataset = EdgeStressDataset(
@@ -153,6 +155,7 @@ async def ws_parse(ws: WebSocket):
             "columns": result_columns,
             "generatedFiles": all_generated,
             "previewMap": preview_map,
+            "skippedFiles": skipped_files,
         })
     except WebSocketDisconnect:
         logger.info("WebSocket 客户端断开")
@@ -259,7 +262,9 @@ async def update_stress_point(req: UpdateStressPointRequest) -> JSONResponse:
 
     regenerated.append(str(reporter.generate_stress_chart(col, pos, is_cn=True)))
     regenerated.append(str(reporter.generate_stress_chart(col, pos, is_cn=False)))
-    regenerated.append(str(reporter.generate_contour_chart(col, pos)))
+    contour = reporter.generate_contour_chart(col, pos)
+    if contour:
+        regenerated.append(str(contour))
     polar = reporter.generate_polar_chart(col, is_load=False)
     if polar:
         regenerated.append(str(polar))
