@@ -136,12 +136,24 @@
                         <div class="empty-desc">支持递归扫描子目录中的 HTM 文件</div>
                     </div>
 
-                    <div v-if="showProgress" class="progress-block">
+                    <div v-if="showProgress" class="progress-block" :class="progressStateClass">
+                        <div class="progress-header">
+                            <div class="progress-title">
+                                <el-icon :size="16" class="progress-icon">
+                                    <Loading v-if="store.isProcessing" />
+                                    <CircleCheckFilled v-else-if="store.isDone" />
+                                    <WarningFilled v-else-if="store.processStatus === 'error'" />
+                                </el-icon>
+                                <span class="progress-title-text">{{ progressTitleText }}</span>
+                            </div>
+                            <span class="progress-percent">{{ store.progressPercent }}%</span>
+                        </div>
                         <el-progress
                             :percentage="store.progressPercent"
                             :color="progressColor"
-                            :stroke-width="14"
-                            :text-inside="true"
+                            :stroke-width="8"
+                            :show-text="false"
+                            class="progress-bar"
                         />
                         <div
                             v-if="store.stageMessage"
@@ -341,6 +353,7 @@ import {
     Delete,
     Loading,
     Aim,
+    WarningFilled,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElNotification } from 'element-plus'
 import { useEdgeStressStore, type FileInfo } from '@renderer/stores/edgeStress'
@@ -359,6 +372,18 @@ const progressColor = computed(() => {
 })
 
 const showProgress = computed(() => store.processStatus !== 'idle')
+
+const progressStateClass = computed(() => {
+    if (store.isDone) return 'progress-block--done'
+    if (store.processStatus === 'error') return 'progress-block--error'
+    return 'progress-block--processing'
+})
+
+const progressTitleText = computed(() => {
+    if (store.isDone) return '解析完成'
+    if (store.processStatus === 'error') return '解析失败'
+    return '正在解析'
+})
 
 const scanning = ref(false)
 
@@ -768,14 +793,97 @@ function startParse(): void {
 
 .progress-block {
     margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid transparent;
     flex-shrink: 0;
+    transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.progress-block--processing {
+    background: rgba(0, 113, 227, 0.06);
+    border-color: rgba(0, 113, 227, 0.2);
+}
+
+.progress-block--done {
+    background: rgba(52, 199, 89, 0.08);
+    border-color: rgba(52, 199, 89, 0.25);
+}
+
+.progress-block--error {
+    background: rgba(255, 59, 48, 0.06);
+    border-color: rgba(255, 59, 48, 0.25);
+}
+
+.progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.progress-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.progress-icon {
+    color: #0071e3;
+}
+
+.progress-block--done .progress-icon {
+    color: #34c759;
+}
+
+.progress-block--error .progress-icon {
+    color: #ff3b30;
+}
+
+.progress-block--processing .progress-icon {
+    animation: spin 1.2s linear infinite;
+}
+
+.progress-title-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d1d1f;
+    letter-spacing: 0.2px;
+}
+
+.progress-percent {
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #0071e3;
+}
+
+.progress-block--done .progress-percent {
+    color: #34c759;
+}
+
+.progress-block--error .progress-percent {
+    color: #ff3b30;
+}
+
+.progress-bar :deep(.el-progress-bar__outer) {
+    background-color: rgba(0, 0, 0, 0.06);
+    border-radius: 999px;
+}
+
+.progress-bar :deep(.el-progress-bar__inner) {
+    border-radius: 999px;
+    transition: width 0.3s ease;
 }
 
 .stage-message {
-    margin-top: 6px;
+    margin-top: 8px;
     font-size: 12px;
-    color: #86868b;
-    text-align: center;
+    color: #6e6e73;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .config-form {
