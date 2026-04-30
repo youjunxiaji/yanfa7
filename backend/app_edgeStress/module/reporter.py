@@ -317,10 +317,13 @@ class EdgeStressReporter:
         df.index = np.radians(df.index.astype(float))  # type: ignore[assignment]
 
         r_max = df.max().max()
+        # 数据全为零时仍然出图，给一个默认正向 r 轴范围，保证文件不缺失
         if r_max <= 0:
             chart_type = "载荷雷达图" if is_load else "应力雷达图"
-            logger.info(f"跳过{chart_type}: {col.filename} 第{col.col_index}列 数据全为零")
-            return None
+            logger.info(
+                f"{chart_type}: {col.filename} 第{col.col_index}列 数据全为零，使用默认 r 轴范围出图"
+            )
+            r_max = 1.0
 
         fig = plt.figure(figsize=(self.config.pic_width, self.config.pic_height))
         ax = fig.add_subplot(111, polar=True)
