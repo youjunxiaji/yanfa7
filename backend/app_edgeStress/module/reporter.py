@@ -127,11 +127,15 @@ class EdgeStressReporter:
         )
 
         # 绘制每个角度的曲线
+        y_max_data = 0.0
         for i, angle in enumerate(level_unique):
             values = df.loc[angle, "接触应力 (MPa)"]
             if (values == 0).all():  # type: ignore[union-attr]
                 continue
             ax.plot(values, MARKERS[i], c=COLORS[i], label=angle)
+            current_max = float(np.nanmax(values.values))
+            if current_max > y_max_data:
+                y_max_data = current_max
 
         # 坐标轴样式
         ax.spines["right"].set_visible(False)
@@ -142,8 +146,18 @@ class EdgeStressReporter:
         interval_x = x_ticks[1] - x_ticks[0] if len(x_ticks) > 1 else 1
         interval_y = y_ticks[1] - y_ticks[0] if len(y_ticks) > 1 else 1
 
+        # 数据峰值超过 1000 时，Y 轴刻度强制按 100 步进
+        if y_max_data > 1000:
+            interval_y = 100
+
         ax.set_xlim(left=0)
-        ax.set_ylim(bottom=0)
+        if y_max_data > 0:
+            y_top = float(np.ceil(y_max_data / interval_y) * interval_y)
+            if y_top <= y_max_data:
+                y_top += interval_y
+            ax.set_ylim(bottom=0, top=y_top)
+        else:
+            ax.set_ylim(bottom=0)
         ax.xaxis.set_major_locator(ticker.MultipleLocator(interval_x))
         ax.xaxis.set_minor_locator(ticker.MultipleLocator(interval_x / 2))
         ax.yaxis.set_major_locator(ticker.MultipleLocator(interval_y))

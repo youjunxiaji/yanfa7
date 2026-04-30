@@ -65,7 +65,7 @@ backend/
 ### reporter.py — 报告生成
 
 - `calc_legend_ncol()`: 根据图例条目数和画布高度自动计算图例列数
-- `EdgeStressReporter.generate_stress_chart()`: 应力分布曲线 PNG（图例列数自动计算）
+- `EdgeStressReporter.generate_stress_chart()`: 应力分布曲线 PNG（图例列数自动计算；Y 轴上限按数据峰值向上取整到一个 `interval_y`，且最高点贴顶时再加一个间距，保证封顶；峰值 > 1000 时强制使用 100 步进刻度，≤ 1000 时由 matplotlib 自动选）
 - `EdgeStressReporter.generate_contour_chart()`: 应力等高线图 PNG（contourf, jet 色带）
 - `EdgeStressReporter.generate_polar_chart()`: 雷达图 PNG
 - `EdgeStressReporter.build_chart_data()`: 构建 Plotly 图表数据（静态方法，不写文件）
