@@ -1,15 +1,12 @@
 <template>
-    <div class="page-container">
+    <div class="edge-stress-page">
         <el-row :gutter="20" class="page-row">
-            <el-col :span="14">
-                <el-card class="equal-height-card">
+            <el-col :span="14" class="left-col">
+                <el-card class="page-card" shadow="never">
                     <template #header>
                         <div class="card-header">
                             <div class="card-header-left">
-                                <el-icon
-                                    :size="18"
-                                    color="#0071e3"
-                                >
+                                <el-icon :size="18" class="header-icon">
                                     <FolderOpened />
                                 </el-icon>
                                 <span class="card-title">数据文件</span>
@@ -21,23 +18,22 @@
                                 round
                                 class="file-count-tag"
                             >
-                                <el-icon :size="14" style="vertical-align: middle;">
+                                <el-icon :size="14">
                                     <CircleCheckFilled />
                                 </el-icon>
-                                <span style="vertical-align: middle;">已选 {{ store.files.length }} 个文件</span>
+                                <span>已选 {{ store.files.length }} 个文件</span>
                             </el-tag>
                         </div>
                     </template>
 
-                    <!-- 文件选择按钮 -->
                     <div class="file-select-buttons">
                         <el-button
                             type="primary"
-                            style="flex: 2;"
+                            class="btn-select"
                             :loading="scanning"
                             @click="triggerFolderSelect"
                         >
-                            <el-icon v-if="!scanning" style="margin-right: 6px;">
+                            <el-icon v-if="!scanning" class="btn-icon">
                                 <FolderOpened />
                             </el-icon>
                             {{ scanning ? '扫描中…' : '选择文件夹' }}
@@ -53,10 +49,10 @@
                                 <el-button
                                     type="danger"
                                     plain
-                                    style="flex: 1;"
+                                    class="btn-clear"
                                     :disabled="!store.hasFiles"
                                 >
-                                    <el-icon style="margin-right: 6px;">
+                                    <el-icon class="btn-icon">
                                         <Delete />
                                     </el-icon>
                                     一键清空
@@ -65,7 +61,6 @@
                         </el-popconfirm>
                     </div>
 
-                    <!-- 文件列表 -->
                     <div
                         v-if="store.hasFiles"
                         class="file-list-container"
@@ -80,48 +75,48 @@
                                 :preview-items="store.getPreviewItems(file.name)"
                             >
                                 <div class="file-item-left">
-                                    <el-icon
-                                        color="#0071e3"
-                                        :size="16"
-                                    >
+                                    <el-icon class="file-icon" :size="16">
                                         <Document />
                                     </el-icon>
                                     <span class="file-name">{{ file.name }}</span>
                                 </div>
                             </FileResultPopover>
                             <div class="file-item-right">
-                                <el-button
-                                    text
-                                    size="small"
-                                    @click="previewFile(index)"
-                                >
-                                    <el-icon color="#0071e3">
-                                        <View />
-                                    </el-icon>
-                                </el-button>
-                                <el-button
-                                    text
-                                    type="danger"
-                                    size="small"
-                                    @click="removeFile(index)"
-                                >
-                                    <el-icon>
-                                        <Close />
-                                    </el-icon>
-                                </el-button>
+                                <el-tooltip content="预览报告" placement="top" :show-after="400">
+                                    <el-button
+                                        text
+                                        size="small"
+                                        :disabled="!store.isDone"
+                                        @click="previewFile(index)"
+                                    >
+                                        <el-icon class="action-icon">
+                                            <View />
+                                        </el-icon>
+                                    </el-button>
+                                </el-tooltip>
+                                <el-tooltip content="移除" placement="top" :show-after="400">
+                                    <el-button
+                                        text
+                                        type="danger"
+                                        size="small"
+                                        @click="removeFile(index)"
+                                    >
+                                        <el-icon>
+                                            <Close />
+                                        </el-icon>
+                                    </el-button>
+                                </el-tooltip>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 扫描中状态 -->
                     <div
                         v-else-if="scanning"
                         class="empty-state scanning-state"
                     >
                         <el-icon
                             :size="40"
-                            color="#0071e3"
-                            class="scanning-icon"
+                            class="scanning-icon header-icon"
                         >
                             <Loading />
                         </el-icon>
@@ -129,28 +124,23 @@
                         <div class="scanning-desc">请稍候，正在查找 HTM 文件</div>
                     </div>
 
-                    <!-- 空状态 -->
                     <div
                         v-else
                         class="empty-state"
+                        @click="triggerFolderSelect"
                     >
-                        <el-icon
-                            :size="56"
-                            color="#d2d2d7"
-                        >
-                            <Document />
+                        <el-icon :size="48" class="empty-icon">
+                            <FolderOpened />
                         </el-icon>
-                        <div class="empty-text">
-                            请选择数据文件开始分析
-                        </div>
+                        <div class="empty-title">点击选择数据文件夹</div>
+                        <div class="empty-desc">支持递归扫描子目录中的 HTM 文件</div>
                     </div>
 
-                    <!-- 进度条 -->
-                    <div class="mt-12">
+                    <div v-if="showProgress" class="progress-block">
                         <el-progress
                             :percentage="store.progressPercent"
                             :color="progressColor"
-                            :stroke-width="24"
+                            :stroke-width="14"
                             :text-inside="true"
                         />
                         <div
@@ -162,15 +152,12 @@
                     </div>
                 </el-card>
             </el-col>
-            <el-col :span="10">
-                <el-card class="equal-height-card">
+            <el-col :span="10" class="right-col">
+                <el-card class="page-card" shadow="never">
                     <template #header>
                         <div class="card-header">
                             <div class="card-header-left">
-                                <el-icon
-                                    :size="18"
-                                    color="#0071e3"
-                                >
+                                <el-icon :size="18" class="header-icon">
                                     <Setting />
                                 </el-icon>
                                 <span class="card-title">参数配置</span>
@@ -178,111 +165,149 @@
                         </div>
                     </template>
 
-                    <el-form
-                        label-position="left"
-                        label-width="120px"
-                    >
-                        <!-- 保存路径 -->
-                        <el-form-item label="保存路径">
-                            <div style="display: flex; width: 100%;">
-                                <el-tooltip
-                                    :content="store.outputDir"
-                                    :disabled="!store.outputDir"
-                                    placement="top"
-                                >
-                                    <el-input
-                                        v-model="store.outputDir"
-                                        placeholder="请输入或选择文件保存路径"
-                                        @blur="onOutputDirBlur"
-                                    >
-                                        <template #prefix>
-                                            <el-icon :size="16">
-                                                <Folder />
-                                            </el-icon>
-                                        </template>
-                                    </el-input>
-                                </el-tooltip>
-                                <el-button style="margin-left: 8px;" @click="browseOutputDir">
-                                    浏览
-                                </el-button>
+                    <div class="config-form">
+                        <div class="config-section">
+                            <div class="section-label">
+                                <el-icon :size="14">
+                                    <Folder />
+                                </el-icon>
+                                <span>保存路径</span>
                             </div>
-                        </el-form-item>
-
-                        <!-- 数据处理 -->
-                        <div class="section-label">
-                            <el-icon :size="14">
-                                <Operation />
-                            </el-icon>
-                            数据处理
+                            <el-tooltip
+                                :content="store.outputDir"
+                                :disabled="!store.outputDir"
+                                placement="top"
+                                :show-after="500"
+                            >
+                                <el-input
+                                    v-model="store.outputDir"
+                                    placeholder="选择或输入保存路径"
+                                    clearable
+                                    @blur="onOutputDirBlur"
+                                >
+                                    <template #prefix>
+                                        <el-icon :size="14">
+                                            <Folder />
+                                        </el-icon>
+                                    </template>
+                                    <template #append>
+                                        <el-button @click="browseOutputDir">
+                                            <el-icon class="btn-icon">
+                                                <FolderOpened />
+                                            </el-icon>
+                                            浏览
+                                        </el-button>
+                                    </template>
+                                </el-input>
+                            </el-tooltip>
                         </div>
 
-                        <el-form-item label="峰值阈值判定">
-                            <el-input-number
-                                v-model="store.processConfig.peakThreshold"
-                                :step="0.00001"
-                                :min="0"
-                                :max="4000"
-                                style="width: 100%;"
-                                controls-position="right"
-                            />
-                        </el-form-item>
-
-                        <!-- 图片设置 -->
-                        <div class="section-label">
-                            <el-icon :size="14">
-                                <PictureFilled />
-                            </el-icon>
-                            图片设置
+                        <div class="config-section">
+                            <div class="section-label">
+                                <el-icon :size="14">
+                                    <Operation />
+                                </el-icon>
+                                <span>数据处理</span>
+                            </div>
+                            <div class="form-row">
+                                <span class="form-label">峰值阈值</span>
+                                <el-input-number
+                                    v-model="store.processConfig.peakThreshold"
+                                    :step="0.00001"
+                                    :min="0"
+                                    :max="4000"
+                                    controls-position="right"
+                                    class="form-input-number"
+                                />
+                            </div>
                         </div>
 
-                        <el-form-item label="宽度 (英寸)">
-                            <el-input-number
-                                v-model="store.reportConfig.picWidth"
-                                :step="0.1"
-                                :min="1"
-                                :max="30"
-                                style="width: 100%;"
-                                controls-position="right"
-                            />
-                        </el-form-item>
-                        <el-form-item label="高度 (英寸)">
-                            <el-input-number
-                                v-model="store.reportConfig.picHeight"
-                                :step="0.1"
-                                :min="1"
-                                :max="30"
-                                style="width: 100%;"
-                                controls-position="right"
-                            />
-                        </el-form-item>
-                        <!-- 开始解析按钮 -->
-                        <div class="section-label">
-                            <el-icon :size="14">
-                                <VideoPlay />
-                            </el-icon>
-                            执行操作
+                        <div class="config-section">
+                            <div class="section-label">
+                                <el-icon :size="14">
+                                    <PictureFilled />
+                                </el-icon>
+                                <span>图片设置</span>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <span class="form-label">宽度 (英寸)</span>
+                                    <el-input-number
+                                        v-model="store.reportConfig.picWidth"
+                                        :step="0.1"
+                                        :min="1"
+                                        :max="30"
+                                        controls-position="right"
+                                        class="form-input-number"
+                                    />
+                                </div>
+                                <div class="form-row">
+                                    <span class="form-label">高度 (英寸)</span>
+                                    <el-input-number
+                                        v-model="store.reportConfig.picHeight"
+                                        :step="0.1"
+                                        :min="1"
+                                        :max="30"
+                                        controls-position="right"
+                                        class="form-input-number"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
+                        <div class="config-section">
+                            <div class="section-label">
+                                <el-icon :size="14">
+                                    <Aim />
+                                </el-icon>
+                                <span>雷达图最小值</span>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-row">
+                                    <span class="form-label">载荷</span>
+                                    <el-input-number
+                                        v-model="store.reportConfig.loadPolarMin"
+                                        :step="100"
+                                        :min="0"
+                                        controls-position="right"
+                                        class="form-input-number"
+                                    />
+                                </div>
+                                <div class="form-row">
+                                    <span class="form-label">应力</span>
+                                    <el-input-number
+                                        v-model="store.reportConfig.pressPolarMin"
+                                        :step="100"
+                                        :min="0"
+                                        controls-position="right"
+                                        class="form-input-number"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-bar">
                         <el-button
                             type="primary"
                             size="large"
-                            style="width: 100%;"
-                            :disabled="!canParse"
+                            class="btn-parse"
+                            :class="{ 'btn-parse--inactive': !canParse }"
+                            :disabled="store.isProcessing"
                             :loading="store.isProcessing"
                             @click="startParse"
                         >
-                            <el-icon v-if="!store.isProcessing" style="margin-right: 6px;">
+                            <el-icon v-if="!store.isProcessing" class="btn-icon">
                                 <CaretRight />
                             </el-icon>
-                            {{ store.isProcessing ? '解析中...' : '开始解析' }}
+                            {{ parseButtonText }}
                         </el-button>
-                    </el-form>
+                    </div>
                 </el-card>
 
             </el-col>
         </el-row>
 
-        <!-- 跳过文件 Dialog -->
         <el-dialog
             v-model="skippedDialogVisible"
             title="部分文件被跳过"
@@ -311,11 +336,11 @@ import {
     Folder,
     Operation,
     PictureFilled,
-    VideoPlay,
     CaretRight,
     CircleCheckFilled,
     Delete,
     Loading,
+    Aim,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElNotification } from 'element-plus'
 import { useEdgeStressStore, type FileInfo } from '@renderer/stores/edgeStress'
@@ -333,10 +358,11 @@ const progressColor = computed(() => {
     return '#0071e3'
 })
 
-// ========== 文件选择 ==========
+const showProgress = computed(() => store.processStatus !== 'idle')
+
 const scanning = ref(false)
 
-const triggerFolderSelect = async () => {
+const triggerFolderSelect = async (): Promise<void> => {
     const { canceled, rootDir } = await window.electronAPI.openDir({
         title: '选择包含 HTM 文件的文件夹',
     })
@@ -370,8 +396,7 @@ const triggerFolderSelect = async () => {
     }
 }
 
-/** 预览文件：在独立窗口中打开报告预览 */
-const previewFile = (index: number) => {
+const previewFile = (index: number): void => {
     if (!store.isDone) {
         ElMessage.info('请先完成解析后再预览报告')
         return
@@ -388,21 +413,18 @@ const previewFile = (index: number) => {
     })
 }
 
-/** 删除单个文件 */
-function removeFile(index: number) {
+function removeFile(index: number): void {
     store.files.splice(index, 1)
     if (store.files.length === 0) {
         store.clearFiles()
     }
 }
 
-// ========== 保存位置 ==========
-
-function onOutputDirBlur() {
+function onOutputDirBlur(): void {
     // 后续可以校验路径是否存在
 }
 
-async function browseOutputDir() {
+async function browseOutputDir(): Promise<void> {
     const result = await window.electronAPI.openDirectoryDialog({
         title: '选择保存路径',
     })
@@ -412,17 +434,21 @@ async function browseOutputDir() {
     }
 }
 
-// ========== 开始解析 ==========
+const canParse = computed(() => store.hasFiles && !!store.outputDir && !store.isProcessing)
 
-const canParse = computed(() => store.hasFiles && !store.isProcessing)
+const parseButtonText = computed(() => {
+    if (store.isProcessing) return '解析中…'
+    if (store.isDone) return '重新解析'
+    return '开始解析'
+})
 
-function startParse() {
-    if (!store.outputDir) {
-        ElMessage.warning('请先设置保存路径')
+function startParse(): void {
+    if (store.files.length === 0) {
+        ElMessage.warning('请先选择数据文件')
         return
     }
-    if (store.files.length === 0) {
-        ElMessage.warning('请先选择文件')
+    if (!store.outputDir) {
+        ElMessage.warning('请先设置保存路径')
         return
     }
 
@@ -475,59 +501,75 @@ function startParse() {
 </script>
 
 <style scoped>
-.page-container {
-    height: 470px;
+.edge-stress-page {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .page-row {
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
 }
 
 .page-row :deep(.el-col) {
+    display: flex;
+    flex-direction: column;
+}
+
+.left-col {
     height: 100%;
 }
 
-.equal-height-card {
+.right-col {
+    height: 100%;
+}
+
+.page-card {
+    width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    border-radius: 14px;
+    border: 1px solid #ececef;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.04),
+        0 4px 12px rgba(0, 0, 0, 0.04);
     overflow: hidden;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.equal-height-card :deep(.el-card__body) {
+.page-card:hover {
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.06),
+        0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.page-card:hover {
+    border-color: #dcdce0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.page-card :deep(.el-card__header) {
+    padding: 14px 18px;
+    border-bottom: 1px solid #f0f0f3;
+}
+
+.page-card :deep(.el-card__body) {
     flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
+    padding: 16px 18px;
 }
 
-.equal-height-card :deep(.el-card__body) > .empty-state {
-    flex: 1;
-}
-
-.mt-12 {
-    margin-top: 12px;
-}
-
-.stage-message {
-    margin-top: 6px;
-    font-size: 12px;
-    color: #888;
-    text-align: center;
-}
-
-.mt-16 {
-    margin-top: 16px;
-}
-
-/* ========== 卡片头部 ========== */
 .card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 32px;
+    min-height: 28px;
 }
 
 .card-header-left {
@@ -536,15 +578,20 @@ function startParse() {
     gap: 8px;
 }
 
+.header-icon {
+    color: #0071e3;
+}
+
 .card-title {
     font-size: 15px;
     font-weight: 600;
     color: #1d1d1f;
+    letter-spacing: 0.2px;
 }
 
-/* ========== 文件计数标签 ========== */
 .file-count-tag {
-    padding: 14px 14px !important;
+    padding: 0 12px !important;
+    height: 26px;
 }
 
 .file-count-tag :deep(.el-tag__content) {
@@ -553,20 +600,43 @@ function startParse() {
     gap: 4px;
 }
 
-/* ========== 文件选择按钮 ========== */
 .file-select-buttons {
     display: flex;
-    gap: 12px;
+    gap: 10px;
 }
 
-/* ========== 文件列表 ========== */
+.btn-select {
+    flex: 2;
+    height: 38px;
+    font-weight: 500;
+    border-radius: 8px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+}
+
+.btn-select:hover:not(:disabled) {
+    box-shadow: 0 2px 6px rgba(0, 113, 227, 0.25);
+}
+
+.btn-clear {
+    flex: 1;
+    height: 38px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.btn-icon {
+    margin-right: 6px;
+}
+
 .file-list-container {
-    border: 1px solid #e5e5ea;
+    border: 1px solid #ececef;
     border-radius: 10px;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    margin-top: 12px;
+    margin-top: 14px;
+    background: #fafafc;
 }
 
 .file-item {
@@ -575,60 +645,103 @@ function startParse() {
     justify-content: space-between;
     padding: 8px 12px;
     transition: background-color 0.15s ease;
+    cursor: pointer;
 }
 
 .file-item:hover {
     background-color: #f5f5f7;
 }
 
-.file-item+.file-item {
-    border-top: 1px solid #f2f2f7;
+.file-item + .file-item {
+    border-top: 1px solid #f0f0f3;
 }
 
 .file-item-left {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.file-icon {
+    color: #0071e3;
+    flex-shrink: 0;
 }
 
 .file-name {
     font-size: 13px;
     color: #1d1d1f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .file-item-right {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 0;
 }
 
-.file-item-right :deep(.el-button+.el-button) {
+.file-item-right :deep(.el-button + .el-button) {
     margin-left: 0;
 }
 
-/* ========== 空状态 ========== */
+.action-icon {
+    color: #0071e3;
+}
+
 .empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 32px 0;
-    border: 2px dashed #e5e5ea;
+    padding: 36px 16px;
+    border: 2px dashed #e4e4e7;
     border-radius: 12px;
-    margin-top: 16px;
+    margin-top: 14px;
+    flex: 1;
+    transition: all 0.2s ease;
+    cursor: pointer;
 }
 
-.empty-text {
-    font-size: 13px;
+.empty-state:hover {
+    border-color: #0071e3;
+    background: rgba(0, 113, 227, 0.03);
+}
+
+.empty-state:hover .empty-icon {
+    color: #0071e3;
+    transform: translateY(-2px);
+}
+
+.empty-icon {
+    color: #c7c7cc;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.empty-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-top: 14px;
+}
+
+.empty-desc {
+    font-size: 12px;
     color: #86868b;
-    margin-top: 12px;
+    margin-top: 6px;
 }
 
-/* ========== 扫描中状态 ========== */
 .scanning-state {
     border-color: #0071e3;
     border-style: dashed;
-    background: rgba(0, 113, 227, 0.03);
+    background: rgba(0, 113, 227, 0.04);
+    cursor: default;
+}
+
+.scanning-state:hover {
+    background: rgba(0, 113, 227, 0.04);
 }
 
 @keyframes spin {
@@ -641,35 +754,251 @@ function startParse() {
 }
 
 .scanning-title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     color: #0071e3;
     margin-top: 12px;
 }
 
 .scanning-desc {
-    font-size: 13px;
+    font-size: 12px;
     color: #86868b;
     margin-top: 4px;
 }
 
-/* ========== 分区标签 ========== */
+.progress-block {
+    margin-top: 14px;
+    flex-shrink: 0;
+}
+
+.stage-message {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #86868b;
+    text-align: center;
+}
+
+.config-form {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-right: 2px;
+}
+
+.config-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #f8f8fa;
+    border: 1px solid #efeff2;
+    border-radius: 10px;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.config-section:hover {
+    border-color: #e2e2e7;
+    background: #f5f5f8;
+}
+
+.config-section:focus-within {
+    border-color: #0071e3;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.08);
+}
+
 .section-label {
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #86868b;
-    letter-spacing: 0.5px;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #6e6e73;
+    letter-spacing: 0.6px;
     text-transform: uppercase;
-    margin: 20px 0 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #f2f2f7;
 }
 
-/* ========== 表单项间距 ========== */
-:deep(.el-form-item) {
-    margin-bottom: 16px;
+.section-label .el-icon {
+    color: #0071e3;
+}
+
+.form-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.form-grid .form-row {
+    gap: 10px;
+}
+
+.form-label {
+    flex-shrink: 0;
+    width: 80px;
+    font-size: 13px;
+    color: #424245;
+}
+
+.form-input-number {
+    flex: 1;
+    width: auto !important;
+}
+
+.action-bar {
+    margin-top: 14px;
+    flex-shrink: 0;
+    padding-top: 14px;
+    border-top: 1px dashed #ececef;
+}
+
+.btn-parse {
+    width: 100%;
+    height: 44px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 12px;
+    cursor: pointer;
+    background: linear-gradient(135deg, #0071e3 0%, #2997ff 100%);
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 113, 227, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.btn-parse:hover:not(:disabled) {
+    box-shadow: 0 6px 16px rgba(0, 113, 227, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-parse:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0, 113, 227, 0.3);
+}
+
+.btn-parse--inactive {
+    opacity: 0.55;
+    box-shadow: none;
+}
+
+.btn-parse--inactive:hover {
+    opacity: 0.72;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+:deep(.el-input__wrapper) {
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 0 0 1px #e5e5ea inset, 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+    transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+
+:deep(.el-input__wrapper:hover) {
+    box-shadow: 0 0 0 1px #c7c7cc inset, 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+:deep(.el-input.is-focus .el-input__wrapper),
+:deep(.el-input__wrapper:focus-within) {
+    box-shadow:
+        0 0 0 1px var(--el-color-primary) inset,
+        0 0 0 3px rgba(0, 113, 227, 0.15) !important;
+}
+
+/* 让带 append 的输入框看起来是一个整体（无割裂） */
+:deep(.el-input-group--append .el-input__wrapper) {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    box-shadow: 0 0 0 1px #e5e5ea inset !important;
+}
+
+:deep(.el-input-group--append .el-input__wrapper:hover) {
+    box-shadow: 0 0 0 1px #c7c7cc inset !important;
+}
+
+:deep(.el-input-group--append.is-focus .el-input__wrapper),
+:deep(.el-input-group--append .el-input__wrapper:focus-within) {
+    box-shadow:
+        0 0 0 1px var(--el-color-primary) inset,
+        0 0 0 3px rgba(0, 113, 227, 0.15) !important;
+}
+
+:deep(.el-input-group__append) {
+    background: #ffffff !important;
+    border-top-right-radius: 8px !important;
+    border-bottom-right-radius: 8px !important;
+    box-shadow: 0 0 0 1px #e5e5ea inset !important;
+    border-left: 1px solid #ececef !important;
+    color: #424245 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+
+:deep(.el-input-group__append .el-button) {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 100% !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    color: inherit !important;
+    padding: 0 14px !important;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+:deep(.el-input-group__append .el-button .btn-icon) {
+    margin-right: 0;
+}
+
+:deep(.el-input-group__append .el-button:hover) {
+    background: rgba(0, 113, 227, 0.08) !important;
+    color: var(--el-color-primary) !important;
+}
+
+:deep(.el-input-group__append .el-button:active) {
+    background: rgba(0, 113, 227, 0.16) !important;
+}
+
+:deep(.el-input-number) {
+    line-height: normal;
+}
+
+:deep(.el-input-number .el-input__inner) {
+    text-align: left;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+:deep(.el-input-number.is-controls-right .el-input-number__increase),
+:deep(.el-input-number.is-controls-right .el-input-number__decrease) {
+    background: transparent;
+    border-color: transparent;
+    color: #86868b;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+
+:deep(.el-input-number.is-controls-right .el-input-number__increase:hover),
+:deep(.el-input-number.is-controls-right .el-input-number__decrease:hover) {
+    color: var(--el-color-primary);
+    background: rgba(0, 113, 227, 0.08);
+}
+
+:deep(.el-input-number.is-controls-right .el-input-number__increase:active),
+:deep(.el-input-number.is-controls-right .el-input-number__decrease:active) {
+    background: rgba(0, 113, 227, 0.16);
 }
 </style>

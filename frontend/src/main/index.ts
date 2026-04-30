@@ -20,10 +20,27 @@ import { ChildProcess, spawn, execSync } from 'child_process'
 import http from 'http'
 import Store from 'electron-store'
 
+interface MainWindowBounds {
+    width: number
+    height: number
+    x?: number
+    y?: number
+    isMaximized?: boolean
+}
+
+const DEFAULT_WINDOW_BOUNDS: MainWindowBounds = {
+    width: 1280,
+    height: 800
+}
+
+const MIN_WINDOW_WIDTH = 1100
+const MIN_WINDOW_HEIGHT = 700
+
 const store = new Store({
     defaults: {
         appearance: 'light',
-        language: 'zh-CN'
+        language: 'zh-CN',
+        mainWindowBounds: DEFAULT_WINDOW_BOUNDS as MainWindowBounds
     }
 })
 
@@ -108,10 +125,15 @@ const killBackend = (): void => {
 }
 
 const createWindow = (): void => {
+    const savedBounds = (store.get('mainWindowBounds') as MainWindowBounds) || DEFAULT_WINDOW_BOUNDS
     const mainWindow = new BrowserWindow({
         title: '研发七部工具包',
-        width: 1000,
-        height: 600,
+        width: Math.max(savedBounds.width ?? DEFAULT_WINDOW_BOUNDS.width, MIN_WINDOW_WIDTH),
+        height: Math.max(savedBounds.height ?? DEFAULT_WINDOW_BOUNDS.height, MIN_WINDOW_HEIGHT),
+        x: savedBounds.x,
+        y: savedBounds.y,
+        minWidth: MIN_WINDOW_WIDTH,
+        minHeight: MIN_WINDOW_HEIGHT,
         show: false,
         autoHideMenuBar: true,
         webPreferences: {
@@ -121,8 +143,29 @@ const createWindow = (): void => {
     })
 
     mainWindow.on('ready-to-show', () => {
+        if (savedBounds.isMaximized) {
+            mainWindow.maximize()
+        }
         mainWindow.show()
     })
+
+    let saveBoundsTimer: NodeJS.Timeout | null = null
+    const persistBounds = (): void => {
+        if (mainWindow.isDestroyed()) return
+        const isMaximized = mainWindow.isMaximized()
+        const next: MainWindowBounds = isMaximized
+            ? { ...((store.get('mainWindowBounds') as MainWindowBounds) || DEFAULT_WINDOW_BOUNDS), isMaximized: true }
+            : { ...mainWindow.getBounds(), isMaximized: false }
+        store.set('mainWindowBounds', next)
+    }
+    const scheduleSaveBounds = (): void => {
+        if (saveBoundsTimer) clearTimeout(saveBoundsTimer)
+        saveBoundsTimer = setTimeout(persistBounds, 400)
+    }
+    mainWindow.on('resize', scheduleSaveBounds)
+    mainWindow.on('move', scheduleSaveBounds)
+    mainWindow.on('maximize', persistBounds)
+    mainWindow.on('unmaximize', persistBounds)
 
     let forceClose = false
     mainWindow.on('close', (event) => {

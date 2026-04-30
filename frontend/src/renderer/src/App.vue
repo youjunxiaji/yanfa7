@@ -49,7 +49,7 @@ const paletteVisible = ref(false)
 const quitVisible = ref(false)
 
 function doQuit(): void {
-    window.electronAPI.confirmQuit()
+    window.electronAPI?.confirmQuit()
 }
 
 function handleKeydown(e: KeyboardEvent): void {
@@ -68,7 +68,7 @@ onMounted(() => {
     syncDarkClass()
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncDarkClass)
     window.addEventListener('keydown', handleKeydown)
-    window.electronAPI.onConfirmQuit(() => {
+    window.electronAPI?.onConfirmQuit(() => {
         quitVisible.value = true
     })
 })

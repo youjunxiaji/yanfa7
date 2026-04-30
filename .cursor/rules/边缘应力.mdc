@@ -152,6 +152,18 @@ WebSocket 接口。连接后发送 JSON 请求，服务端逐文件处理并实�
 
 > `previewMap` 以源文件 stem 为 key，值为该文件每个滚子列的内圈中文应力曲线 PNG 绝对路径。
 
+## 主页面布局
+
+`EdgeStressView.vue` 使用 14:10 双卡片布局（`el-row :gutter="20"`）：
+
+- **左卡「数据文件」**：`选择文件夹` + `一键清空` 按钮 → 文件列表（含预览/移除）/ 空状态卡（整块可点击触发选择）/ 扫描中态。`processStatus !== 'idle'` 时底部出现进度条与阶段提示。
+- **右卡「参数配置」**：垂直堆叠四个分区（保存路径 / 数据处理 / 图片设置 / 雷达图最小值），每个分区头部为「图标 + 中文标签」，下方是 label 在左 + `el-input-number` 在右（不再用 `el-form` 的 120px label-width）。`保存路径` 用带 `append` 浏览按钮的 `el-input`。
+- **底部行动条**：`开始解析` 主按钮，禁用态下方显示「请先选择数据文件 / 请先设置保存路径」等占位提示；`canParse = hasFiles && !!outputDir && !isProcessing`。
+
+雷达图最小值（`loadPolarMin` / `pressPolarMin`）已从「仅在预览窗口可调」升级为「主页面也可预设」。store 字段保持不变，主进程参数面板在 `el-input-number` 直接绑定 `store.reportConfig.loadPolarMin` 与 `store.reportConfig.pressPolarMin`。
+
+卡片暗色模式覆盖样式集中在 `src/renderer/src/assets/main.css` 的「边缘应力页」段落，使用 `html.dark .page-card` / `html.dark .empty-state` 等选择器；不要把暗色样式写回 `EdgeStressView.vue` 的 `<style scoped>`。
+
 ## 预览窗口布局
 
 使用三栏布局（Electron 独立 BrowserWindow）：

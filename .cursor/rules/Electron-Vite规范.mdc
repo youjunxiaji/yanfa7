@@ -70,6 +70,16 @@ if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
 - 子窗口通过 preload 的 `getSearchParams()` 获取参数
 - 不依赖 Pinia store（不同 BrowserWindow 不共享内存）
 
+### 主窗口尺寸与位置记忆
+
+主进程在 `src/main/index.ts` 中：
+
+- 默认尺寸 1280×800，最小尺寸 1100×700（`MIN_WINDOW_WIDTH` / `MIN_WINDOW_HEIGHT` 常量）
+- electron-store 的 `mainWindowBounds` 字段保存 `{ width, height, x, y, isMaximized }`
+- `resize` / `move` 事件用 400ms debounce 写入 store；`maximize` / `unmaximize` 立即写入
+- 启动时优先恢复保存的尺寸，并在 `ready-to-show` 中按需 `maximize()`
+- 子窗口（preview 等）保留各自独立的尺寸策略，不共享主窗口的 bounds
+
 ## 自定义协议
 
 - `local-file://` 协议用于在渲染进程中安全加载本地文件（图片、HTML 报告）
