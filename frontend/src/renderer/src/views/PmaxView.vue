@@ -344,6 +344,7 @@ import {
 } from '@element-plus/icons-vue'
 import { Language, LANGUAGE_OPTIONS } from '@renderer/constants/language'
 import { analyzePmax, type AnalyzeResponse } from '@renderer/api/pmax'
+import { convertFileSrc } from '@tauri-apps/api/core'
 
 const isMac = window.electron.process.platform === 'darwin'
 
@@ -403,8 +404,8 @@ const chartPaths = reactive({ front: '', rear: '' })
 const imgCacheBuster = ref(Date.now())
 
 const toLocalFileUrl = (filePath: string, cacheBuster?: number): string => {
-    const base = `local-file://localhost?path=${encodeURIComponent(filePath)}`
-    return cacheBuster != null ? `${base}&t=${cacheBuster}` : base
+    const base = convertFileSrc(filePath)
+    return cacheBuster != null ? `${base}?t=${cacheBuster}` : base
 }
 
 const handleDragStart = (event: DragEvent, filePath: string): void => {

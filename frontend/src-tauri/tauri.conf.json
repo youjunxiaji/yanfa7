@@ -1,0 +1,44 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "研发七部工具包",
+    "version": "2.0.4",
+    "identifier": "com.rd7.yanfa7",
+    "build": {
+        "frontendDist": "../dist-tauri",
+        "devUrl": "http://localhost:1420",
+        "beforeDevCommand": "npm run dev:renderer",
+        "beforeBuildCommand": "npm run build:renderer"
+    },
+    "app": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "研发七部工具包",
+                "width": 1280,
+                "height": 800,
+                "minWidth": 1100,
+                "minHeight": 700,
+                "resizable": true,
+                "fullscreen": false
+            }
+        ],
+        "security": {
+            "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; frame-src 'self' asset: http://asset.localhost https://asset.localhost; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420 ws://localhost:8000 http://localhost:8000",
+            "assetProtocol": {
+                "enable": true,
+                "scope": ["**"]
+            }
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": ["nsis"],
+        "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/128x128@2x.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+        ]
+    }
+}

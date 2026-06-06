@@ -43,7 +43,7 @@
                         <div class="panel-body">
                             <iframe
                                 v-if="htmlReportPath"
-                                :src="`local-file://${htmlReportPath}`"
+                                :src="convertFileSrc(htmlReportPath)"
                                 class="report-iframe"
                             />
                             <div v-else class="panel-empty">
@@ -63,7 +63,7 @@
                                 <div class="image-label">中文</div>
                                 <img
                                     v-if="stressChartCnPath"
-                                    :src="`local-file://${stressChartCnPath}`"
+                                    :src="convertFileSrc(stressChartCnPath)"
                                     class="chart-img"
                                     @click="openImagePreview(stressChartCnPath)"
                                 >
@@ -73,7 +73,7 @@
                                 <div class="image-label">英文</div>
                                 <img
                                     v-if="stressChartEnPath"
-                                    :src="`local-file://${stressChartEnPath}`"
+                                    :src="convertFileSrc(stressChartEnPath)"
                                     class="chart-img"
                                     @click="openImagePreview(stressChartEnPath)"
                                 >
@@ -92,7 +92,7 @@
                                 <div class="image-label">载荷分布</div>
                                 <img
                                     v-if="loadPolarPath"
-                                    :src="`local-file://${loadPolarPath}`"
+                                    :src="convertFileSrc(loadPolarPath)"
                                     class="chart-img"
                                     @click="openImagePreview(loadPolarPath)"
                                 >
@@ -102,7 +102,7 @@
                                 <div class="image-label">应力分布</div>
                                 <img
                                     v-if="stressPolarPath"
-                                    :src="`local-file://${stressPolarPath}`"
+                                    :src="convertFileSrc(stressPolarPath)"
                                     class="chart-img"
                                     @click="openImagePreview(stressPolarPath)"
                                 >
@@ -130,7 +130,7 @@
     >
         <img
             v-if="imagePreviewSrc"
-            :src="`local-file://${imagePreviewSrc}`"
+            :src="convertFileSrc(imagePreviewSrc)"
             class="preview-full-img"
         >
     </el-dialog>
@@ -140,6 +140,7 @@
 import { computed, ref, watch } from 'vue'
 import { Document } from '@element-plus/icons-vue'
 import { useEdgeStressStore } from '@renderer/stores/edgeStress'
+import { convertFileSrc } from '@tauri-apps/api/core'
 
 const props = defineProps<{
     show: boolean

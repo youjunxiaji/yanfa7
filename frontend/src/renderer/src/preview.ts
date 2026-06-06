@@ -5,6 +5,7 @@ import 'element-plus/theme-chalk/dark/css-vars.css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import ReportPreviewView from './views/ReportPreviewView.vue'
 import './assets/main.css'
+import { initTauriBridge } from './shims/tauri-bridge'
 
 function syncDarkClass(): void {
     const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -13,8 +14,11 @@ function syncDarkClass(): void {
 syncDarkClass()
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncDarkClass)
 
-const app = createApp(ReportPreviewView)
+// previewAPI must exist before ReportPreviewView reads its search params.
+initTauriBridge().finally(() => {
+    const app = createApp(ReportPreviewView)
 
-app.use(ElementPlus as unknown as Plugin, { locale: zhCn })
+    app.use(ElementPlus as unknown as Plugin, { locale: zhCn })
 
-app.mount('#app')
+    app.mount('#app')
+})

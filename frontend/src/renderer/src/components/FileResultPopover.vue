@@ -36,6 +36,8 @@
 </template>
 
 <script setup lang="ts">
+import { convertFileSrc } from '@tauri-apps/api/core'
+
 export interface PreviewItem {
     colIndex: number
     path: string
@@ -47,7 +49,7 @@ defineProps<{
 }>()
 
 function localFileUrl(filePath: string): string {
-    return `local-file:///file?path=${encodeURIComponent(filePath)}`
+    return convertFileSrc(filePath)
 }
 </script>
 

@@ -4,11 +4,8 @@
     <head>
         <meta charset="UTF-8" />
         <title>研发七部工具包</title>
-        <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
-        <meta
-            http-equiv="Content-Security-Policy"
-            content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: local-file:; frame-src local-file:; connect-src 'self' ws://localhost:8000 http://localhost:8000"
-        />
+        <!-- CSP is managed by Tauri (see src-tauri/tauri.conf.json > app.security.csp) -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     </head>
 
     <body>
