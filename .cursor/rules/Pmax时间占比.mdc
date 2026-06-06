@@ -11,15 +11,14 @@ alwaysApply: false
 ## 数据流
 
 ```
-用户粘贴表格数据（持续时间 + Pmax）
-→ 前端表格展示
-→ 用户设置分箱参数（Min/Max/Step）+ 图形参数
+用户点击「粘贴数据」→ Dialog 内 ⌘/Ctrl+V 粘贴 Excel 4 列数据 → 确认导入（前端仅记录行数，不常驻表格）
+→ 左侧参数卡设置分箱参数（Min/Max/Step）+ 字体 / 图形比例 + 图表语言
 → 点击「生成图表」→ POST /api/pmax/analyze
 → 后端 pd.DataFrame 解析 → pd.cut 分箱 → groupby 统计占比
 → 计算 min/max 统计摘要 + matplotlib 柱状图
 → PNG 保存到临时目录 → 返回文件路径 + 统计数据
-→ 前端 Dialog 展示（local-file:// 协议 + imgCacheBuster 防缓存）
-→ 前端显示统计摘要 + 用户可拖拽图片到 Word（Electron startDrag IPC）
+→ 右卡「图表预览」内联展示前/后轴承 PNG（Tauri `convertFileSrc` 生成 URL + imgCacheBuster 防缓存）
+→ 上方显示统计摘要表；图片可拖拽到 Word（startDrag，经 tauri-bridge 垫片转发）
 ```
 
 ## 输入数据格式
@@ -62,6 +61,14 @@ alwaysApply: false
 - 前端：`constants/language.ts` — `Language.ZH = '中文'` / `Language.EN = 'English'`
 - 后端：`common/constants.py` — `Language.ZH = "中文"` / `Language.EN = "English"`
 - 前后端值必须保持一致
+
+## 主页面布局
+
+`PmaxView.vue` 采用 10:14 双卡片布局（`el-row :gutter="20"`），与边缘应力页**统一的设计语言**（`.page-card` + 常驻 `.config-section` bento 分区，浅色样式及输入框 `:deep` 样式与边缘应力页一致）：
+
+- **左卡「参数配置」**：四个常驻分区（分箱参数 / 字体参数 / 图形比例 / 图表语言），分区用 `flex: 1 1 auto` 撑满面板高度、无内部滚动条；底部行动条为 `生成图表`（渐变主按钮，`flex:2`）+ `清空数据`（`flex:1`）并排。
+- **右卡「图表预览」**：卡头含「粘贴数据」按钮（带行数 tag）；空状态整块可点击（无数据 → 打开粘贴 Dialog；有数据未出图 → 触发生成）；出图后顶部为统计摘要表，下方前 / 后轴承 PNG 内联纵向排列。
+- 暗色样式**复用边缘应力页**的全局规则（`main.css` 中 `html.dark .page-card` / `.config-section` / `.empty-state` 等），不要写回 `<style scoped>`；Pmax 专属暗色仅保留 `.bin-col-title` / `.bin-label` / `.chart-label` / `.stats-section` / `.paste-*` 等。
 
 ## 前端文件
 
@@ -125,9 +132,9 @@ backend/
 
 ## 拖拽到 Word
 
-- Electron 渲染进程中 `<img>` 无法直接拖拽到外部应用
-- 通过 IPC `drag:start` → 主进程 `webContents.startDrag({ file, icon })` 实现原生文件拖拽
-- `icon` 使用 `nativeImage.createFromPath(filePath).resize({ width: 200 })` 生成缩略图
+- 渲染进程中 `<img>` 无法直接拖拽到外部应用，需走原生文件拖拽
+- 前端统一调用 `window.electronAPI.startDrag(filePath)`；Electron 下经 IPC `drag:start` → 主进程 `webContents.startDrag({ file, icon })`，Tauri 下由 `shims/tauri-bridge.ts` 垫片转发到对应实现
+- `icon` 使用文件缩略图（Electron 为 `nativeImage.createFromPath(filePath).resize({ width: 200 })`）
 
 ## 核心算法
 

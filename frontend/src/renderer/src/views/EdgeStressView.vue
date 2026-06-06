@@ -195,7 +195,6 @@
                                     v-model="store.outputDir"
                                     placeholder="选择或输入保存路径"
                                     clearable
-                                    @blur="onOutputDirBlur"
                                 >
                                     <template #prefix>
                                         <el-icon :size="14">
@@ -314,6 +313,12 @@
                             </el-icon>
                             {{ parseButtonText }}
                         </el-button>
+                        <transition name="hint-fade">
+                            <p v-if="parseHint" class="parse-hint">
+                                <el-icon :size="13"><InfoFilled /></el-icon>
+                                <span>{{ parseHint }}</span>
+                            </p>
+                        </transition>
                     </div>
                 </el-card>
 
@@ -354,6 +359,7 @@ import {
     Loading,
     Aim,
     WarningFilled,
+    InfoFilled,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElNotification } from 'element-plus'
 import { useEdgeStressStore, type FileInfo } from '@renderer/stores/edgeStress'
@@ -445,10 +451,6 @@ function removeFile(index: number): void {
     }
 }
 
-function onOutputDirBlur(): void {
-    // 后续可以校验路径是否存在
-}
-
 async function browseOutputDir(): Promise<void> {
     const result = await window.electronAPI.openDirectoryDialog({
         title: '选择保存路径',
@@ -460,6 +462,13 @@ async function browseOutputDir(): Promise<void> {
 }
 
 const canParse = computed(() => store.hasFiles && !!store.outputDir && !store.isProcessing)
+
+const parseHint = computed(() => {
+    if (store.isProcessing || store.isDone) return ''
+    if (!store.hasFiles) return '请先选择数据文件'
+    if (!store.outputDir) return '请先设置保存路径'
+    return ''
+})
 
 const parseButtonText = computed(() => {
     if (store.isProcessing) return '解析中…'
@@ -552,67 +561,7 @@ function startParse(): void {
     height: 100%;
 }
 
-.page-card {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    border-radius: 14px;
-    border: 1px solid #ececef;
-    box-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.04),
-        0 4px 12px rgba(0, 0, 0, 0.04);
-    overflow: hidden;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.page-card:hover {
-    box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.06),
-        0 8px 24px rgba(0, 0, 0, 0.06);
-}
-
-.page-card:hover {
-    border-color: #dcdce0;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-
-.page-card :deep(.el-card__header) {
-    padding: 14px 18px;
-    border-bottom: 1px solid #f0f0f3;
-}
-
-.page-card :deep(.el-card__body) {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    padding: 16px 18px;
-}
-
-.card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 28px;
-}
-
-.card-header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.header-icon {
-    color: #0071e3;
-}
-
-.card-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1d1d1f;
-    letter-spacing: 0.2px;
-}
+/* 卡片外壳 / 卡片头 等通用样式 → 见 main.css「工具页通用样式」段 */
 
 .file-count-tag {
     padding: 0 12px !important;
@@ -886,52 +835,7 @@ function startParse(): void {
     white-space: nowrap;
 }
 
-.config-form {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding-right: 2px;
-}
-
-.config-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px 14px;
-    background: #f8f8fa;
-    border: 1px solid #efeff2;
-    border-radius: 10px;
-    transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.config-section:hover {
-    border-color: #e2e2e7;
-    background: #f5f5f8;
-}
-
-.config-section:focus-within {
-    border-color: #0071e3;
-    background: #fff;
-    box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.08);
-}
-
-.section-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #6e6e73;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-}
-
-.section-label .el-icon {
-    color: #0071e3;
-}
+/* config-form / config-section / section-label 通用样式 → 见 main.css「工具页通用样式」段 */
 
 .form-row {
     display: flex;
@@ -961,12 +865,7 @@ function startParse(): void {
     width: auto !important;
 }
 
-.action-bar {
-    margin-top: 14px;
-    flex-shrink: 0;
-    padding-top: 14px;
-    border-top: 1px dashed #ececef;
-}
+/* action-bar 通用样式 → 见 main.css「工具页通用样式」段 */
 
 .btn-parse {
     width: 100%;
@@ -1002,25 +901,34 @@ function startParse(): void {
     transform: none !important;
 }
 
-:deep(.el-input__wrapper) {
-    border-radius: 8px;
-    background: #ffffff;
-    box-shadow: 0 0 0 1px #e5e5ea inset, 0 1px 2px rgba(0, 0, 0, 0.02) !important;
-    transition: box-shadow 0.2s ease, background 0.2s ease;
+.parse-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 10px;
+    margin-bottom: 0;
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
 }
 
-:deep(.el-input__wrapper:hover) {
-    box-shadow: 0 0 0 1px #c7c7cc inset, 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+.parse-hint .el-icon {
+    color: var(--el-color-warning);
 }
 
-:deep(.el-input.is-focus .el-input__wrapper),
-:deep(.el-input__wrapper:focus-within) {
-    box-shadow:
-        0 0 0 1px var(--el-color-primary) inset,
-        0 0 0 3px rgba(0, 113, 227, 0.15) !important;
+.hint-fade-enter-active,
+.hint-fade-leave-active {
+    transition: opacity 0.2s ease;
 }
 
-/* 让带 append 的输入框看起来是一个整体（无割裂） */
+.hint-fade-enter-from,
+.hint-fade-leave-to {
+    opacity: 0;
+}
+
+/* el-input__wrapper 基础样式 → 见 main.css「工具页通用样式」段 */
+
+/* 让带 append 的输入框看起来是一个整体（无割裂；append 仅边缘应力页用）*/
 :deep(.el-input-group--append .el-input__wrapper) {
     border-top-right-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
@@ -1081,32 +989,5 @@ function startParse(): void {
     background: rgba(0, 113, 227, 0.16) !important;
 }
 
-:deep(.el-input-number) {
-    line-height: normal;
-}
-
-:deep(.el-input-number .el-input__inner) {
-    text-align: left;
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum";
-}
-
-:deep(.el-input-number.is-controls-right .el-input-number__increase),
-:deep(.el-input-number.is-controls-right .el-input-number__decrease) {
-    background: transparent;
-    border-color: transparent;
-    color: #86868b;
-    transition: color 0.15s ease, background 0.15s ease;
-}
-
-:deep(.el-input-number.is-controls-right .el-input-number__increase:hover),
-:deep(.el-input-number.is-controls-right .el-input-number__decrease:hover) {
-    color: var(--el-color-primary);
-    background: rgba(0, 113, 227, 0.08);
-}
-
-:deep(.el-input-number.is-controls-right .el-input-number__increase:active),
-:deep(.el-input-number.is-controls-right .el-input-number__decrease:active) {
-    background: rgba(0, 113, 227, 0.16);
-}
+/* el-input-number 通用样式 → 见 main.css「工具页通用样式」段 */
 </style>
