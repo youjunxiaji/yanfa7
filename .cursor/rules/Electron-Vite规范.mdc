@@ -1,10 +1,12 @@
 ---
-description: electron-vite 多窗口架构、构建配置和自定义协议规范
-globs: src/main/**/*.ts,src/preload/**/*.ts,src/renderer/*.html,electron.vite.config.ts
+description: "[LEGACY/已冻结] electron-vite 架构与构建（项目已全面转 Tauri，现行架构见 Tauri架构.mdc）"
+globs: src/main/**/*.ts,src/preload/**/*.ts,electron.vite.config.ts
 alwaysApply: false
 ---
 
-# electron-vite 开发规范
+> ⚠️ **LEGACY（已冻结）**：项目已**全面转 Tauri v2**。本文件描述的 Electron 路径（`src/main`、`src/preload`、`electron.vite.config.ts`、`local-file://` 协议）是**待删除的死代码，不代表当前架构**。现行架构见 `Tauri架构.mdc`；本文仅供迁移收尾删除 electron 时参考。
+
+# electron-vite 开发规范（legacy）
 
 ## 多窗口架构（官方推荐做法）
 

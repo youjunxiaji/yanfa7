@@ -1,8 +1,11 @@
 ---
-description: Electron IPC 通信、Preload 脚本和主进程开发规范
+description: "[LEGACY/已冻结] Electron IPC/Preload 规范（项目已全面转 Tauri，现行原生能力见 Tauri架构.mdc）"
 alwaysApply: false
 ---
-# Electron IPC 规范
+
+> ⚠️ **LEGACY（已冻结）**：项目已**全面转 Tauri v2**。本文件描述的 Electron IPC / Preload 机制是**待删除的死代码，不代表当前架构**。现行原生能力（兼容垫片 `tauri-bridge.ts`、`invoke`、`#[tauri::command]`）见 `Tauri架构.mdc`。
+
+# Electron IPC 规范（legacy）
 
 ## Preload 脚本
 - 通过 `contextBridge.exposeInMainWorld('electronAPI', ...)` 暴露自定义 API

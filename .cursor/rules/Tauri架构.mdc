@@ -1,0 +1,79 @@
+---
+description: Tauri v2 架构与原生能力规范（兼容垫片、IPC/command、多窗口、资源协议、插件、构建命令）
+globs: src-tauri/**,src/renderer/src/shims/**
+alwaysApply: false
+---
+
+# Tauri v2 架构规范
+
+项目已从 Electron 全面转 Tauri v2。渲染层（Vue）几乎零改动——所有原生能力收敛到**单一兼容垫片**，组件继续写 `window.electronAPI.*`。
+
+## 核心：兼容垫片 `shims/tauri-bridge.ts`
+
+- 唯一入口 `initTauriBridge()`，必须在 `app.mount()` 前 `await`（见 `main.ts` / `preview.ts`），以便全局对象与持久化主题就位
+- 重建三个全局：
+  - `window.electron` — `process.platform`（由 `plugin-os` 解析，`macos→darwin`）、`process.versions`（app/tauri 版本）
+  - `window.electronAPI` — 文件对话框、目录扫描、预览窗口、退出确认、主题、拖拽（见下表）
+  - `window.previewAPI` — `getSearchParams()`，预览窗口从 URL query 读参数
+- **新增原生能力 = 在 bridge 加方法**；组件不直接散用 `@tauri-apps/api`（`convertFileSrc` 是目前唯一例外，组件直接 import）
+
+| `window.electronAPI` 方法 | Tauri 实现 |
+|---|---|
+| `openFileDialog` / `openDir` / `openDirectoryDialog` | `@tauri-apps/plugin-dialog` `open()` |
+| `scanDir` | `invoke('scan_dir')` → Rust |
+| `openPreviewWindow` | `WebviewWindow`（见多窗口） |
+| `onConfirmQuit` / `confirmQuit` | `getCurrentWindow().onCloseRequested` / `destroy()` |
+| `theme.set` / `theme.get` | `plugin-store` + `setTheme` + `.dark` class |
+| `startDrag` | `@crabnebula/tauri-plugin-drag` |
+
+> `window.electron*` 的全局类型**暂仍来自 legacy `src/preload/index.d.ts`**（经 `tsconfig.web.json` include）。删旧 preload 前需把该 `declare global` 搬到渲染层。
+
+## IPC / Rust command
+
+- Rust command 写在 `src-tauri/src/lib.rs`，`#[tauri::command]` + 注册进 `generate_handler!`
+- 目前唯一 command：`scan_dir(root_dir, extensions)` → `{ filePaths, fileSizes }`（递归扫描，替代旧 `fs:scanDir`）
+- 渲染层经 bridge 用 `@tauri-apps/api/core` 的 `invoke('scan_dir', { rootDir, extensions })`
+- **新增 command 三步**：① `lib.rs` 写 `#[tauri::command]`；② 加进 `generate_handler![...]`；③ 在 `capabilities/default.json` 放行（如需）
+- 注意：多数"原生能力"不走 Rust command，而是 bridge 直接用前端插件 API；**业务数据**走 Python sidecar 的 HTTP/WS（`api/*.ts`，:8000），与 Tauri IPC 无关
+
+## 多窗口 / 预览窗口
+
+- 不在 `tauri.conf.json` 预声明（conf 只有 `main`），而是前端 `@tauri-apps/api/webviewWindow` 的 `WebviewWindow` **动态创建**
+- 见 `tauri-bridge.ts` 的 `openPreviewWindow`：固定 label `'preview'` → `getByLabel` 查旧窗口 → `destroy()` + 轮询等其消失 → `new WebviewWindow('preview', { url: 'preview.html?<query>' })` → `tauri://created` 后 `maximize()` + `setFocus()`
+- **Tauri 无 JS 侧 `navigate()`**，故靠"销毁重建窗口"让新 query 生效
+- `preview.html` 是独立 Vite 入口（`vite.renderer.config.ts` 的 `input.preview`），挂 `ReportPreviewView.vue`；参数经 URL query 传递，窗口侧用 `window.previewAPI.getSearchParams()` 读
+- 权限：`capabilities/default.json` 声明 `windows: ["main","preview"]` + `core:webview:allow-create-webview-window`
+
+## 本地文件 / 图片协议
+
+- 用 `convertFileSrc`（`@tauri-apps/api/core`）+ `protocol-asset`，替代旧 `local-file://`
+- Rust：`Cargo.toml` 的 `tauri` 开 `features = ["protocol-asset"]`；`tauri.conf.json` 的 `app.security.assetProtocol.enable=true, scope:["**"]`；CSP 放行 `asset:` / `http(s)://asset.localhost`
+- 组件直接 `import { convertFileSrc } from '@tauri-apps/api/core'`
+- 图片缓存破坏：固定路径图片重新生成后，URL 拼 `?t=<timestamp>` 强制刷新（见 `PmaxView.vue` / `ReportPreviewView.vue`）
+
+## 系统能力插件
+
+Rust 端 `lib.rs` 注册，前端对应 `@tauri-apps/plugin-*`，权限在 `capabilities/default.json`：
+
+| 插件 | 用途 |
+|---|---|
+| `window-state` | 记忆窗口位置/尺寸 |
+| `dialog` | 选文件 / 选目录 |
+| `store` | 设置持久化（`settings.json`） |
+| `os` | 读 platform |
+| `drag`（`@crabnebula/tauri-plugin-drag`） | 图表 PNG 拖出到 Word |
+| `opener` | 已注册，暂无前端调用点 |
+| `webviewWindow`（core） | 预览窗 |
+
+**新增 Tauri 权限改 `src-tauri/capabilities/default.json`，不是 `tauri.conf.json`。**
+
+## 开发 / 构建命令
+
+- `npm run tauri:dev` — 启动 Tauri 应用（`beforeDevCommand` 自动起渲染层 Vite :1420）；需后端 :8000 已在跑
+- `npm run dev:renderer` — 仅起渲染层 Vite（纯浏览器调 UI，bridge 在非 Tauri 环境有降级）
+- `npm run tauri:build` — 打包（`beforeBuildCommand` 跑 `build:renderer`）
+- 应用图标：源在 `src-tauri/icons/`（`tauri.conf.json` 的 `bundle.icon` 引用）；**dev 的 dock 图标由 Tauri 在编译期 `include_bytes!` 嵌入 `icon.icns`**，改图标后需重新编译（`cargo clean -p yanfa7` 后再 `tauri:dev`）才更新
+
+## Legacy（待删）
+
+`src/main/**`、`src/preload/**`、`electron.vite.config.ts`，及 `package.json` 的 `dev`/`build`/`build:win|mac|linux`/`electron*` 依赖均为冻结死代码，迁移收尾后删除。对应的 `Electron-Vite规范.mdc` / `Electron-IPC规范.mdc` 仅作历史参考。

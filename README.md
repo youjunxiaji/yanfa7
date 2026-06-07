@@ -29,7 +29,7 @@
 
 - 🌗 **外观切换** — 浅色 / 深色 / 跟随系统三种模式
 - 🌐 **语言** — 预留中文/英文切换（即将推出）
-- 💾 **持久化** — 设置数据通过 electron-store 保存在本地 JSON 文件中，重启后自动恢复
+- 💾 **持久化** — 设置数据通过 Tauri Store 插件保存在本地 JSON 文件（settings.json），重启后自动恢复
 
 ## 🚀 使用步骤
 
@@ -75,20 +75,20 @@ res-output/
 
 ## 🔧 技术栈
 
-- **前端** — Electron + Vue 3 + TypeScript + Element Plus
+- **前端** — Tauri v2 (Rust) + Vue 3 + TypeScript + Element Plus
 - **后端** — Python (FastAPI)
-- **构建** — electron-vite + PyInstaller
+- **构建** — Tauri + Vite + PyInstaller
 
 ## 💻 开发
 
 ```bash
-# 前端
-cd frontend
-cnpm install     # 安装依赖
-npm run dev      # 启动开发服务器
-
-# 后端
+# 后端（先启动，前端依赖其 :8000 接口）
 cd backend
 uv sync          # 安装依赖
 uv run main.py   # 启动 FastAPI 服务 (端口 8000)
+
+# 前端
+cd frontend
+cnpm install         # 安装依赖
+npm run tauri:dev    # 启动 Tauri 应用（自动起渲染层 Vite :1420）
 ```
