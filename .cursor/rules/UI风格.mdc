@@ -1,0 +1,111 @@
+---
+description: UI 风格规范（Apple 浅色 bento 设计语言、配色/间距尺度、新页面骨架、Element Plus 用法、可复用交互模式）——新增功能页必读
+globs: src/renderer/src/**/*.vue,src/renderer/src/assets/main.css
+alwaysApply: false
+---
+
+# UI 风格规范
+
+整体设计语言：**Apple / macOS 风格的浅色 bento 卡片**。新开功能页**必须沿用既有范式**，避免风格漂移。
+通用骨架样式集中在 `assets/main.css`「工具页通用样式」段（约 `main.css:512-683`，暗色覆盖在 `main.css:25-511`）——**页面只写差异，骨架复用全局类**。
+
+## 一、新工具页骨架（新页面照抄）
+
+```
+.<name>-page            // height:100%; display:flex; flex-direction:column
+└── el-row.page-row     // :gutter="20"; flex:1; min-height:0; align-items:stretch
+    ├── el-col          // 输入 / 操作区 :span="10"
+    │   └── el-card.page-card (shadow="never")
+    │       ├── #header → .card-header（左 icon+标题，右可选 tag/按钮）
+    │       ├── .config-form（flex:1 撑满；内含多个 .config-section 均分高度）
+    │       └── .action-bar（底部行动条，主按钮）
+    └── el-col          // 内容 / 结果展示区 :span="14"
+        └── el-card.page-card …（图表 / 列表 / 预览）
+```
+
+- 分栏比例固定 **14:10**：**操作输入区 `:span=10`、内容/结果展示区 `:span=14`**（见 `EdgeStressView.vue` 与 `PmaxView.vue`，两页已统一为此范式）。
+- `:deep(.el-col){display:flex;flex-direction:column}` 让左右卡片**等高撑满**。
+- `.config-section`（bento 子卡）`flex:1` 均分高度、`#f8f8fa` 底、`:focus-within` 蓝光圈：**靠 flex 撑满面板、不要内部滚动条**；输入项多时收紧 `gap`（现用 `8px`）而非加滚动。
+- 卡片体三段式：头部 → `config-form`（撑满）→ `action-bar`。
+
+## 二、配色（Apple 调色板）
+
+> ⚠️ 新代码**统一用品牌蓝 `#0071e3`**。Element Plus 运行时主色未被覆盖、仍是默认 `#409eff`（已知不一致，见末节）——**勿再硬编码 `#409eff`**。
+
+| 角色 | 亮色 | 暗色（`html.dark`） |
+|---|---|---|
+| 品牌蓝 | `#0071e3`（渐变终点 `#2997ff`） | `#0a84ff` |
+| 成功 / 绿 | `#34c759` | `#30d158` |
+| 危险 / 红 | `#ff3b30` | `#ff453a` |
+| 文本 主 / 次 / 三 | `#1d1d1f` / `#86868b` / `#424245` | `#f5f5f7` / `#a1a1a6` / `#636366` |
+| 页面背景 | `#f5f5f7` | `#1c1c1e` |
+| 卡片背景 | `#ffffff` | `#2c2c2e` |
+| bento 分区底 | `#f8f8fa` | `#1f1f21` |
+| 边框 | `#ececef` / `#e5e5ea` | `#38383a` / `#48484a` |
+
+- 主行动按钮用蓝渐变 `linear-gradient(135deg,#0071e3,#2997ff)`。
+- 次级文本灰**统一 `#86868b`**（勿再引入 `#909399` 等 EP 风灰）。
+- 暗色一律靠 `html.dark .xxx` 覆盖（写在 `main.css`）；新组件含硬编码色**必须补对应暗色覆盖**。
+
+## 三、间距 / 圆角 / 阴影 / 边框
+
+- **圆角尺度**：小元素（输入/小按钮/列表项）`8px`；bento 分区 / 列表容器 `10px`；主按钮 / 空状态 / 进度块 `12px`；大卡（`.page-card`）/ 模态 `14px`；胶囊 / 进度条 `999px`。
+- **阴影**：卡片双层柔阴影 `0 1px 2px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.04)`；浮层（命令面板/模态）`0 16px 48px rgba(0,0,0,.16), 0 0 0 1px rgba(0,0,0,.06)`；主按钮品牌阴影 `0 1px 3px rgba(0,113,227,.25)`，hover 抬升。
+- **间距**：卡片头 `14px 18px`、卡片体 `16px 18px`；分区 gap `8px`、表单行 gap `10px`；模块间统一 `margin-top:14px`；`.action-bar` 顶部 `1px dashed #ececef` 分隔。
+- **边框**：实线 `1px solid #ececef`（卡片）/`#e5e5ea`（输入/图片）；空状态虚线统一 `2px dashed #e4e4e7`。
+
+## 四、字号 / 字重
+
+- 字体栈 `-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif`；等宽（路径/代码）`'SF Mono','Menlo','Monaco',monospace`。
+- **字号**：正文/标签 `13px`（主力）；辅助小字 `12px`；按钮/空状态标题 `14px`；卡片标题/设置项 `15px`；`.section-label` `11px`；页面级大标题 `22px` / `28px`。
+- **字重**：`700` 重标题 / section-label；`600` 卡片标题、强调；`500` 按钮/标签；`400` 正文描述。
+- **细节**：数字列（统计/百分比）加 `font-variant-numeric:tabular-nums`；`.section-label` 用 `text-transform:uppercase` + `letter-spacing:.6px`；大标题用负字距 `-0.5px`。
+
+## 五、Element Plus 用法
+
+- **按钮**：主操作 `type="primary"`；危险 `type="danger" plain`；次级裸 `plain`；列表行内 `text size="small"`。页面主行动按钮用自定义渐变类（`size="large"`、height 44、radius 12），不可用时加 `--inactive` 态（`opacity:.55` + 去阴影），**不要直接灰禁用**。
+- **表单**：不用 `el-form-item`，用自定义 `.form-row`（label 定宽 + 控件横排）。`el-input-number` 一律 `controls-position="right"`（圆角/聚焦蓝圈已在 `main.css` 全局重写）；浏览类按钮放 `el-input` 的 `#append` 插槽。
+- **对话框**：`el-dialog` 三种用途——信息反馈（`width≈560 align-center`）、数据录入（`:close-on-click-modal="false"` + `@opened` 自动聚焦）、图片/全屏放大（`fullscreen` 或 `width="80%"`）。**含 iframe / Plotly 的重型 dialog 必须加 `destroy-on-close`**。
+- **反馈**：行内瞬时提示用 `ElMessage.{success,warning,error}`；带标题的重通知用 `ElNotification`。`duration` 统一 `3000`（普通）/ `5000`（错误）。
+- 其它惯例：二次确认 `el-popconfirm`；`el-tooltip` 统一 `:show-after="400"`；状态/计数用 `el-tag`（`round size="small"`）；分段切换 `el-segmented`。
+
+## 六、可复用交互模式（优先复用，勿重造）
+
+- **可点击空状态**：`.empty-state` 虚线卡，整块 `@click` 触发主操作，hover 边框转品牌蓝、图标上移。
+- **进度三态**：`.progress-block` 的 `--processing / --done / --error`（蓝/绿/红），processing 图标 `spin` 动画，配 `el-progress :show-text="false" :stroke-width="8"`。
+- **缺前置提示**：主按钮 `:disabled` + `--inactive`，下方淡入一行 `.parse-hint`（带 `InfoFilled`）说明"为什么不能点"（如"请先选择数据文件"），而非静默禁用。
+- **本地图片破缓存**：统一 `convertFileSrc(path) + '?t=' + cacheBuster`；图片重新生成后更新 `imgCacheBuster`。
+- **拖拽导出**：`<img draggable="true" @dragstart>` → `window.electronAPI.startDrag(path)` + `preventDefault()`。
+- **命令面板**：`Cmd/Ctrl+P` 全局唤起（`CommandPalette.vue`）。
+- **悬停预览**：文件名上 `el-popover trigger="hover" placement="right"` 显示结果缩略图。
+
+## 七、图标 / 资源
+
+- 图标全用 `@element-plus/icons-vue`：`<el-icon :size="N"><IconName /></el-icon>`，常用 `14`（label 内）/`16`（行内）/`18`（card-header）/`28~64`（空状态、loading）。动态图标 `markRaw` 注册到 `iconMap`。
+- 状态图标固定：`CircleCheckFilled`（成功）/`WarningFilled`（警告）/`InfoFilled`（信息）/`Loading`（加载）。
+- 静态资源放 `assets/`；本地文件一律经 `convertFileSrc`（Tauri asset 协议）渲染。
+
+## 八、新增工具页接入（导航）
+
+新工具页 = 三步登记：
+1. `router/index.ts` 加 route，`meta:{ title, icon }`（`icon` 为图标名字符串，经 `iconMap` 映射；底部项加 `bottomNav:true`）。
+2. 在 **`SideNav.vue` 与 `CommandPalette.vue` 两处 `iconMap`** 都注册该图标。
+3. `HomeView.vue` 的 `tools` 加一张工具卡片。
+
+侧栏由路由元驱动：主菜单（有 `title+icon`）置顶、`bottomNav` 项（文档/设置）由 `.menu-spacer` 推到底部。
+
+## 九、响应式
+
+- 不用媒体查询。最小窗口 **1100×700**，布局靠 flex + `el-row/el-col :span` + `min-height:0` 自适应；高度紧张时**收紧 `gap` 撑满，不加滚动条**。
+- 阅读型页面居中定宽：首页 `520px`、设置 `560px`、文档 `800px`、图表图片 `720px`。
+
+## 十、已知不一致 / 技术债（新代码遵循"目标"，勿沿袭旧坑）
+
+当前**尚无全局 design token 层**，存在以下债务，新代码请按目标写、并在改到时顺手收敛：
+
+1. **主色双轨**（最严重）：手写 CSS 用 `#0071e3`，但 EP 未覆盖主色、运行时仍 `#409eff`（`ReportPreviewView.vue` 还硬编码一处）。目标：在 `main.ts` 覆盖 `--el-color-primary` 为 `#0071e3` 后全局统一；在此之前新代码一律用 `#0071e3`。
+2. **裸 hex、无 token**：颜色散落硬编码，暗色靠 `main.css` 逐选择器手写（~500 行）。目标：抽 `:root` / `html.dark` 设计变量；新代码尽量复用 `main.css` 已有类，少写新 hex。（设置页 `--settings-*` 变量是现有唯一 token 实践，可作样板。）
+3. **次级灰混用**（`#86868b` / `#909399` / `#6e6e73`…）：统一用 `#86868b`。
+4. **空状态 `.empty-state` 在两页重复定义**：应抽到 `main.css` 通用段，勿再各写一份。
+5. **重型 `el-dialog` 缺 `destroy-on-close`**：含 iframe / 图表的统一补上。
+6. **`<kbd>` 样式各处不一**：应抽通用样式。

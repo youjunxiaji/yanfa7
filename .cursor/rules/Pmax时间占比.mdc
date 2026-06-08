@@ -128,13 +128,12 @@ backend/
 - PNG 保存到系统临时目录：`os.path.join(tempfile.gettempdir(), "yanfa7_pmax")`
 - 固定文件名 `front.png` / `rear.png`，每次生成覆盖写入
 - 每次生成前调用 `cleanup_temp_files()` 清理旧文件
-- 应用退出时 Electron 主进程同步删除临时目录（`rmSync`）
+- 应用退出时清理：原 Electron 主进程用 `rmSync`（已随 Electron 冻结）；Tauri 端退出清理待补，当前靠每次生成前的 `cleanup_temp_files()` 兜底
 
 ## 拖拽到 Word
 
 - 渲染进程中 `<img>` 无法直接拖拽到外部应用，需走原生文件拖拽
-- 前端统一调用 `window.electronAPI.startDrag(filePath)`；Electron 下经 IPC `drag:start` → 主进程 `webContents.startDrag({ file, icon })`，Tauri 下由 `shims/tauri-bridge.ts` 垫片转发到对应实现
-- `icon` 使用文件缩略图（Electron 为 `nativeImage.createFromPath(filePath).resize({ width: 200 })`）
+- 前端统一调用 `window.electronAPI.startDrag(filePath)`，由 `shims/tauri-bridge.ts` 垫片转发到 `@crabnebula/tauri-plugin-drag` 的 `startDrag`（详见 `Tauri架构.mdc`）
 
 ## 核心算法
 
