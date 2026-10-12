@@ -2,9 +2,14 @@
     <div class="home">
         <div class="home-inner">
             <img class="home-logo" src="@renderer/assets/logo.png" alt="TMB" />
-            <h1 class="home-title">研发七部工具包</h1>
-            <div class="home-desc">
-                <span>轴承数据分析与报告生成工具集</span>
+            <div class="home-heading">
+                <h1 class="home-title">研发七部工具包</h1>
+                <span class="version-badge">v{{ version }}</span>
+            </div>
+            <div class="home-desc">轴承数据分析与报告生成工具集</div>
+
+            <div class="tools-head">
+                <span class="tools-label">工具</span>
                 <button class="shortcut-chip" @click="openPalette">
                     <span class="kbd-group">
                         <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd>
@@ -13,7 +18,6 @@
                     快速跳转
                 </button>
             </div>
-
             <div class="tool-grid">
                 <router-link
                     v-for="tool in tools"
@@ -32,12 +36,6 @@
                         <div class="tool-desc">{{ tool.desc }}</div>
                     </div>
                 </router-link>
-            </div>
-
-            <div class="home-footer">
-                <span>v{{ version }}</span>
-                <span>·</span>
-                <span>TMB®</span>
             </div>
         </div>
     </div>
@@ -81,7 +79,7 @@ const openPalette = (): void => {
     width: 100%;
     max-width: 600px;
     margin: auto 0;
-    padding: 48px 0 24px;
+    padding: 40px 0 64px;
 }
 
 .home-logo {
@@ -89,21 +87,48 @@ const openPalette = (): void => {
     height: 22px;
 }
 
-.home-title {
+.home-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     margin: 20px 0 6px;
+}
+
+.home-title {
+    margin: 0;
     font-size: 26px;
     font-weight: 700;
     line-height: 1.3;
     letter-spacing: -0.02em;
 }
 
+.version-badge {
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 22px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 999px;
+    font-variant-numeric: tabular-nums;
+}
+
 .home-desc {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
     font-size: 14px;
     color: var(--text-2);
+}
+
+.tools-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 36px 0 10px;
+}
+
+.tools-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
 }
 
 .shortcut-chip {
@@ -137,7 +162,6 @@ const openPalette = (): void => {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
-    margin-top: 32px;
 }
 
 .tool-card {
@@ -207,14 +231,6 @@ const openPalette = (): void => {
 .tool-desc {
     margin-top: 2px;
     font-size: 12.5px;
-    color: var(--text-3);
-}
-
-.home-footer {
-    display: flex;
-    gap: 6px;
-    margin-top: 40px;
-    font-size: 12px;
     color: var(--text-3);
 }
 </style>
