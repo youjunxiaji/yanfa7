@@ -4,3 +4,6 @@
 # ———— Claude Code 本地文件（skills 入库）——————————————
 .claude/*
 !.claude/skills/
+
+# ———— 发版产物：tauri:build 之后由 frontend/scripts/collect-output.mjs 收到这里 ——————————————
+/output/

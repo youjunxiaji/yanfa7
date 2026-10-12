@@ -9,3 +9,7 @@ software
 html/
 测试文件/
 .DS_Store
+
+# build_backend.py 的中间产物（nuitka 的 .build / .dist / .onefile-build），几百 MB
+/build/
+nuitka-crash-report.xml

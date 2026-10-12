@@ -1,3 +1,5 @@
+mod backend;
+
 use serde::Serialize;
 use walkdir::WalkDir;
 
@@ -52,7 +54,18 @@ pub fn run() {
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_drag::init())
+        .plugin(tauri_plugin_shell::init())
+        .manage(backend::Backend::default())
         .invoke_handler(tauri::generate_handler![scan_dir])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .setup(|app| {
+            backend::spawn(app.handle());
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                backend::shutdown(app);
+            }
+        });
 }

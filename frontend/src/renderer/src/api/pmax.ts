@@ -1,4 +1,4 @@
-import { API_BASE } from '@renderer/api/backend'
+import { API_BASE, waitBackend } from '@renderer/api/backend'
 
 export interface BinItem {
     label: string
@@ -40,7 +40,8 @@ export interface AnalyzeParams {
     language: string
 }
 
-export async function analyzePmax(params: AnalyzeParams): Promise<AnalyzeResponse> {
+export const analyzePmax = async (params: AnalyzeParams): Promise<AnalyzeResponse> => {
+    await waitBackend()
     const res = await fetch(`${API_BASE}/api/pmax/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

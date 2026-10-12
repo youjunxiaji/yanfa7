@@ -41,7 +41,7 @@
 - PNG 写到 `<系统临时目录>/yanfa7_pmax/`，文件名固定为 `front.png` / `rear.png`；每次生成前先清空这个目录，
   只保留最近一次的图。
 - 路径固定，前端靠 `imgCacheBuster` 时间戳破缓存，生成成功后才更新（做法见 Tauri Skill 的本地文件一节）。
-- Tauri 外壳退出时不清理这个目录（见 `todo.md`），残留的图在下次生成前被清掉。
+- 应用退出时 Tauri 外壳删掉这个目录（`src-tauri/src/backend.rs`），目录名两边各写一份，改名要一起改。
 
 ### 拖到 Word
 

@@ -31,12 +31,11 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 
 - `frontend/` 是 Tauri 工程：`src-tauri/` 为 Rust 外壳，`src/renderer/` 为 Vue 渲染层，主窗口 `index.html`、
   预览窗口 `preview.html` 两个入口。`backend/` 是 FastAPI 后端。
-- 应用只走 Tauri。`frontend/src/main`、`src/preload`、`electron.vite.config.ts`、`electron-builder.yml`、`build/`，
-  以及 `package.json` 里的 `electron`、`electron-vite`、`electron-builder`、`electron-store`、`@electron-toolkit/preload`、
-  `@electron-toolkit/utils` 依赖和 `dev`、`start`、`build`、`build:*`、`postinstall` 脚本是 Electron 旧外壳：
-  新功能不写进去，也不照着它改渲染层。CI 仍用它打安装包，但渲染层已经依赖 Tauri，这条流水线打不出能用的包，
-  见发版 Skill；删除排在 Tauri 打包接上后端之后，见 `todo.md`。`@electron-toolkit/tsconfig` 和
-  `@electron-toolkit/eslint-config-*` 是现用的 tsconfig、ESLint 基础配置，不属于旧外壳。
+- 应用只走 Tauri。`frontend/src/main`、`src/preload`、`electron.vite.config.ts`、`electron-builder.yml`、`build/`、
+  `resources/`，以及 `package.json` 里的 `electron`、`electron-vite`、`electron-builder`、`electron-store`、
+  `@electron-toolkit/preload`、`@electron-toolkit/utils` 依赖和 `dev`、`start`、`build`、`build:*`、`postinstall` 脚本
+  是 Electron 旧外壳：新功能不写进去，也不照着它改渲染层。打包和 CI 都已经走 Tauri，没有流程再用它，待删，见 `todo.md`。
+  `@electron-toolkit/tsconfig` 和 `@electron-toolkit/eslint-config-*` 是现用的 tsconfig、ESLint 基础配置，不属于旧外壳。
 - 例外：`src/preload/index.d.ts` 仍提供 `window.electron*` 的全局类型（`tsconfig.web.json` include），
   改兼容垫片的接口时同步它。
 - 开发端口：渲染层 Vite 5179，后端 8006；打包后的后端固定 8000。改端口要同步的位置见 Tauri Skill。
@@ -45,7 +44,8 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 
 - 业务数据只走后端：渲染层经 HTTP / WebSocket 调 FastAPI，后端地址一律从 `src/renderer/src/api/backend.ts`
   取 `API_BASE` / `WS_BASE`（按 `import.meta.env.DEV` 选 8006 或 8000），不在别处写死；
-  后端在 `backend/main.py` 按是否打包选端口，两边一起改。
+  后端在 `backend/main.py` 按是否打包选端口，两边一起改。打包后的后端由外壳随应用拉起，应用刚打开时可能还没就绪：
+  主窗口里的请求先 `await waitBackend()`（同一文件）。
 - 原生能力只走兼容垫片：组件调 `window.electronAPI.*` / `window.electron.*`，由
   `src/renderer/src/shims/tauri-bridge.ts` 翻译成 Tauri 调用。组件不直接用 `@tauri-apps/*`，
   唯一例外是显示本地文件的 `convertFileSrc`。新增能力的步骤见 Tauri Skill。
@@ -61,7 +61,7 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 - 渲染层模块用 `@renderer/...` 导入（映射 `src/renderer/src/`）；`@root` 映射仓库根目录，用来导入 `README.md`。
   没有 `@/` 别名。
 - 前后端共用的枚举两边取值一致：前端放 `src/renderer/src/constants/`，后端放 `backend/common/constants.py`（如 `Language`）。
-- 静态资源放 `src/renderer/src/assets/`；`frontend/resources/` 只放打包用的后端产物（`resources/backend/`，不入库）。
+- 静态资源放 `src/renderer/src/assets/`。
 - 颜色和阴影只用 `assets/tokens.css` 里的设计变量（`:root` 浅色、`html.dark` 暗色），组件里不写 hex，也不写暗色覆盖；
   配色、骨架和交互模式见 UI Skill。
 
@@ -73,6 +73,9 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 - 业务错误抛 `HTTPException(status_code=400, detail=...)`，`detail` 用中文写清哪里不对，前端读 `detail` 展示；
   WebSocket 推 `{"type": "error", "message": ...}`。
 - 出图用 matplotlib 的 Agg 后端（`main.py` 入口设置），只写文件不弹窗，返回给前端的是文件绝对路径。
+- 打包用 Nuitka（`build_backend.py`，见发版 Skill）：判断是否打包看 `"__compiled__" in globals()`，Nuitka 不设
+  `sys.frozen`；运行时按名字导入的依赖（pandas 的可选依赖、`importlib` 这类）要在 `nuitka_args()` 里显式带上，
+  否则开发时正常、装机后缺模块。
 
 ## 验证命令
 

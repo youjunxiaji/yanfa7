@@ -1,4 +1,4 @@
-import { WS_BASE } from '@renderer/api/backend'
+import { WS_BASE, waitBackend } from '@renderer/api/backend'
 
 export interface PreviewItem {
     colIndex: number
@@ -36,7 +36,7 @@ export interface ErrorMessage {
 
 export type WsMessage = ProgressMessage | DoneMessage | ErrorMessage
 
-export function parseWithProgress(
+export const parseWithProgress = (
     filePaths: string[],
     fileType: 'htm' | 'xlsx',
     peakThreshold: number,
@@ -48,37 +48,52 @@ export function parseWithProgress(
         pressPolarMin: number
     },
     onMessage: (msg: WsMessage) => void
-): { cancel: () => void } {
-    const ws = new WebSocket(`${WS_BASE}/ws/parse`)
+): { cancel: () => void } => {
+    let ws: WebSocket | null = null
+    let canceled = false
 
-    ws.onopen = () => {
-        ws.send(
-            JSON.stringify({ filePaths, fileType, peakThreshold, outputDir, reportConfig })
-        )
-    }
+    const connect = (): void => {
+        const socket = new WebSocket(`${WS_BASE}/ws/parse`)
+        ws = socket
 
-    ws.onmessage = (event) => {
-        try {
-            const msg: WsMessage = JSON.parse(event.data)
-            onMessage(msg)
-        } catch {
-            onMessage({ type: 'error', message: '解析服务返回了无效数据' })
+        socket.onopen = () => {
+            socket.send(
+                JSON.stringify({ filePaths, fileType, peakThreshold, outputDir, reportConfig })
+            )
+        }
+
+        socket.onmessage = (event) => {
+            try {
+                const msg: WsMessage = JSON.parse(event.data)
+                onMessage(msg)
+            } catch {
+                onMessage({ type: 'error', message: '解析服务返回了无效数据' })
+            }
+        }
+
+        socket.onerror = () => {
+            onMessage({ type: 'error', message: '与解析服务的连接异常' })
+        }
+
+        socket.onclose = (event) => {
+            if (event.code !== 1000 && event.code !== 1005) {
+                onMessage({ type: 'error', message: `连接关闭 (code: ${event.code})` })
+            }
         }
     }
 
-    ws.onerror = () => {
-        onMessage({ type: 'error', message: '与解析服务的连接异常' })
-    }
-
-    ws.onclose = (event) => {
-        if (event.code !== 1000 && event.code !== 1005) {
-            onMessage({ type: 'error', message: `连接关闭 (code: ${event.code})` })
-        }
-    }
+    waitBackend()
+        .then(() => {
+            if (!canceled) connect()
+        })
+        .catch((err: Error) => {
+            if (!canceled) onMessage({ type: 'error', message: err.message })
+        })
 
     return {
         cancel: () => {
-            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            canceled = true
+            if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) {
                 ws.close()
             }
         }

@@ -22,7 +22,7 @@
         "dev:renderer": "vite --config vite.renderer.config.ts",
         "build:renderer": "vite build --config vite.renderer.config.ts",
         "tauri:dev": "tauri dev",
-        "tauri:build": "tauri build",
+        "tauri:build": "tauri build && node scripts/collect-output.mjs",
         "postinstall": "electron-builder install-app-deps",
         "build:unpack": "npm run build && electron-builder --dir",
         "build:win": "npm run build && electron-builder --win",

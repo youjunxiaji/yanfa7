@@ -1,105 +1,69 @@
 name: Build & Release
 
 on:
-  push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+    push:
+        tags:
+            - 'v*'
+    workflow_dispatch:
 
 permissions:
-  contents: write
+    contents: write
 
 jobs:
-  build-windows:
-    name: Build Windows Installer
-    runs-on: windows-latest
+    build-windows:
+        name: Build Windows Installer
+        runs-on: windows-latest
 
-    steps:
-      # ─── 基础环境 ──────────────────────────────────────────
-      - name: Checkout
-        uses: actions/checkout@v4
+        steps:
+            # ─── 基础环境 ──────────────────────────────────────────
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+            - name: Install uv
+              uses: astral-sh/setup-uv@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
+            - name: Setup Rust
+              uses: dtolnay/rust-toolchain@stable
 
-      - name: Extract version from tag
-        shell: pwsh
-        run: |
-          $version = "${{ github.ref_name }}" -replace '^v', ''
-          echo "APP_VERSION=$version" >> $env:GITHUB_ENV
-          echo "Version: $version"
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
 
-      # ─── 后端打包 ──────────────────────────────────────────
-      - name: Install backend dependencies
-        working-directory: backend
-        run: uv sync
+            # ─── 后端：Nuitka 打成 sidecar ─────────────────────────
+            # tag 触发时按 tag 定版本（v2.1.0 → 2.1.0），写进三处版本号；手动触发沿用仓库里的版本
+            - name: Build backend sidecar
+              working-directory: backend
+              shell: pwsh
+              run: |
+                  uv sync
+                  if ($env:GITHUB_REF_TYPE -eq 'tag') {
+                      uv run python build_backend.py --version ($env:GITHUB_REF_NAME -replace '^v', '')
+                  } else {
+                      uv run python build_backend.py --keep-version
+                  }
 
-      - name: Build backend with PyInstaller
-        working-directory: backend
-        run: |
-          uv run pyinstaller `
-            --noconfirm `
-            --onedir `
-            --console `
-            --add-data "app_edgeStress;app_edgeStress/" `
-            main.py
+            # ─── 前端：Tauri 打 NSIS 安装包，收到 output/ ──────────
+            - name: Install frontend dependencies
+              working-directory: frontend
+              run: npm install
 
-      - name: Clean build artifacts
-        shell: pwsh
-        working-directory: backend
-        run: |
-          if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
-          Get-ChildItem "*.spec" | Remove-Item -Force
+            - name: Build Tauri app
+              working-directory: frontend
+              run: npm run tauri:build
 
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+            - name: Upload artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: windows-installer
+                  path: output/*.exe
 
-      - name: Encrypt backend with py2pyd
-        working-directory: backend
-        env:
-          PYTHONUTF8: '1'
-        run: |
-          uv run py2pyd -r -d --no-confirm dist/main/_internal/app_edgeStress
-
-      - name: Copy backend to frontend resources
-        shell: cmd
-        run: |
-          mkdir frontend\resources\backend
-          xcopy /E /I /Y backend\dist\main\* frontend\resources\backend\
-
-      # ─── 前端打包 ──────────────────────────────────────────
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm install
-
-      - name: Build Electron app (Windows)
-        working-directory: frontend
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npm run build && npx electron-builder --win --publish never
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: frontend/dist/*.exe
-
-      # ─── 发布到 GitHub Release ─────────────────────────────
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: frontend/dist/*.exe
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            # ─── 发布到 GitHub Release ─────────────────────────────
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              if: startsWith(github.ref, 'refs/tags/')
+              with:
+                  files: output/*.exe
+                  generate_release_notes: true
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
