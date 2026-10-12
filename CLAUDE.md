@@ -81,7 +81,7 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 前端（`frontend/`）：
 
 ```bash
-npm run typecheck:web              # vue-tsc；tauri-bridge.ts:31 的报错是存量，见 todo.md
+npm run typecheck:web              # vue-tsc
 npx prettier --write <改动的文件>    # 只排改动的文件，整仓还有存量没排过，见 todo.md
 npx eslint <改动的文件>
 npm run build:renderer             # 渲染层打包

@@ -36,8 +36,6 @@
 
 ## 代码清理
 
-- `src/renderer/src/shims/tauri-bridge.ts:31` 的类型错误：`@tauri-apps/plugin-store` 的 `StoreOptions` 要求 `defaults`，
-  `npm run typecheck:web` 因此不过，CI 里的 `npm run build` 也会卡在这一步。
 - 渲染层还有 `api/edgeStress.ts`、`shims/tauri-bridge.ts` 没按 prettier 排过版
   （`npx prettier --check 'src/renderer/src/**/*.{ts,vue}'` 列出），整仓跑一次 `npm run format` 单独提交，
   之后把项目规则验证命令里的 prettier 一行换成 `npm run format`。

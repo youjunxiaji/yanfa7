@@ -9,7 +9,6 @@ description: "给研发七部工具包（yanfa7）打包、发版或排查安装
 
 - **现在的 CI 打不出能用的安装包。** `.github/workflows/build.yml` 仍按 Electron 旧外壳打包，但渲染层已经依赖 Tauri：
   兼容垫片调的是 Tauri 插件和 command，组件用 Tauri 的 `convertFileSrc` 显示本地图片，这些在 Electron 里都跑不起来。
-  按现状，`npm run build` 还会先卡在类型检查（`tauri-bridge.ts:31`，见 `todo.md`）。
   已发布的最新版 v2.0.6 是 Electron 外壳打的包，用户手里的是这一版。
 - **Tauri 打包还不带后端。** `npm run tauri:build` 能出 NSIS 安装包，但 `tauri.conf.json` 的 `bundle` 没把后端打进去，
   Rust 外壳也不启动后端：装上后界面和选文件正常，解析、计算、出图这些要后端的功能都用不了。

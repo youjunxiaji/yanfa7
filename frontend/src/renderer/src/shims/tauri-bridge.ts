@@ -28,7 +28,9 @@ let resolvedPlatform = 'darwin'
 // ---- settings store (replaces electron-store) -----------------------------
 let settingsStore: Store | null = null
 async function getStore(): Promise<Store> {
-    if (!settingsStore) settingsStore = await load('settings.json', { autoSave: true })
+    if (!settingsStore) {
+        settingsStore = await load('settings.json', { defaults: {}, autoSave: true })
+    }
     return settingsStore
 }
 
