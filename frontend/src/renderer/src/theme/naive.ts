@@ -311,12 +311,18 @@ const buildOverrides = (p: Palette): GlobalThemeOverrides => ({
         contentMargin: '8px 0 20px 0',
         closeMargin: '18px 18px 0 0'
     },
+    // Naive 的 tooltip 套了一层 popover 渲染，写在 Tooltip 顶层的变量会被下面全局的 Popover 覆盖盖掉，
+    // 变成白底、白字；写进 peers.Popover 才排在它后面
     Tooltip: {
-        color: p.tooltip,
-        textColor: '#fafafa',
-        padding: '5px 9px',
-        borderRadius: '6px',
-        boxShadow: p.shadow2
+        peers: {
+            Popover: {
+                color: p.tooltip,
+                textColor: '#fafafa',
+                padding: '5px 9px',
+                borderRadius: '6px',
+                boxShadow: p.shadow2
+            }
+        }
     },
     Popover: {
         color: p.popover,
