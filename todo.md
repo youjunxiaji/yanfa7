@@ -25,15 +25,31 @@
 - CI 用 tag 的版本号，或校验 tag 与 `package.json` 的 `version` 一致：workflow 解析出的 `APP_VERSION` 没用上，
   v2.0.5、v2.0.6 两个 Release 的安装包名和应用内版本都还是 2.0.4。
 
-## 界面存量
+## 界面迁到 Naive UI
 
-UI Skill 的规则管新代码，下面是还没收敛的旧写法：
+按 UI Skill 的界面标准重做，只改界面，下一节的体验问题不在这里做。按顺序：
 
-- Element Plus 主色覆盖成 `#0071e3`（在 `main.ts` 设 `--el-color-primary` 一组变量），去掉 `ReportPreviewView.vue` 里硬编码的 `#409eff`。
-- 抽 `:root` / `html.dark` 设计变量，替换各处裸 hex；设置页的 `--settings-*` 可作样板。
-- 次级灰统一成 `#86868b`，现在还混着 `#909399`、`#6e6e73`。
-- `.empty-state` 抽到 `main.css` 通用段，现在 `EdgeStressView.vue`、`PmaxView.vue`、`ReportPreviewView.vue` 各一份。
-- `<kbd>` 样式统一，现在首页、Pmax 页、命令面板各写各的。
+1. **依赖**：装 `naive-ui`、`lucide-vue-next`、`@fontsource-variable/inter`。
+2. **设计变量和主题**：建 `assets/tokens.css`（界面标准第四节）和 `theme/`（Naive 的 `themeOverrides`），
+   `main.ts`、`preview.ts` 的根组件包 `n-config-provider`。落地后把界面标准第四节的数值改成指向代码。
+3. **外壳**：`App.vue`、`SideNav.vue`、`CommandPalette.vue`；路由 `meta.icon` 改存 Lucide 图标组件，侧栏、命令面板、
+   首页共用这一份，同步 yanfa7-ref 的「新增工具模块」。
+4. **页面**：边缘应力、Pmax、报告预览、首页、设置、文档逐页重做，抽出 `EmptyState`、`StatusStrip`；
+   每改完一页，同步 yanfa7-ref 里对应模块参考的页面结构。先迁完的工具页登记为 UI Skill 的基准页。
+5. **收尾**：删 `element-plus`、`@element-plus/icons-vue` 依赖，删 `main.css` 里的旧全局类和 `html.dark` 覆盖；
+   `README.md` 的使用步骤和技术栈按新界面改；Tauri Skill 里提到 `el-dialog` 的地方改成 `n-modal`；
+   删掉 UI Skill 开头和项目规则「前端」一节里「现有页面还是 Element Plus」的说明。
+
+## 体验问题
+
+界面迁移之后再处理：
+
+- Pmax 页的数据和图表存在组件里，切到别的页面再回来就没了。
+- 边缘应力的保存路径和参数不持久化，重启后要重填。
+- 生成报告后没有「打开输出目录」；opener 插件已注册，渲染层没用上。
+- 雷达图最小值：主页面只能填 ≥0，预览窗只能填 ≤0，范围相反；预览窗打开时也不带主页面填的值。
+- 每次关窗口都弹退出确认，没有任务在跑时也弹。
+- README 的「技术栈」「开发」两节会在应用内文档页显示给使用者。
 
 ## 代码清理
 

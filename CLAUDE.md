@@ -1,6 +1,6 @@
 # yanfa7 项目规则
 
-研发七部工具包：轴承数据分析桌面应用。Tauri v2 外壳 + Vue 3 / TypeScript / Element Plus / Pinia 渲染层，
+研发七部工具包：轴承数据分析桌面应用。Tauri v2 外壳 + Vue 3 / TypeScript / Naive UI / Pinia 渲染层，
 Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、计算和出图。
 全局协作约定见 `~/.claude/CLAUDE.md`；本文件和各 Skill 只写本项目特有的工程约束，全局已有的不重复，两边冲突时以全局为准。
 
@@ -23,7 +23,7 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 | 任务 | 先读 |
 |---|---|
 | 理解、排查或修改边缘应力、Pmax 等工具模块，或新增工具模块 | [yanfa7-ref](.claude/skills/yanfa7-ref/SKILL.md)：相关模块参考，再核对源码 |
-| 实现、修改或审查界面 | [yanfa7-ui-style](.claude/skills/yanfa7-ui-style/SKILL.md)：先读界面标准和基准页 |
+| 实现、修改或审查界面 | [yanfa7-ui-style](.claude/skills/yanfa7-ui-style/SKILL.md)：先读界面标准 |
 | 改 Tauri 外壳或原生能力：兼容垫片、Rust command、窗口、本地文件、插件权限、主题、端口与 CSP、图标 | [yanfa7-tauri](.claude/skills/yanfa7-tauri/SKILL.md) |
 | 打包、发版、CI | [yanfa7-release](.claude/skills/yanfa7-release/SKILL.md) |
 
@@ -55,13 +55,15 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 
 ## 前端
 
-- 组件用 `<script setup lang="ts">`。UI 只用 Element Plus（全局注册，中文 locale），图标只用 `@element-plus/icons-vue`。
+- 组件用 `<script setup lang="ts">`。UI 只用 Naive UI（根组件的 `n-config-provider` 配主题和中文 locale），
+  图标只用 `lucide-vue-next`。现有页面还是 Element Plus，迁移步骤见 `todo.md`。
 - Pinia store 用 Options API 写法（避开 Vue 3.5 的类型兼容问题），放 `stores/`；只属于单个页面的状态留在组件里（如 Pmax 页）。
 - 渲染层模块用 `@renderer/...` 导入（映射 `src/renderer/src/`）；`@root` 映射仓库根目录，用来导入 `README.md`。
   没有 `@/` 别名。
 - 前后端共用的枚举两边取值一致：前端放 `src/renderer/src/constants/`，后端放 `backend/common/constants.py`（如 `Language`）。
 - 静态资源放 `src/renderer/src/assets/`；`frontend/resources/` 只放打包用的后端产物（`resources/backend/`，不入库）。
-- 暗色样式统一写在 `assets/main.css` 的 `html.dark` 段，不写进组件 `<style scoped>`；配色、骨架和交互模式见 UI Skill。
+- 颜色和阴影只用 `assets/tokens.css` 里的设计变量（`:root` 浅色、`html.dark` 暗色），组件里不写 hex，也不写暗色覆盖；
+  配色、骨架和交互模式见 UI Skill。
 
 ## 后端
 
