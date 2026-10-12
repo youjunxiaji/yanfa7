@@ -29,7 +29,9 @@ app.include_router(pmax_router)
 if __name__ == "__main__":
     import sys
 
+    # 打包后的后端固定 8000；开发时 `uv run main.py` 起在 8006。
+    # 前端按同样的规则选端口，见 frontend/src/renderer/src/api/backend.ts。
     if getattr(sys, "frozen", False):
         uvicorn.run(app, host="0.0.0.0", port=8000)
     else:
-        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+        uvicorn.run("main:app", host="0.0.0.0", port=8006, reload=True)

@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from '@renderer/api/backend'
 
 export interface BinItem {
     label: string

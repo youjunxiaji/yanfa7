@@ -82,13 +82,13 @@ res-output/
 ## 💻 开发
 
 ```bash
-# 后端（先启动，前端依赖其 :8000 接口）
+# 后端（先启动，前端依赖其 :8006 接口）
 cd backend
 uv sync          # 安装依赖
-uv run main.py   # 启动 FastAPI 服务 (端口 8000)
+uv run main.py   # 启动 FastAPI 服务 (端口 8006)
 
 # 前端
 cd frontend
 cnpm install         # 安装依赖
-npm run tauri:dev    # 启动 Tauri 应用（自动起渲染层 Vite :1420）
+npm run tauri:dev    # 启动 Tauri 应用（自动起渲染层 Vite :5179）
 ```

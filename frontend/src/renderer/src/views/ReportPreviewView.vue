@@ -241,6 +241,7 @@ import { Document, Loading } from '@element-plus/icons-vue'
 import { ElNotification } from 'element-plus'
 import Plotly from 'plotly.js-dist-min'
 import { usePlotlyDrag, DRAG_ICON_SVG, type DragEndInfo } from '@renderer/composables/usePlotlyDrag'
+import { API_BASE } from '@renderer/api/backend'
 import { convertFileSrc } from '@tauri-apps/api/core'
 
 declare global {
@@ -297,7 +298,7 @@ const chartApiUrl = computed(() => {
         col_index: String(selectedCol.value),
         position: pos,
     })
-    return `http://localhost:8000/api/chart-data?${params}`
+    return `${API_BASE}/api/chart-data?${params}`
 })
 
 const stressChartCnPath = computed(() => {
@@ -385,7 +386,7 @@ const handleDragEnd = async (info: DragEndInfo) => {
     }
     console.log('[DragEnd] syncing to backend:', payload)
     try {
-        const resp = await fetch('http://localhost:8000/api/update-stress-point', {
+        const resp = await fetch(`${API_BASE}/api/update-stress-point`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -471,7 +472,7 @@ const regeneratePolar = async () => {
         press_polar_min: pressPolarMin.value,
     }
     try {
-        const resp = await fetch('http://localhost:8000/api/regenerate-polar', {
+        const resp = await fetch(`${API_BASE}/api/regenerate-polar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),

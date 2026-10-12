@@ -34,7 +34,7 @@ alwaysApply: false
 - 目前唯一 command：`scan_dir(root_dir, extensions)` → `{ filePaths, fileSizes }`（递归扫描，替代旧 `fs:scanDir`）
 - 渲染层经 bridge 用 `@tauri-apps/api/core` 的 `invoke('scan_dir', { rootDir, extensions })`
 - **新增 command 三步**：① `lib.rs` 写 `#[tauri::command]`；② 加进 `generate_handler![...]`；③ 在 `capabilities/default.json` 放行（如需）
-- 注意：多数"原生能力"不走 Rust command，而是 bridge 直接用前端插件 API；**业务数据**走 Python sidecar 的 HTTP/WS（`api/*.ts`，:8000），与 Tauri IPC 无关
+- 注意：多数"原生能力"不走 Rust command，而是 bridge 直接用前端插件 API；**业务数据**走 Python sidecar 的 HTTP/WS（`api/*.ts`，地址取自 `api/backend.ts`），与 Tauri IPC 无关
 
 ## 多窗口 / 预览窗口
 
@@ -69,9 +69,10 @@ Rust 端 `lib.rs` 注册，前端对应 `@tauri-apps/plugin-*`，权限在 `capa
 
 ## 开发 / 构建命令
 
-- `npm run tauri:dev` — 启动 Tauri 应用（`beforeDevCommand` 自动起渲染层 Vite :1420）；需后端 :8000 已在跑
+- `npm run tauri:dev` — 启动 Tauri 应用（`beforeDevCommand` 自动起渲染层 Vite :5179）；需后端 :8006 已在跑
 - `npm run dev:renderer` — 仅起渲染层 Vite（纯浏览器调 UI，bridge 在非 Tauri 环境有降级）
 - `npm run tauri:build` — 打包（`beforeBuildCommand` 跑 `build:renderer`）
+- 端口：渲染层 Vite 固定 5179（`vite.renderer.config.ts` 的 `server.port` + `strictPort`），`tauri.conf.json` 的 `devUrl` 与之一致；CSP 的 `connect-src` 放行 5179 及后端 8006（开发）/ 8000（打包）。改端口时这几处连同 `backend/main.py`、`api/backend.ts` 一起改
 - 应用图标：源在 `src-tauri/icons/`（`tauri.conf.json` 的 `bundle.icon` 引用）；**dev 的 dock 图标由 Tauri 在编译期 `include_bytes!` 嵌入 `icon.icns`**，改图标后需重新编译（`cargo clean -p yanfa7` 后再 `tauri:dev`）才更新
 
 ## Legacy（待删）

@@ -213,7 +213,7 @@ WebSocket 接口。连接后发送 JSON 请求，服务端逐文件处理并实�
 ```bash
 cd backend
 uv sync          # 安装依赖
-uv run main.py   # 启动 FastAPI (端口 8000, 热重载)
+uv run main.py   # 启动 FastAPI (端口 8006, 热重载)
 ```
 
 ### 打包

@@ -22,7 +22,7 @@ export default defineConfig({
     // Tauri expects a fixed dev port and shouldn't have its logs cleared.
     clearScreen: false,
     server: {
-        port: 1420,
+        port: 5179,
         strictPort: true
     },
     build: {

@@ -1,4 +1,4 @@
-const WS_BASE = 'ws://localhost:8000'
+import { WS_BASE } from '@renderer/api/backend'
 
 export interface PreviewItem {
     colIndex: number
