@@ -150,7 +150,10 @@ class EdgeStressReporter:
         if y_max_data > 1000:
             interval_y = 100
 
-        ax.set_xlim(left=0)
+        # 沿滚子距离从 0 量起时 X 轴从 0 开始；Romax 报告以滚子中点为原点、带负值，这时按数据范围画，
+        # 不能从 0 截断，否则只剩半根滚子
+        if df.index.get_level_values(1).astype(float).min() >= 0:
+            ax.set_xlim(left=0)
         if y_max_data > 0:
             y_top = float(np.ceil(y_max_data / interval_y) * interval_y)
             if y_top <= y_max_data:
@@ -225,6 +228,8 @@ class EdgeStressReporter:
         angles = df.index.get_level_values(0).unique().astype(float)
         distances = df.index.get_level_values(1).unique().astype(float)
 
+        # 距离带负值（以滚子中点为原点）时 Y 轴从负值起，和应力曲线一样画整根滚子
+        y_min = min(0, int(np.floor(distances.min() / 10)) * 10)
         y_max = int(np.ceil(distances.max() / 10)) * 10
 
         all_distances_set: set[float] = set()
@@ -265,7 +270,7 @@ class EdgeStressReporter:
         cbar = fig.colorbar(cf, ax=ax, pad=0.02)
         cbar.set_label("Contact Stress (MPa)", fontsize=12)
 
-        ax.set_ylim(0, y_max)
+        ax.set_ylim(y_min, y_max)
         ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
         ax.yaxis.set_minor_locator(ticker.MultipleLocator(5))
 
