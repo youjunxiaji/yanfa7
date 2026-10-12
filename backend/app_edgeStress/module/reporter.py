@@ -23,6 +23,8 @@ from app_edgeStress.module.dataset import (
 )
 
 plt.rcParams['font.sans-serif'] = ['SimHei']
+# SimHei 里没有 Unicode 减号（U+2212），负数刻度会画成方块，改用 ASCII 连字符
+plt.rcParams['axes.unicode_minus'] = False
 
 # 图表样式常量
 MARKERS = ["s-", "^-", "D-", "d-", "|-", "-", "|-", "d-", "H-", "o-", "X-", "^-"] * 100
