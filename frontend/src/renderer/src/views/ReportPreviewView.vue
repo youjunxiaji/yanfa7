@@ -107,7 +107,13 @@
                                         </header>
                                         <div class="pv-pane-body">
                                             <div v-for="img in stressImages" :key="img.key">
-                                                <div class="pv-caption">{{ img.caption }}</div>
+                                                <div class="pv-caption">
+                                                    {{ img.caption }}
+                                                    <span v-if="img.path" class="drag-hint">
+                                                        <GripVertical :size="13" />
+                                                        拖到 Word
+                                                    </span>
+                                                </div>
                                                 <div
                                                     v-if="img.path"
                                                     class="pv-image"
@@ -119,6 +125,10 @@
                                                             localFileUrl(img.path, imgCacheBuster)
                                                         "
                                                         :alt="img.caption"
+                                                        draggable="true"
+                                                        @dragstart="
+                                                            handleDragStart($event, img.path)
+                                                        "
                                                     />
                                                 </div>
                                                 <div v-else class="pv-missing">图片不存在</div>
@@ -165,7 +175,13 @@
                                         </header>
                                         <div class="pv-pane-body">
                                             <div v-for="img in polarImages" :key="img.key">
-                                                <div class="pv-caption">{{ img.caption }}</div>
+                                                <div class="pv-caption">
+                                                    {{ img.caption }}
+                                                    <span v-if="img.path" class="drag-hint">
+                                                        <GripVertical :size="13" />
+                                                        拖到 Word
+                                                    </span>
+                                                </div>
                                                 <div
                                                     v-if="img.path"
                                                     class="pv-image"
@@ -176,6 +192,10 @@
                                                             localFileUrl(img.path, imgCacheBuster)
                                                         "
                                                         :alt="img.caption"
+                                                        draggable="true"
+                                                        @dragstart="
+                                                            handleDragStart($event, img.path)
+                                                        "
                                                     />
                                                 </div>
                                                 <div v-else class="pv-missing">图片不存在</div>
@@ -199,11 +219,19 @@
             :style="{ width: '80%', maxWidth: '1200px' }"
             :bordered="false"
         >
+            <template #header-extra>
+                <span class="drag-hint">
+                    <GripVertical :size="13" />
+                    拖到 Word
+                </span>
+            </template>
             <div class="zoom-paper">
                 <img
                     v-if="imagePreviewSrc"
                     :src="localFileUrl(imagePreviewSrc, imgCacheBuster)"
                     :alt="imagePreviewTitle"
+                    draggable="true"
+                    @dragstart="handleDragStart($event, imagePreviewSrc)"
                 />
             </div>
         </n-modal>
@@ -213,7 +241,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { NButton, NModal, NSelect, NSplit, NTab, NTabs, NTooltip, useMessage } from 'naive-ui'
-import { FileText, Info, MoveVertical } from '@lucide/vue'
+import { FileText, GripVertical, Info, MoveVertical } from '@lucide/vue'
 import Plotly from 'plotly.js-dist-min'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { usePlotlyDrag, type DragEndInfo } from '@renderer/composables/usePlotlyDrag'
@@ -347,6 +375,12 @@ const openImagePreview = (img: ImageItem): void => {
     imagePreviewSrc.value = img.path
     imagePreviewTitle.value = img.title
     imagePreviewVisible.value = true
+}
+
+// webview 自己拖 <img> 只带 asset 链接，Word、PPT、Excel 读不到，改走原生文件拖拽
+const handleDragStart = (event: DragEvent, filePath: string): void => {
+    event.preventDefault()
+    window.electronAPI.startDrag(filePath)
 }
 
 // ========== Plotly 交互图表 ==========
@@ -667,6 +701,15 @@ onBeforeUnmount(() => {
     color: var(--text-3);
 }
 
+.drag-hint {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--text-3);
+}
+
 .caption-tag {
     padding: 0 6px;
     font-size: 11px;
@@ -717,7 +760,7 @@ onBeforeUnmount(() => {
 }
 
 .pv-image.is-static {
-    cursor: default;
+    cursor: grab;
 }
 
 .pv-image.is-static:hover {
@@ -753,5 +796,6 @@ onBeforeUnmount(() => {
     max-height: 80vh;
     margin: 0 auto;
     object-fit: contain;
+    cursor: grab;
 }
 </style>

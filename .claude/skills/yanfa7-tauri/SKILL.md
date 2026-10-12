@@ -78,7 +78,7 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 | `dialog` | 选文件、选目录 |
 | `store` | 设置持久化 |
 | `os` | 读平台 |
-| `drag`（`@crabnebula/tauri-plugin-drag`） | 把图表 PNG 拖到 Word 等外部应用（webview 里的 `<img>` 自己拖不出去） |
+| `drag`（`@crabnebula/tauri-plugin-drag`） | 把图表 PNG 拖到 Word 等外部应用（webview 里的 `<img>` 自己拖不出去，只带 asset 链接）。插件按原尺寸显示跟手的预览图，垫片的 `makeDragIcon` 先用 canvas 缩成 200 宽（asset 协议带 `Access-Control-Allow-Origin`，`crossOrigin` 加载不污染画布），缩不了用原图 |
 | `opener` | 已注册，前端还没有调用点 |
 
 ## 开发端口与 CSP

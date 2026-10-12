@@ -49,6 +49,31 @@ async function applyTheme(mode: AppearanceMode): Promise<void> {
     document.documentElement.classList.toggle('dark', shouldUseDark(mode))
 }
 
+// ---- drag-out icon --------------------------------------------------------
+// The drag plugin shows the icon at its natural size, so a full chart PNG would
+// cover half the screen; scale it down like Electron's nativeImage.resize() did.
+// The asset protocol answers with an Access-Control-Allow-Origin header, so a
+// crossOrigin load keeps the canvas untainted. Falls back to the PNG itself.
+const DRAG_ICON_WIDTH = 200
+
+const makeDragIcon = async (filePath: string): Promise<string> => {
+    try {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.src = `${convertFileSrc(filePath)}?t=${Date.now()}`
+        await img.decode()
+        const canvas = document.createElement('canvas')
+        canvas.width = DRAG_ICON_WIDTH
+        canvas.height = Math.round((img.naturalHeight / img.naturalWidth) * DRAG_ICON_WIDTH)
+        const ctx = canvas.getContext('2d')
+        if (!ctx || !canvas.height) return filePath
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        return canvas.toDataURL('image/png')
+    } catch {
+        return filePath
+    }
+}
+
 // ---- window.electron ------------------------------------------------------
 const electronShim = {
     process: {
@@ -163,10 +188,11 @@ const electronAPIShim = {
     },
 
     startDrag: (filePath: string): void => {
-        // Native drag-out (e.g. into Word). The chart PNG doubles as drag icon.
-        tauriStartDrag({ item: [filePath], icon: filePath }).catch((e) =>
-            console.error('[startDrag]', e)
-        )
+        // Native drag-out (e.g. into Word): the webview's own <img> drag only carries
+        // an asset:// URL that other apps cannot open.
+        makeDragIcon(filePath)
+            .then((icon) => tauriStartDrag({ item: [filePath], icon }))
+            .catch((e) => console.error('[startDrag]', e))
     }
 }
 
