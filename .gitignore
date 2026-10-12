@@ -1,6 +1,6 @@
 # ———— 自定义文件 ——————————————
 .DS_Store
 
-# ———— Claude Code 本地文件 ——————————————
+# ———— Claude Code 本地文件（skills 入库）——————————————
 .claude/*
-CLAUDE.md
+!.claude/skills/
