@@ -18,6 +18,11 @@ cd ../frontend
 npm run tauri:build                 # Tauri 收进安装包 → 仓库根目录 output/
 ```
 
+- Windows 上直接跑仓库根目录的 `build.cmd`，双击也行：依次执行这两步，参数原样传给 `build_backend.py`
+  （`build.cmd --version 2.1.0`）；前端没装过依赖时先 `npm install`，哪一步失败就停在那里。双击运行时结束前会停住，
+  方便看输出。
+- `build.cmd` 前几行只能是英文：先切到 UTF-8 代码页，后面的中文才不会乱码；在 GBK 代码页下读 UTF-8 中文，
+  cmd 可能把换行吞掉、跳过下一行命令。换行必须是 CRLF（`.gitattributes` 已经设好），LF 换行时 cmd 可能找不到 goto 的标签。
 - 第二步只拿 `frontend/src-tauri/binaries/` 里现成的 sidecar，不会重打后端：改了后端却只跑第二步，装出来的还是上一版后端。
 - 产物是 `output/yanfa7-toolkit-<版本>-setup.exe`，由 `frontend/scripts/collect-output.mjs` 从
   `src-tauri/target/release/bundle/nsis/` 拷出来改名：Tauri 按 productName 起的中文文件名，传到 GitHub Release 会被改掉。
@@ -89,6 +94,7 @@ Nuitka 不设 `sys.frozen`（那是 PyInstaller 的），`backend/main.py` 用 `
 ## 关键文件路径
 
 ```text
+build.cmd                                   # Windows 上一键跑完两步
 backend/build_backend.py                    # 定版本 + 调 Nuitka，产物放到 src-tauri/binaries/
 backend/main.py                             # 打包后的分支：127.0.0.1:8000，--sidecar 时 stdin 关了就退出
 backend/pyproject.toml                      # nuitka 在 dev 依赖组

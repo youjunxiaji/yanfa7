@@ -1,0 +1,2 @@
+# Windows 批处理脚本要 CRLF 换行：按 LF 换行时 cmd 可能找不到 goto 的标签
+*.cmd text eol=crlf
