@@ -25,24 +25,7 @@
 - CI 用 tag 的版本号，或校验 tag 与 `package.json` 的 `version` 一致：workflow 解析出的 `APP_VERSION` 没用上，
   v2.0.5、v2.0.6 两个 Release 的安装包名和应用内版本都还是 2.0.4。
 
-## 界面迁到 Naive UI
-
-按 UI Skill 的界面标准重做，只改界面，下一节的体验问题不在这里做。按顺序：
-
-1. **依赖**：装 `naive-ui`、`lucide-vue-next`、`@fontsource-variable/inter`。
-2. **设计变量和主题**：建 `assets/tokens.css`（界面标准第四节）和 `theme/`（Naive 的 `themeOverrides`），
-   `main.ts`、`preview.ts` 的根组件包 `n-config-provider`。落地后把界面标准第四节的数值改成指向代码。
-3. **外壳**：`App.vue`、`SideNav.vue`、`CommandPalette.vue`；路由 `meta.icon` 改存 Lucide 图标组件，侧栏、命令面板、
-   首页共用这一份，同步 yanfa7-ref 的「新增工具模块」。
-4. **页面**：边缘应力、Pmax、报告预览、首页、设置、文档逐页重做，抽出 `EmptyState`、`StatusStrip`；
-   每改完一页，同步 yanfa7-ref 里对应模块参考的页面结构。先迁完的工具页登记为 UI Skill 的基准页。
-5. **收尾**：删 `element-plus`、`@element-plus/icons-vue` 依赖，删 `main.css` 里的旧全局类和 `html.dark` 覆盖；
-   `README.md` 的使用步骤和技术栈按新界面改；Tauri Skill 里提到 `el-dialog` 的地方改成 `n-modal`；
-   删掉 UI Skill 开头和项目规则「前端」一节里「现有页面还是 Element Plus」的说明。
-
 ## 体验问题
-
-界面迁移之后再处理：
 
 - Pmax 页的数据和图表存在组件里，切到别的页面再回来就没了。
 - 边缘应力的保存路径和参数不持久化，重启后要重填。
@@ -55,14 +38,16 @@
 
 - `src/renderer/src/shims/tauri-bridge.ts:31` 的类型错误：`@tauri-apps/plugin-store` 的 `StoreOptions` 要求 `defaults`，
   `npm run typecheck:web` 因此不过，CI 里的 `npm run build` 也会卡在这一步。
-- 渲染层 14 个文件还没按 prettier 排过版（`npx prettier --check 'src/renderer/src/**/*.{ts,vue}'` 列出），
-  整仓跑一次 `npm run format` 单独提交，之后把项目规则验证命令里的 prettier 一行换成 `npm run format`。
+- 渲染层还有 `api/edgeStress.ts`、`shims/tauri-bridge.ts` 没按 prettier 排过版
+  （`npx prettier --check 'src/renderer/src/**/*.{ts,vue}'` 列出），整仓跑一次 `npm run format` 单独提交，
+  之后把项目规则验证命令里的 prettier 一行换成 `npm run format`。
 - 存量代码按全局代码风格收敛：
-  - 渲染层 12 个文件里 35 处 `function` 声明改成 `const` 箭头函数；箭头函数不提升，模块级的先确认没有在定义之前调用。
+  - `shims/tauri-bridge.ts`、`api/edgeStress.ts`、`api/pmax.ts` 里 6 处 `function` 声明改成 `const` 箭头函数；
+    箭头函数不提升，模块级的先确认没有在定义之前调用。
   - `backend/app_edgeStress/module/` 下 `dataset.py`、`processor.py`、`reporter.py`、`cache.py` 的 NumPy 风格 docstring
     改成 Google 风格。
   - 还是 2 空格缩进的文件改成 4 空格：`.github/workflows/build.yml`、`frontend/eslint.config.mjs`、
     `frontend/tsconfig.node.json`、`frontend/.vscode/extensions.json`、`frontend/.vscode/settings.json`
     （Electron 旧外壳那几个随删除处理）。
-- 没有调用方的代码，确认不要后删掉：`components/FilePreviewDialog.vue`、`components/Versions.vue`、
-  `EdgeStressReporter.export_processed_excel`；`app_pmax/module/chart.py` 导入时的 `print(TEMP_DIR)`。
+- 没有调用方的代码，确认不要后删掉：`EdgeStressReporter.export_processed_excel`；
+  `app_pmax/module/chart.py` 导入时的 `print(TEMP_DIR)`。

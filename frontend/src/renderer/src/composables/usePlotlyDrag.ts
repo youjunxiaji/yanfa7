@@ -1,8 +1,5 @@
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, onBeforeUnmount, type Ref } from 'vue'
 import Plotly from 'plotly.js-dist-min'
-import dragIconSvg from '@renderer/assets/drag.svg?raw'
-
-export const DRAG_ICON_SVG = { svg: dragIconSvg }
 
 const DRAG_HIGHLIGHT_SIZE = 14
 const DRAG_HIGHLIGHT_COLOR = '#ff4d4f'
@@ -15,6 +12,14 @@ export interface DragEndInfo {
     newY: number
 }
 
+export interface PlotlyDrag {
+    dragModeEnabled: Ref<boolean>
+    toggleDragMode: (el: HTMLElement) => void
+    setupDragListeners: (el: HTMLElement) => void
+    teardownDragListeners: (el: HTMLElement) => void
+    reset: () => void
+}
+
 interface DragState {
     active: boolean
     curveNumber: number
@@ -23,7 +28,14 @@ interface DragState {
     yArray: number[]
 }
 
-export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
+// Plotly 内部坐标轴对象里用到的两个成员：像素偏移和像素转数据
+interface PlotlyAxis {
+    _offset: number
+    p2d: (px: number) => number
+}
+
+// 拖拽编辑：开启后按住数据点上下拖，松手时回调 onDragEnd；开关由预览窗口的「拖拽编辑」按钮调 toggleDragMode
+export const usePlotlyDrag = (onDragEnd?: (info: DragEndInfo) => void): PlotlyDrag => {
     const dragModeEnabled = ref(false)
     let dragTargetEl: HTMLElement | null = null
     let previousDragMode: string = 'zoom'
@@ -33,26 +45,28 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
         curveNumber: -1,
         pointNumber: -1,
         originalY: 0,
-        yArray: [],
+        yArray: []
     }
 
-    function getPlotlyAxis(el: HTMLElement) {
+    const getYAxis = (el: HTMLElement): PlotlyAxis | null => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const fullLayout = (el as any)._fullLayout
-        if (!fullLayout) return null
-        return { xaxis: fullLayout.xaxis, yaxis: fullLayout.yaxis }
+        return fullLayout ? fullLayout.yaxis : null
     }
 
-    function pixelToDataY(el: HTMLElement, clientY: number): number | null {
-        const axes = getPlotlyAxis(el)
-        if (!axes) return null
+    const pixelToDataY = (el: HTMLElement, clientY: number): number | null => {
+        const yaxis = getYAxis(el)
+        if (!yaxis) return null
         const rect = el.getBoundingClientRect()
-        const yOffset = axes.yaxis._offset
-        const pixelInDiv = clientY - rect.top
-        return axes.yaxis.p2d(pixelInDiv - yOffset)
+        return yaxis.p2d(clientY - rect.top - yaxis._offset)
     }
 
-    function startDrag(el: HTMLElement, curveNumber: number, pointNumber: number, yData: number[]) {
+    const startDrag = (
+        el: HTMLElement,
+        curveNumber: number,
+        pointNumber: number,
+        yData: number[]
+    ): void => {
         drag.active = true
         drag.curveNumber = curveNumber
         drag.pointNumber = pointNumber
@@ -62,17 +76,19 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
         const markerSizes = drag.yArray.map((_, i) =>
             i === drag.pointNumber ? DRAG_HIGHLIGHT_SIZE : NORMAL_MARKER_SIZE
         )
-        Plotly.restyle(el, {
-            'marker.size': [markerSizes],
-            'marker.color': [
-                drag.yArray.map((_, i) =>
-                    i === drag.pointNumber ? DRAG_HIGHLIGHT_COLOR : ''
-                ),
-            ],
-        }, [drag.curveNumber])
+        Plotly.restyle(
+            el,
+            {
+                'marker.size': [markerSizes],
+                'marker.color': [
+                    drag.yArray.map((_, i) => (i === drag.pointNumber ? DRAG_HIGHLIGHT_COLOR : ''))
+                ]
+            },
+            [drag.curveNumber]
+        )
     }
 
-    function onMouseMove(e: MouseEvent) {
+    const onMouseMove = (e: MouseEvent): void => {
         if (!drag.active || !dragTargetEl) return
         e.preventDefault()
         const newY = pixelToDataY(dragTargetEl, e.clientY)
@@ -82,23 +98,27 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
         Plotly.restyle(dragTargetEl, { y: [[...drag.yArray]] }, [drag.curveNumber])
     }
 
-    function endDrag() {
+    const endDrag = (): void => {
         if (!drag.active || !dragTargetEl) return
 
         const finalY = drag.yArray[drag.pointNumber]
         const changed = finalY !== drag.originalY
 
-        Plotly.restyle(dragTargetEl, {
-            'marker.size': [NORMAL_MARKER_SIZE],
-            'marker.color': [null],
-        }, [drag.curveNumber])
+        Plotly.restyle(
+            dragTargetEl,
+            {
+                'marker.size': [NORMAL_MARKER_SIZE],
+                'marker.color': [null]
+            },
+            [drag.curveNumber]
+        )
 
         if (changed && onDragEnd) {
             onDragEnd({
                 curveNumber: drag.curveNumber,
                 pointNumber: drag.pointNumber,
                 oldY: drag.originalY,
-                newY: finalY,
+                newY: finalY
             })
         }
 
@@ -109,7 +129,7 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
         drag.yArray = []
     }
 
-    function onPlotMouseDown(el: HTMLElement, e: MouseEvent) {
+    const onPlotMouseDown = (el: HTMLElement, e: MouseEvent): void => {
         if (!dragModeEnabled.value) return
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,19 +145,7 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
         startDrag(el, pt.curveNumber, pt.pointNumber, pt.data.y)
     }
 
-    function updateDragButtonStyle(el: HTMLElement) {
-        const btn = el.querySelector('.modebar-btn[data-title="拖拽编辑"]') as HTMLElement | null
-        if (!btn) return
-        if (dragModeEnabled.value) {
-            btn.style.background = 'rgba(68,68,68,0.15)'
-            btn.style.borderRadius = '3px'
-        } else {
-            btn.style.background = ''
-            btn.style.borderRadius = ''
-        }
-    }
-
-    function toggleDragMode(el: HTMLElement) {
+    const toggleDragMode = (el: HTMLElement): void => {
         dragModeEnabled.value = !dragModeEnabled.value
         dragTargetEl = dragModeEnabled.value ? el : null
 
@@ -152,39 +160,39 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
             if (drag.active) endDrag()
             Plotly.relayout(el, { dragmode: previousDragMode })
         }
-
-        updateDragButtonStyle(el)
     }
 
     const boundMouseDownHandlers = new WeakMap<HTMLElement, (e: MouseEvent) => void>()
 
-    const boundRelayoutHandlers = new WeakMap<HTMLElement, (data: Record<string, unknown>) => void>()
+    const boundRelayoutHandlers = new WeakMap<
+        HTMLElement,
+        (data: Record<string, unknown>) => void
+    >()
 
-    function onRelayout(el: HTMLElement, data: Record<string, unknown>) {
+    // 在 Plotly 工具条上切到缩放、平移等模式时，退出拖拽编辑
+    const onRelayout = (data: Record<string, unknown>): void => {
         if (!dragModeEnabled.value) return
         if ('dragmode' in data && data.dragmode !== false) {
             dragModeEnabled.value = false
             if (drag.active) endDrag()
             dragTargetEl = null
-            updateDragButtonStyle(el)
         }
     }
 
-    function setupDragListeners(el: HTMLElement) {
+    const setupDragListeners = (el: HTMLElement): void => {
         const plotArea = el.querySelector('.nsewdrag') as HTMLElement | null
         const target = plotArea || el
 
-        const handler = (e: MouseEvent) => onPlotMouseDown(el, e)
+        const handler = (e: MouseEvent): void => onPlotMouseDown(el, e)
         boundMouseDownHandlers.set(el, handler)
         target.addEventListener('mousedown', handler)
 
-        const relayoutHandler = (data: Record<string, unknown>) => onRelayout(el, data)
-        boundRelayoutHandlers.set(el, relayoutHandler)
+        boundRelayoutHandlers.set(el, onRelayout)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(el as any).on('plotly_relayout', relayoutHandler)
+        ;(el as any).on('plotly_relayout', onRelayout)
     }
 
-    function teardownDragListeners(el: HTMLElement) {
+    const teardownDragListeners = (el: HTMLElement): void => {
         const plotArea = el.querySelector('.nsewdrag') as HTMLElement | null
         const target = plotArea || el
         const handler = boundMouseDownHandlers.get(el)
@@ -201,7 +209,7 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
         }
     }
 
-    function reset() {
+    const reset = (): void => {
         dragModeEnabled.value = false
         dragTargetEl = null
         drag.active = false
@@ -224,6 +232,6 @@ export function usePlotlyDrag(onDragEnd?: (info: DragEndInfo) => void) {
         toggleDragMode,
         setupDragListeners,
         teardownDragListeners,
-        reset,
+        reset
     }
 }

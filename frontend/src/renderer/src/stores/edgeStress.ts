@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import type { SkippedFile } from '@renderer/api/edgeStress'
 
 export interface FileInfo {
     name: string
@@ -39,6 +40,12 @@ export const useEdgeStressStore = defineStore('edgeStress', {
         progressCurrent: 0,
         progressTotal: 0,
         stageMessage: '',
+        // 最近一次解析：按顺序发给后端的文件路径、正在处理的文件名、生成的文件数和被跳过的文件，
+        // 文件表的单文件状态由它们推出来
+        runPaths: [] as string[],
+        processingName: '',
+        generatedCount: 0,
+        skippedFiles: [] as SkippedFile[],
 
         fileNames: [] as string[],
         currentFileName: '',
@@ -74,6 +81,10 @@ export const useEdgeStressStore = defineStore('edgeStress', {
             this.progressCurrent = 0
             this.progressTotal = 0
             this.stageMessage = ''
+            this.runPaths = []
+            this.processingName = ''
+            this.generatedCount = 0
+            this.skippedFiles = []
         },
 
         setProcessStatus(status: 'idle' | 'processing' | 'done' | 'error', error?: string) {

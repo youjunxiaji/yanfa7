@@ -1,248 +1,226 @@
 <template>
     <div class="preview-page">
-        <div
-            v-if="columns.length > 0"
-            class="preview-wrapper"
-        >
-            <!-- 顶部控制栏 -->
-            <div class="control-bar">
-                <div class="control-left">
-                    <span class="file-name-tag">{{ fileStem }}</span>
+        <template v-if="columns.length > 0">
+            <header class="pv-toolbar">
+                <div class="pv-file">
+                    <FileText :size="16" />
+                    <span class="pv-file-name" :title="fileStem">{{ fileStem }}</span>
                 </div>
-                <div class="control-right">
-                    <el-select
-                        v-model="selectedCol"
-                        style="width: 100px;"
+                <div class="pv-controls">
+                    <n-select
+                        v-model:value="selectedCol"
+                        :options="columnOptions"
                         size="small"
+                        class="pv-col-select"
+                    />
+                    <n-tabs
+                        :value="stressPosition"
+                        type="segment"
+                        size="small"
+                        :animated="false"
+                        class="pv-track"
+                        @update:value="handlePositionChange"
                     >
-                        <el-option
-                            v-for="col in columns"
-                            :key="col"
-                            :label="`第 ${col} 列`"
-                            :value="col"
-                        />
-                    </el-select>
-                    <div class="track-switch">
-                        <button
-                            class="track-btn"
-                            :class="{ active: stressPosition === 'inner' }"
-                            @click="stressPosition = 'inner'"
-                        >内滚道</button>
-                        <button
-                            class="track-btn"
-                            :class="{ active: stressPosition === 'outer' }"
-                            @click="stressPosition = 'outer'"
-                        >外滚道</button>
-                    </div>
-                    <el-divider direction="vertical" />
-                    <div class="polar-settings">
-                        <label class="polar-label">载荷最小值</label>
-                        <el-input-number
-                            v-model="loadPolarMin"
-                            :step="0.5"
-                            :min="-9999"
-                            :max="0"
-                            size="small"
-                            controls-position="right"
-                            style="width: 110px;"
-                        />
-                        <label class="polar-label">应力最小值</label>
-                        <el-input-number
-                            v-model="pressPolarMin"
-                            :step="0.5"
-                            :min="-9999"
-                            :max="0"
-                            size="small"
-                            controls-position="right"
-                            style="width: 110px;"
-                        />
-                    </div>
+                        <n-tab name="inner">内滚道</n-tab>
+                        <n-tab name="outer">外滚道</n-tab>
+                    </n-tabs>
                 </div>
-            </div>
+            </header>
 
-            <!-- 三栏内容 -->
-            <el-splitter
-                class="content-splitter"
-                @resize-end="onSplitterResizeEnd"
-            >
-                <!-- 左栏: Plotly 交互式图表 -->
-                <el-splitter-panel
-                    :size="40"
-                    :min="20"
+            <div class="pv-body">
+                <n-split
+                    direction="horizontal"
+                    :default-size="0.42"
+                    :min="0.25"
+                    :max="0.7"
+                    :resize-trigger-size="10"
+                    @drag-end="resizePlots"
                 >
-                    <div class="panel-wrapper">
-                        <div class="panel-title">交互式图表</div>
-                        <div class="panel-body panel-scroll">
-                            <template v-if="chartData.length > 0">
-                                <div
-                                    v-for="(chart, idx) in chartData"
-                                    :key="idx"
-                                    class="plotly-section"
-                                >
-                                    <div class="plotly-label">{{ chart.label }}</div>
-                                    <div
-                                        :ref="el => setPlotRef(el, idx)"
-                                        class="plotly-container"
+                    <template #1>
+                        <div class="pv-cell">
+                            <section class="pv-pane">
+                                <header class="pv-pane-head">
+                                    <span class="pv-pane-title">交互图表</span>
+                                    <div class="pv-pane-extra">
+                                        <n-button
+                                            size="small"
+                                            :type="dragModeEnabled ? 'primary' : 'default'"
+                                            :secondary="dragModeEnabled"
+                                            :disabled="draggableIndex < 0"
+                                            @click="toggleDrag"
+                                        >
+                                            <template #icon><MoveVertical :size="15" /></template>
+                                            {{ dragModeEnabled ? '退出拖拽编辑' : '拖拽编辑' }}
+                                        </n-button>
+                                    </div>
+                                </header>
+                                <div class="pv-pane-body">
+                                    <div v-if="dragModeEnabled" class="drag-banner">
+                                        <Info :size="14" />
+                                        拖动「去峰后数据」上的点修改应力值，松手后自动同步并重画报告图片
+                                    </div>
+                                    <template v-if="chartData.length > 0">
+                                        <div v-for="(chart, idx) in chartData" :key="idx">
+                                            <div class="pv-caption">
+                                                {{ chart.label }}
+                                                <span
+                                                    v-if="dragModeEnabled && idx === draggableIndex"
+                                                    class="caption-tag"
+                                                >
+                                                    可拖拽
+                                                </span>
+                                            </div>
+                                            <div
+                                                :ref="(el) => setPlotRef(el, idx)"
+                                                class="plotly-container"
+                                            />
+                                        </div>
+                                    </template>
+                                    <EmptyState
+                                        v-else-if="chartLoading"
+                                        busy
+                                        title="加载图表数据…"
+                                    />
+                                    <EmptyState
+                                        v-else
+                                        :icon="FileText"
+                                        title="图表数据不存在"
+                                        :clickable="false"
                                     />
                                 </div>
+                            </section>
+                        </div>
+                    </template>
+                    <template #2>
+                        <n-split
+                            direction="horizontal"
+                            :default-size="0.5"
+                            :min="0.3"
+                            :max="0.7"
+                            :resize-trigger-size="10"
+                        >
+                            <template #1>
+                                <div class="pv-cell">
+                                    <section class="pv-pane">
+                                        <header class="pv-pane-head">
+                                            <span class="pv-pane-title">应力曲线</span>
+                                        </header>
+                                        <div class="pv-pane-body">
+                                            <div v-for="img in stressImages" :key="img.key">
+                                                <div class="pv-caption">{{ img.caption }}</div>
+                                                <div
+                                                    v-if="img.path"
+                                                    class="pv-image"
+                                                    :class="{ 'is-static': !img.zoomable }"
+                                                    @click="openImagePreview(img)"
+                                                >
+                                                    <img
+                                                        :src="
+                                                            localFileUrl(img.path, imgCacheBuster)
+                                                        "
+                                                        :alt="img.caption"
+                                                    />
+                                                </div>
+                                                <div v-else class="pv-missing">图片不存在</div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                </div>
                             </template>
-                            <div
-                                v-else-if="chartLoading"
-                                class="panel-empty"
-                            >
-                                <el-icon
-                                    :size="40"
-                                    color="#409eff"
-                                    class="is-loading"
-                                >
-                                    <Loading />
-                                </el-icon>
-                                <span>加载图表数据...</span>
-                            </div>
-                            <div
-                                v-else
-                                class="panel-empty"
-                            >
-                                <el-icon
-                                    :size="40"
-                                    color="#d2d2d7"
-                                >
-                                    <Document />
-                                </el-icon>
-                                <span>图表数据不存在</span>
-                            </div>
-                        </div>
-                    </div>
-                </el-splitter-panel>
+                            <template #2>
+                                <div class="pv-cell">
+                                    <section class="pv-pane">
+                                        <header class="pv-pane-head">
+                                            <span class="pv-pane-title">雷达图</span>
+                                            <div class="pv-pane-extra">
+                                                <n-tooltip placement="bottom" :delay="300">
+                                                    <template #trigger>
+                                                        <NumberInput
+                                                            v-model="loadPolarMin"
+                                                            :step="0.5"
+                                                            :min="-9999"
+                                                            :max="0"
+                                                            size="small"
+                                                            prefix="载荷"
+                                                            class="polar-input"
+                                                        />
+                                                    </template>
+                                                    载荷雷达图的径向最小值，0 表示自动
+                                                </n-tooltip>
+                                                <n-tooltip placement="bottom" :delay="300">
+                                                    <template #trigger>
+                                                        <NumberInput
+                                                            v-model="pressPolarMin"
+                                                            :step="0.5"
+                                                            :min="-9999"
+                                                            :max="0"
+                                                            size="small"
+                                                            prefix="应力"
+                                                            class="polar-input"
+                                                        />
+                                                    </template>
+                                                    应力雷达图的径向最小值，0 表示自动
+                                                </n-tooltip>
+                                            </div>
+                                        </header>
+                                        <div class="pv-pane-body">
+                                            <div v-for="img in polarImages" :key="img.key">
+                                                <div class="pv-caption">{{ img.caption }}</div>
+                                                <div
+                                                    v-if="img.path"
+                                                    class="pv-image"
+                                                    @click="openImagePreview(img)"
+                                                >
+                                                    <img
+                                                        :src="
+                                                            localFileUrl(img.path, imgCacheBuster)
+                                                        "
+                                                        :alt="img.caption"
+                                                    />
+                                                </div>
+                                                <div v-else class="pv-missing">图片不存在</div>
+                                            </div>
+                                        </div>
+                                    </section>
+                                </div>
+                            </template>
+                        </n-split>
+                    </template>
+                </n-split>
+            </div>
+        </template>
 
-                <!-- 中栏: 应力曲线图 -->
-                <el-splitter-panel
-                    :size="30"
-                    :min="15"
-                >
-                    <div class="panel-wrapper">
-                        <div class="panel-title">应力曲线图</div>
-                        <div class="panel-body panel-scroll">
-                            <div class="image-group">
-                                <div class="image-label">中文</div>
-                                <img
-                                    v-if="stressChartCnPath"
-                                    :src="localFileUrl(stressChartCnPath, imgCacheBuster)"
-                                    class="chart-img"
-                                    @click="openImagePreview(stressChartCnPath)"
-                                >
-                                <div
-                                    v-else
-                                    class="image-placeholder"
-                                >图片不存在</div>
-                            </div>
-                            <div class="image-group">
-                                <div class="image-label">英文</div>
-                                <img
-                                    v-if="stressChartEnPath"
-                                    :src="localFileUrl(stressChartEnPath, imgCacheBuster)"
-                                    class="chart-img"
-                                    @click="openImagePreview(stressChartEnPath)"
-                                >
-                                <div
-                                    v-else
-                                    class="image-placeholder"
-                                >图片不存在</div>
-                            </div>
-                            <div class="image-group">
-                                <div class="image-label">等高线图</div>
-                                <img
-                                    v-if="contourChartPath"
-                                    :src="localFileUrl(contourChartPath, imgCacheBuster)"
-                                    class="chart-img chart-img-static"
-                                >
-                                <div
-                                    v-else
-                                    class="image-placeholder"
-                                >图片不存在</div>
-                            </div>
-                        </div>
-                    </div>
-                </el-splitter-panel>
+        <EmptyState v-else :icon="FileText" title="无预览数据" :clickable="false" />
 
-                <!-- 右栏: 雷达图 -->
-                <el-splitter-panel
-                    :size="30"
-                    :min="15"
-                >
-                    <div class="panel-wrapper">
-                        <div class="panel-title">雷达图</div>
-                        <div class="panel-body panel-scroll">
-                            <div class="image-group">
-                                <div class="image-label">载荷分布</div>
-                                <img
-                                    v-if="loadPolarPath"
-                                    :src="localFileUrl(loadPolarPath, imgCacheBuster)"
-                                    class="chart-img"
-                                    @click="openImagePreview(loadPolarPath)"
-                                >
-                                <div
-                                    v-else
-                                    class="image-placeholder"
-                                >图片不存在</div>
-                            </div>
-                            <div class="image-group">
-                                <div class="image-label">应力分布</div>
-                                <img
-                                    v-if="stressPolarPath"
-                                    :src="localFileUrl(stressPolarPath, imgCacheBuster)"
-                                    class="chart-img"
-                                    @click="openImagePreview(stressPolarPath)"
-                                >
-                                <div
-                                    v-else
-                                    class="image-placeholder"
-                                >图片不存在</div>
-                            </div>
-                        </div>
-                    </div>
-                </el-splitter-panel>
-            </el-splitter>
-        </div>
-
-        <!-- 无数据状态 -->
-        <div
-            v-else
-            class="empty-state"
+        <n-modal
+            v-model:show="imagePreviewVisible"
+            preset="card"
+            :title="imagePreviewTitle"
+            :style="{ width: '80%', maxWidth: '1200px' }"
+            :bordered="false"
         >
-            <el-icon
-                :size="64"
-                color="#d2d2d7"
-            >
-                <Document />
-            </el-icon>
-            <div class="empty-text">无预览数据</div>
-        </div>
-
-        <!-- 图片放大预览 -->
-        <el-dialog
-            v-model="imagePreviewVisible"
-            width="80%"
-            :show-close="true"
-            class="image-preview-dialog"
-        >
-            <img
-                v-if="imagePreviewSrc"
-                :src="localFileUrl(imagePreviewSrc)"
-                class="preview-full-img"
-            >
-        </el-dialog>
+            <div class="zoom-paper">
+                <img
+                    v-if="imagePreviewSrc"
+                    :src="localFileUrl(imagePreviewSrc, imgCacheBuster)"
+                    :alt="imagePreviewTitle"
+                />
+            </div>
+        </n-modal>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
-import { Document, Loading } from '@element-plus/icons-vue'
-import { ElNotification } from 'element-plus'
+import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
+import { NButton, NModal, NSelect, NSplit, NTab, NTabs, NTooltip, useMessage } from 'naive-ui'
+import { FileText, Info, MoveVertical } from '@lucide/vue'
 import Plotly from 'plotly.js-dist-min'
-import { usePlotlyDrag, DRAG_ICON_SVG, type DragEndInfo } from '@renderer/composables/usePlotlyDrag'
-import { API_BASE } from '@renderer/api/backend'
 import { convertFileSrc } from '@tauri-apps/api/core'
+import { usePlotlyDrag, type DragEndInfo } from '@renderer/composables/usePlotlyDrag'
+import { useDarkClass } from '@renderer/composables/useDarkClass'
+import { API_BASE } from '@renderer/api/backend'
+import EmptyState from '@renderer/components/EmptyState.vue'
+import NumberInput from '@renderer/components/NumberInput.vue'
 
 declare global {
     interface Window {
@@ -252,101 +230,147 @@ declare global {
     }
 }
 
+type StressPosition = 'inner' | 'outer'
+
 interface ChartItem {
     label: string
     traces: Plotly.Data[]
     layout: Record<string, unknown>
 }
 
+interface ImageItem {
+    key: string
+    caption: string
+    title: string
+    path: string
+    zoomable: boolean
+}
+
+const DRAGGABLE_LABEL = '去峰后数据'
+
+const message = useMessage()
+const isDark = useDarkClass()
+
 const params = window.previewAPI.getSearchParams()
 
 const fileStem = params.fileStem ?? ''
 const outputDir = (params.outputDir ?? '').replace(/\\/g, '/')
+const columns = (params.columns ?? '').split(',').filter(Boolean).map(Number)
+const columnOptions = columns.map((col) => ({ label: `第 ${col} 列`, value: col }))
 
-function localFileUrl(filePath: string, cacheBuster?: number): string {
+const selectedCol = ref(columns[0] ?? 1)
+const stressPosition = ref<StressPosition>('inner')
+const loadPolarMin = ref(0)
+const pressPolarMin = ref(0)
+
+const handlePositionChange = (value: string | number): void => {
+    stressPosition.value = value === 'outer' ? 'outer' : 'inner'
+}
+
+const localFileUrl = (filePath: string, cacheBuster?: number): string => {
     const base = convertFileSrc(filePath)
     return cacheBuster != null ? `${base}?t=${cacheBuster}` : base
 }
 
-const columns = (params.columns ?? '').split(',').filter(Boolean).map(Number)
-
-const selectedCol = ref(columns[0] ?? 1)
-const stressPosition = ref<'inner' | 'outer'>('inner')
-const loadPolarMin = ref(0)
-const pressPolarMin = ref(0)
-
-function getGroupName(stem: string): string {
+// ========== 报告图片路径 ==========
+const getGroupName = (stem: string): string => {
     const idx = stem.indexOf('(')
     return idx > 0 ? stem.substring(0, idx).trimEnd() : stem
 }
 
 const basePath = computed(() => {
     if (!outputDir || !fileStem) return ''
-    const group = getGroupName(fileStem)
-    return `${outputDir}/res-output/${group}`
+    return `${outputDir}/res-output/${getGroupName(fileStem)}`
 })
 
 const positionLabel = computed(() =>
     stressPosition.value === 'inner' ? '内滚道接触应力' : '外滚道接触应力'
 )
 
-const chartApiUrl = computed(() => {
-    if (!fileStem || columns.length === 0) return ''
-    const pos = stressPosition.value === 'inner' ? 'inner' : 'outer'
-    const params = new URLSearchParams({
-        file_stem: fileStem,
-        col_index: String(selectedCol.value),
-        position: pos,
-    })
-    return `${API_BASE}/api/chart-data?${params}`
+const imagePath = (suffix: string): string => {
+    if (!basePath.value || columns.length === 0) return ''
+    return `${basePath.value}/${fileStem}-${suffix}`
+}
+
+const stressImages = computed<ImageItem[]>(() => {
+    const prefix = `${positionLabel.value}-第${selectedCol.value}列`
+    return [
+        {
+            key: 'cn',
+            caption: '中文',
+            title: '应力曲线 · 中文',
+            zoomable: true,
+            path: imagePath(`${prefix}-中.png`)
+        },
+        {
+            key: 'en',
+            caption: '英文',
+            title: '应力曲线 · 英文',
+            zoomable: true,
+            path: imagePath(`${prefix}-英.png`)
+        },
+        {
+            key: 'contour',
+            caption: '等高线图',
+            title: '等高线图',
+            zoomable: false,
+            path: imagePath(`${prefix}-contour.png`)
+        }
+    ]
 })
 
-const stressChartCnPath = computed(() => {
-    if (!basePath.value || columns.length === 0) return ''
-    return `${basePath.value}/${fileStem}-${positionLabel.value}-第${selectedCol.value}列-中.png`
-})
-
-const stressChartEnPath = computed(() => {
-    if (!basePath.value || columns.length === 0) return ''
-    return `${basePath.value}/${fileStem}-${positionLabel.value}-第${selectedCol.value}列-英.png`
-})
-
-const contourChartPath = computed(() => {
-    if (!basePath.value || columns.length === 0) return ''
-    return `${basePath.value}/${fileStem}-${positionLabel.value}-第${selectedCol.value}列-contour.png`
-})
-
-const loadPolarPath = computed(() => {
-    if (!basePath.value || columns.length === 0) return ''
-    return `${basePath.value}/${fileStem}-第${selectedCol.value}列-载荷雷达图.png`
-})
-
-const stressPolarPath = computed(() => {
-    if (!basePath.value || columns.length === 0) return ''
-    return `${basePath.value}/${fileStem}-第${selectedCol.value}列-应力雷达图.png`
-})
+const polarImages = computed<ImageItem[]>(() => [
+    {
+        key: 'load',
+        caption: '载荷分布',
+        title: '载荷雷达图',
+        zoomable: true,
+        path: imagePath(`第${selectedCol.value}列-载荷雷达图.png`)
+    },
+    {
+        key: 'press',
+        caption: '应力分布',
+        title: '应力雷达图',
+        zoomable: true,
+        path: imagePath(`第${selectedCol.value}列-应力雷达图.png`)
+    }
+])
 
 const imgCacheBuster = ref(Date.now())
 
 const imagePreviewVisible = ref(false)
 const imagePreviewSrc = ref('')
+const imagePreviewTitle = ref('')
 
-const openImagePreview = (path: string) => {
-    imagePreviewSrc.value = path
+const openImagePreview = (img: ImageItem): void => {
+    if (!img.zoomable) return
+    imagePreviewSrc.value = img.path
+    imagePreviewTitle.value = img.title
     imagePreviewVisible.value = true
 }
 
-// ========== Plotly 图表渲染 ==========
+// ========== Plotly 交互图表 ==========
+const chartApiUrl = computed(() => {
+    if (!fileStem || columns.length === 0) return ''
+    const query = new URLSearchParams({
+        file_stem: fileStem,
+        col_index: String(selectedCol.value),
+        position: stressPosition.value
+    })
+    return `${API_BASE}/api/chart-data?${query}`
+})
 
 const chartData = ref<ChartItem[]>([])
 const chartLoading = ref(false)
 const plotRefs: (HTMLElement | null)[] = []
 
-const setPlotRef = (el: unknown, idx: number) => {
+const setPlotRef = (el: unknown, idx: number): void => {
     plotRefs[idx] = el as HTMLElement | null
 }
 
-const loadChartData = async (url: string) => {
+const draggableIndex = computed(() => chartData.value.findIndex((c) => c.label === DRAGGABLE_LABEL))
+
+const loadChartData = async (url: string): Promise<void> => {
     if (!url) {
         chartData.value = []
         return
@@ -359,99 +383,119 @@ const loadChartData = async (url: string) => {
             try {
                 const body = await resp.json()
                 if (body.detail) msg = body.detail
-            } catch { /* ignore parse error */ }
-            ElNotification({ title: '错误', message: msg, type: 'error', duration: 5000 })
+            } catch {
+                /* ignore parse error */
+            }
+            message.error(msg, { duration: 5000 })
             chartData.value = []
             return
         }
         chartData.value = await resp.json()
     } catch {
-        ElNotification({ title: '错误', message: '无法连接后端服务', type: 'error', duration: 5000 })
+        message.error('无法连接后端服务', { duration: 5000 })
         chartData.value = []
     } finally {
         chartLoading.value = false
     }
 }
 
-// ========== 拖拽模式（composable）==========
+// Plotly 的配色从设计变量读，跟着亮暗主题走（UI Skill 界面标准第九节）
+const cssVar = (name: string): string =>
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
-const handleDragEnd = async (info: DragEndInfo) => {
+const themeLayout = (): Record<string, unknown> => {
+    const tick = cssVar('--text-3')
+    const line = cssVar('--border-strong')
+    const axis = {
+        gridcolor: cssVar('--divider'),
+        linecolor: line,
+        zerolinecolor: line,
+        tickfont: { color: tick }
+    }
+    return {
+        paper_bgcolor: 'rgba(0, 0, 0, 0)',
+        plot_bgcolor: 'rgba(0, 0, 0, 0)',
+        font: { family: cssVar('--font-sans'), color: cssVar('--text-2'), size: 12 },
+        xaxis: axis,
+        yaxis: axis,
+        legend: { font: { color: cssVar('--text-2') } },
+        modebar: { bgcolor: 'rgba(0, 0, 0, 0)', color: tick, activecolor: cssVar('--accent') }
+    }
+}
+
+const handleDragEnd = async (info: DragEndInfo): Promise<void> => {
     const payload = {
         file_stem: fileStem,
         col_index: selectedCol.value,
         position: stressPosition.value,
         trace_index: info.curveNumber,
         point_index: info.pointNumber,
-        new_value: info.newY,
+        new_value: info.newY
     }
-    console.log('[DragEnd] syncing to backend:', payload)
     try {
         const resp = await fetch(`${API_BASE}/api/update-stress-point`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(payload)
         })
         if (!resp.ok) {
             const body = await resp.json().catch(() => ({}))
             console.error('[DragEnd] backend error:', body.detail || resp.statusText)
-            ElNotification({ title: '同步失败', message: body.detail || '更新应力点失败', type: 'error', duration: 3000 })
+            message.error(`同步失败：${body.detail || '更新应力点失败'}`, { duration: 5000 })
             return
         }
-        console.log('[DragEnd] synced successfully')
         imgCacheBuster.value = Date.now()
     } catch (e) {
         console.error('[DragEnd] network error:', e)
-        ElNotification({ title: '同步失败', message: '无法连接后端服务', type: 'error', duration: 3000 })
+        message.error('同步失败：无法连接后端服务', { duration: 5000 })
     }
 }
 
-const { toggleDragMode, setupDragListeners, reset: resetDrag } = usePlotlyDrag(handleDragEnd)
+const {
+    dragModeEnabled,
+    toggleDragMode,
+    setupDragListeners,
+    reset: resetDrag
+} = usePlotlyDrag(handleDragEnd)
 
-// ========== 渲染 ==========
+const toggleDrag = (): void => {
+    const el = plotRefs[draggableIndex.value]
+    if (el) toggleDragMode(el)
+}
 
-const renderPlots = async () => {
+const renderPlots = async (): Promise<void> => {
     resetDrag()
 
     await nextTick()
+    const theme = themeLayout()
     for (let i = 0; i < chartData.value.length; i++) {
         const el = plotRefs[i]
-        if (!el) continue
         const chart = chartData.value[i]
-        const isDraggable = chart.label === '去峰后数据'
-        const layout: Partial<Plotly.Layout> = {
-            xaxis: { title: chart.layout.xaxis_title as string },
-            yaxis: { title: chart.layout.yaxis_title as string },
+        if (!el || !chart) continue
+        const layout = {
+            ...theme,
+            xaxis: { ...(theme.xaxis as object), title: chart.layout.xaxis_title as string },
+            yaxis: { ...(theme.yaxis as object), title: chart.layout.yaxis_title as string },
             height: (chart.layout.height as number) || 500,
             margin: { l: 60, r: 20, t: 30, b: 50 },
             showlegend: true,
-            legend: { orientation: 'v', x: 1.02, y: 0.5 },
+            legend: { ...(theme.legend as object), orientation: 'v', x: 1.02, y: 0.5 }
         }
-
-        const config: Partial<Plotly.Config> = {
+        const config = {
             responsive: true,
-            modeBarButtonsToRemove: ['zoomIn2d', 'zoomOut2d', 'select2d', 'lasso2d'],
-        }
-
-        if (isDraggable) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (config as any).modeBarButtonsToAdd = [{
-                name: '拖拽编辑',
-                title: '拖拽编辑',
-                icon: DRAG_ICON_SVG,
-                click: () => toggleDragMode(el),
-            }]
+            displaylogo: false,
+            modeBarButtonsToRemove: ['zoomIn2d', 'zoomOut2d', 'select2d', 'lasso2d']
         }
 
         await Plotly.newPlot(el, chart.traces, layout, config)
 
-        if (isDraggable) {
+        if (i === draggableIndex.value) {
             setupDragListeners(el)
         }
     }
 }
 
-const onSplitterResizeEnd = (index: number) => {
-    if (index !== 0) return
+const resizePlots = (): void => {
     for (const el of plotRefs) {
         if (el) Plotly.Plots.resize(el)
     }
@@ -459,32 +503,34 @@ const onSplitterResizeEnd = (index: number) => {
 
 watch(chartApiUrl, (url) => loadChartData(url), { immediate: true })
 watch(chartData, () => renderPlots())
+watch(isDark, () => renderPlots())
 
 // ========== 雷达图最小值 → 重新生成 ==========
-
 let polarDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-const regeneratePolar = async () => {
+const regeneratePolar = async (): Promise<void> => {
     const payload = {
         file_stem: fileStem,
         col_index: selectedCol.value,
         load_polar_min: loadPolarMin.value,
-        press_polar_min: pressPolarMin.value,
+        press_polar_min: pressPolarMin.value
     }
     try {
         const resp = await fetch(`${API_BASE}/api/regenerate-polar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(payload)
         })
         if (!resp.ok) {
             const body = await resp.json().catch(() => ({}))
-            ElNotification({ title: '雷达图生成失败', message: body.detail || '重新生成雷达图失败', type: 'error', duration: 3000 })
+            message.error(`雷达图生成失败：${body.detail || '重新生成雷达图失败'}`, {
+                duration: 5000
+            })
             return
         }
         imgCacheBuster.value = Date.now()
     } catch {
-        ElNotification({ title: '雷达图生成失败', message: '无法连接后端服务', type: 'error', duration: 3000 })
+        message.error('雷达图生成失败：无法连接后端服务', { duration: 5000 })
     }
 }
 
@@ -492,236 +538,220 @@ watch([loadPolarMin, pressPolarMin], () => {
     if (polarDebounceTimer) clearTimeout(polarDebounceTimer)
     polarDebounceTimer = setTimeout(regeneratePolar, 600)
 })
+
+onBeforeUnmount(() => {
+    if (polarDebounceTimer) clearTimeout(polarDebounceTimer)
+    for (const el of plotRefs) {
+        if (el) Plotly.purge(el)
+    }
+})
 </script>
 
 <style scoped>
 .preview-page {
+    display: flex;
+    flex-direction: column;
     height: 100vh;
-    display: flex;
-    flex-direction: column;
-    padding: 12px 16px 16px;
-    background-color: #f5f5f7;
+    background: var(--canvas);
 }
 
-.preview-wrapper {
+/* ========== 工具栏 ========== */
+.pv-toolbar {
     display: flex;
-    flex-direction: column;
-    height: 100%;
-    min-height: 0;
-}
-
-/* ========== 控制栏 ========== */
-.control-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px 8px 16px;
-    margin-bottom: 12px;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
     flex-shrink: 0;
-}
-
-.control-left {
-    display: flex;
     align-items: center;
-    min-width: 0;
+    gap: 12px;
+    height: 48px;
+    padding: 0 12px 0 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
 }
 
-.file-name-tag {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1d1d1f;
-    max-width: 480px;
+.pv-file {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--text-3);
+}
+
+.pv-file-name {
     overflow: hidden;
+    font-weight: 600;
+    color: var(--text-1);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.control-right {
+.pv-controls {
     display: flex;
-    align-items: center;
-    gap: 10px;
     flex-shrink: 0;
-}
-
-.track-switch {
-    display: flex;
-    background: #f2f2f7;
-    border-radius: 6px;
-    padding: 2px;
-    height: 24px;
     align-items: center;
+    gap: 8px;
 }
 
-.track-btn {
-    padding: 2px 14px;
-    border: none;
-    background: transparent;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    color: #86868b;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-    line-height: 1;
-    height: 20px;
+.pv-col-select {
+    width: 104px;
 }
 
-.track-btn.active {
-    background: #fff;
-    color: #1d1d1f;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+.pv-track {
+    width: 168px;
 }
 
-.polar-settings {
+/* ========== 三栏 ========== */
+.pv-body {
+    flex: 1;
+    min-height: 0;
+    padding: 10px 5px;
+}
+
+.pv-cell {
+    height: 100%;
+    padding: 0 5px;
+}
+
+.pv-pane {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.pv-pane-head {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 8px;
+    height: 42px;
+    padding: 0 8px 0 14px;
+    border-bottom: 1px solid var(--divider);
+}
+
+.pv-pane-title {
+    flex-shrink: 0;
+    font-weight: 600;
+}
+
+.pv-pane-extra {
     display: flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
+    margin-left: auto;
 }
 
-.polar-label {
-    font-size: 12px;
-    color: #86868b;
-    white-space: nowrap;
+.polar-input {
+    width: 92px;
 }
 
-/* ========== 三栏布局 ========== */
-.content-splitter {
-    flex: 1;
-    min-height: 0;
-}
-
-.panel-wrapper {
+.pv-pane-body {
     display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 0 8px;
-}
-
-.panel-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #86868b;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #f2f2f7;
-    margin-bottom: 8px;
-    flex-shrink: 0;
-}
-
-.panel-body {
     flex: 1;
+    flex-direction: column;
+    gap: 16px;
     min-height: 0;
-}
-
-.panel-scroll {
+    padding: 12px;
     overflow-y: auto;
 }
 
-.panel-empty {
+.pv-caption {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: 12px;
-    color: #86868b;
-    font-size: 13px;
-}
-
-/* ========== Plotly 图表 ========== */
-.plotly-section {
-    margin-bottom: 20px;
-}
-
-.plotly-label {
-    font-size: 12px;
-    color: #86868b;
-    font-weight: 500;
+    gap: 6px;
     margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--text-3);
+}
+
+.caption-tag {
+    padding: 0 6px;
+    font-size: 11px;
+    line-height: 17px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 4px;
+}
+
+.drag-banner {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    font-size: 12px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 7px;
 }
 
 .plotly-container {
     width: 100%;
-    border: 1px solid #e5e5ea;
-    border-radius: 8px;
     overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 8px;
 }
 
 .plotly-container :deep(.nsewdrag) {
     cursor: crosshair;
 }
 
-/* ========== 图片 ========== */
-.image-group {
-    margin-bottom: 16px;
-}
-
-.image-label {
-    font-size: 12px;
-    color: #86868b;
-    font-weight: 500;
-    margin-bottom: 6px;
-}
-
-.chart-img {
-    width: 100%;
+/* ========== 报告图片 ========== */
+.pv-image {
+    overflow: hidden;
+    background: var(--paper);
+    border: 1px solid var(--border);
     border-radius: 8px;
-    border: 1px solid #e5e5ea;
-    cursor: pointer;
-    transition: box-shadow 0.2s ease;
+    cursor: zoom-in;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
 }
 
-.chart-img:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.pv-image:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
 }
 
-.chart-img.chart-img-static {
+.pv-image.is-static {
     cursor: default;
 }
 
-.chart-img.chart-img-static:hover {
+.pv-image.is-static:hover {
+    border-color: var(--border);
     box-shadow: none;
 }
 
-.image-placeholder {
+.pv-image img {
+    display: block;
+    width: 100%;
+}
+
+.pv-missing {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 120px;
-    border: 2px dashed #e5e5ea;
+    font-size: 12.5px;
+    color: var(--text-3);
+    border: 1.5px dashed var(--border-strong);
     border-radius: 8px;
-    color: #86868b;
-    font-size: 13px;
 }
 
-/* ========== 空状态 ========== */
-.empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    gap: 16px;
+.zoom-paper {
+    overflow: hidden;
+    background: var(--paper);
+    border-radius: 8px;
 }
 
-.empty-text {
-    font-size: 14px;
-    color: #86868b;
-}
-
-/* ========== 图片预览弹窗 ========== */
-.image-preview-dialog :deep(.el-dialog__body) {
-    padding: 0;
-    display: flex;
-    justify-content: center;
-}
-
-.preview-full-img {
+.zoom-paper img {
+    display: block;
     max-width: 100%;
-    max-height: 85vh;
+    max-height: 80vh;
+    margin: 0 auto;
     object-fit: contain;
 }
 </style>

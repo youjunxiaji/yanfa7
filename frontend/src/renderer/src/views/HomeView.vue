@@ -1,237 +1,220 @@
 <template>
-    <div class="home-page">
-        <div class="home-content">
-            <!-- 欢迎区域 -->
-            <div class="welcome-section">
-                <img src="@renderer/assets/logo.png" alt="logo" class="welcome-logo" />
-                <h1 class="welcome-title">研发七部工具包</h1>
-                <p class="welcome-desc">
-                    轴承数据分析与报告生成工具集
-                    <span class="welcome-sep">·</span>
-                    <span class="shortcut-link" @click="openPalette">
-                        <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd><kbd>P</kbd> 快速跳转
+    <div class="home">
+        <div class="home-inner">
+            <img class="home-logo" src="@renderer/assets/logo.png" alt="TMB" />
+            <h1 class="home-title">研发七部工具包</h1>
+            <div class="home-desc">
+                <span>轴承数据分析与报告生成工具集</span>
+                <button class="shortcut-chip" @click="openPalette">
+                    <span class="kbd-group">
+                        <kbd>{{ isMac ? '⌘' : 'Ctrl' }}</kbd>
+                        <kbd>P</kbd>
                     </span>
-                </p>
+                    快速跳转
+                </button>
             </div>
 
-            <!-- 工具卡片网格 -->
-            <div class="tools-grid">
-                <div
+            <div class="tool-grid">
+                <router-link
                     v-for="tool in tools"
                     :key="tool.path"
+                    :to="tool.path"
                     class="tool-card"
-                    @click="router.push(tool.path)"
                 >
-                    <div class="tool-icon-wrapper" :style="{ background: tool.bgColor }">
-                        <el-icon :size="28" :color="tool.iconColor">
-                            <component :is="tool.icon" />
-                        </el-icon>
+                    <div class="tool-card-top">
+                        <div class="tool-icon" :class="`is-${tool.tone}`">
+                            <component :is="tool.icon" :size="18" />
+                        </div>
+                        <ArrowRight class="tool-arrow" :size="16" />
                     </div>
-                    <div class="tool-info">
-                        <span class="tool-name">{{ tool.name }}</span>
-                        <span class="tool-desc">{{ tool.desc }}</span>
+                    <div>
+                        <div class="tool-name">{{ tool.name }}</div>
+                        <div class="tool-desc">{{ tool.desc }}</div>
                     </div>
-                    <el-icon class="tool-arrow" :size="16" color="#c0c4cc">
-                        <ArrowRight />
-                    </el-icon>
-                </div>
+                </router-link>
             </div>
-        </div>
 
-        <!-- 底部版本信息 -->
-        <div class="home-footer">
-            <span>v{{ version }}</span>
-            <span class="footer-sep">·</span>
-            <span>TMB®</span>
+            <div class="home-footer">
+                <span>v{{ version }}</span>
+                <span>·</span>
+                <span>TMB®</span>
+            </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { markRaw, type Component } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Histogram, TrendCharts, ArrowRight } from '@element-plus/icons-vue'
+import { ArrowRight } from '@lucide/vue'
+import { APP_VERSION } from '@renderer/constants/app'
 
 const router = useRouter()
-const version = __APP_VERSION__
+const version = APP_VERSION
 const isMac = window.electron.process.platform === 'darwin'
 
-function openPalette(): void {
+const tools = computed(() =>
+    router.options.routes.flatMap((r) =>
+        r.meta?.tool ? [{ path: r.path, icon: r.meta.icon, ...r.meta.tool }] : []
+    )
+)
+
+const openPalette = (): void => {
     window.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'p', metaKey: isMac, ctrlKey: !isMac })
     )
 }
-
-interface ToolItem {
-    path: string
-    name: string
-    desc: string
-    icon: Component
-    iconColor: string
-    bgColor: string
-}
-
-const tools: ToolItem[] = [
-    {
-        path: '/edge-stress',
-        name: '边缘应力分析',
-        desc: 'HTM 数据解析、去峰处理与报告生成',
-        icon: markRaw(Histogram),
-        iconColor: '#0071e3',
-        bgColor: 'rgba(0, 113, 227, 0.08)'
-    },
-    {
-        path: '/pmax',
-        name: 'Pmax时间占比',
-        desc: '轴承最大接触应力区间分析与柱状图生成',
-        icon: markRaw(TrendCharts),
-        iconColor: '#34c759',
-        bgColor: 'rgba(52, 199, 89, 0.08)'
-    }
-]
 </script>
 
 <style scoped>
-.home-page {
+.home {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: 100%;
-    padding: 0 24px;
-}
-
-.home-content {
     flex: 1;
-    display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    min-height: 0;
+    padding: 0 32px;
+    overflow-y: auto;
+}
+
+.home-inner {
     width: 100%;
-    max-width: 520px;
+    max-width: 600px;
+    margin: auto 0;
+    padding: 48px 0 24px;
 }
 
-/* ========== 欢迎区域 ========== */
-.welcome-section {
-    text-align: center;
-    margin-bottom: 48px;
+.home-logo {
+    display: block;
+    height: 22px;
 }
 
-.welcome-logo {
-    height: 48px;
-    width: auto;
-    margin-bottom: 16px;
-}
-
-.welcome-title {
-    font-size: 28px;
+.home-title {
+    margin: 20px 0 6px;
+    font-size: 26px;
     font-weight: 700;
-    color: #1d1d1f;
-    letter-spacing: -0.5px;
-    margin-bottom: 8px;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
 }
 
-.welcome-desc {
-    font-size: 15px;
-    color: #86868b;
-    font-weight: 400;
-}
-
-.welcome-sep {
-    margin: 0 2px;
-}
-
-.shortcut-link {
-    cursor: pointer;
-    transition: color 0.15s;
-}
-
-.shortcut-link:hover {
-    color: var(--el-color-primary);
-}
-
-.shortcut-link kbd {
-    font-size: 11px;
-    background: #ededf0;
-    border-radius: 3px;
-    padding: 1px 4px;
-    font-family: inherit;
-    margin-right: 1px;
-}
-
-/* ========== 工具卡片网格 ========== */
-.tools-grid {
-    width: 100%;
+.home-desc {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 12px;
+    font-size: 14px;
+    color: var(--text-2);
+}
+
+.shortcut-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px 0 4px;
+    font-size: 12px;
+    color: var(--text-2);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+        border-color 0.15s,
+        color 0.15s;
+}
+
+.shortcut-chip:hover {
+    color: var(--text-1);
+    border-color: var(--border-strong);
+}
+
+.kbd-group {
+    display: flex;
+    gap: 2px;
+}
+
+.tool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 32px;
 }
 
 .tool-card {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 16px;
-    padding: 20px 24px;
-    background: #ffffff;
-    border-radius: 14px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-    cursor: pointer;
-    transition: box-shadow 0.2s ease, transform 0.15s ease;
+    padding: 16px;
+    color: inherit;
+    text-decoration: none;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s,
+        transform 0.15s;
 }
 
 .tool-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
     transform: translateY(-1px);
 }
 
-.tool-card:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+.tool-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
-.tool-icon-wrapper {
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
+.tool-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
 }
 
-.tool-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
+.tool-icon.is-blue {
+    color: var(--accent);
+    background: var(--accent-soft);
 }
 
-.tool-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1d1d1f;
-}
-
-.tool-desc {
-    font-size: 13px;
-    color: #86868b;
+.tool-icon.is-green {
+    color: var(--success);
+    background: var(--success-soft);
 }
 
 .tool-arrow {
-    flex-shrink: 0;
+    color: var(--text-3);
+    transition:
+        transform 0.15s,
+        color 0.15s;
 }
 
-/* ========== 底部版本信息 ========== */
+.tool-card:hover .tool-arrow {
+    color: var(--text-1);
+    transform: translateX(2px);
+}
+
+.tool-name {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.tool-desc {
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--text-3);
+}
+
 .home-footer {
-    padding: 16px 0 20px;
-    font-size: 12px;
-    color: #c7c7cc;
     display: flex;
-    align-items: center;
     gap: 6px;
-}
-
-.footer-sep {
-    font-size: 10px;
+    margin-top: 40px;
+    font-size: 12px;
+    color: var(--text-3);
 }
 </style>

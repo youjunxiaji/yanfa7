@@ -1,0 +1,75 @@
+/* 设计变量：:root 是浅色，html.dark 是暗色。用途见 UI Skill 界面标准第四节。
+   Naive UI 读不了 CSS 变量，theme/naive.ts 里放了同一套字面值，改这里要同步那边。 */
+
+:root {
+    --font-sans:
+        'Inter Variable', 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont,
+        'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei', sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+
+    --canvas: #f4f4f5;
+    --panel: #ffffff;
+    --subtle: #fafafa;
+    --muted: #f4f4f5;
+    --hover: rgba(24, 24, 27, 0.045);
+    --pressed: rgba(24, 24, 27, 0.08);
+    --border: #e4e4e7;
+    --border-strong: #d4d4d8;
+    --divider: #ececee;
+    --text-1: #18181b;
+    --text-2: #52525b;
+    --text-3: #a1a1aa;
+    --accent: #2563eb;
+    --accent-hover: #3b82f6;
+    --accent-soft: rgba(37, 99, 235, 0.07);
+    --success: #16a34a;
+    --success-soft: rgba(22, 163, 74, 0.08);
+    --warning: #d97706;
+    --warning-soft: rgba(217, 119, 6, 0.09);
+    --danger: #dc2626;
+    --danger-soft: rgba(220, 38, 38, 0.07);
+    --nav-active: #ffffff;
+    --nav-active-ring: rgba(24, 24, 27, 0.08);
+    --paper: #ffffff;
+    --mask: rgba(9, 9, 11, 0.24);
+    --scrollbar: rgba(24, 24, 27, 0.18);
+    --kbd-bg: #ffffff;
+    --shadow-sm: 0 1px 2px rgba(24, 24, 27, 0.05);
+    --shadow-md: 0 6px 20px rgba(24, 24, 27, 0.08), 0 1px 3px rgba(24, 24, 27, 0.06);
+    --shadow-lg: 0 24px 64px rgba(24, 24, 27, 0.2), 0 0 0 1px rgba(24, 24, 27, 0.06);
+    color-scheme: light;
+}
+
+html.dark {
+    --canvas: #0b0b0d;
+    --panel: #141416;
+    --subtle: #18181b;
+    --muted: #1f1f23;
+    --hover: rgba(255, 255, 255, 0.045);
+    --pressed: rgba(255, 255, 255, 0.08);
+    --border: #27272a;
+    --border-strong: #3f3f46;
+    --divider: #202024;
+    --text-1: #f4f4f5;
+    --text-2: #a1a1aa;
+    --text-3: #71717a;
+    --accent: #3b82f6;
+    --accent-hover: #60a5fa;
+    --accent-soft: rgba(59, 130, 246, 0.12);
+    --success: #22c55e;
+    --success-soft: rgba(34, 197, 94, 0.11);
+    --warning: #f59e0b;
+    --warning-soft: rgba(245, 158, 11, 0.11);
+    --danger: #ef4444;
+    --danger-soft: rgba(239, 68, 68, 0.11);
+    --nav-active: rgba(255, 255, 255, 0.07);
+    --nav-active-ring: rgba(255, 255, 255, 0.06);
+    --paper: #ffffff;
+    --mask: rgba(0, 0, 0, 0.55);
+    --scrollbar: rgba(255, 255, 255, 0.16);
+    --kbd-bg: #1f1f23;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.07);
+    color-scheme: dark;
+}

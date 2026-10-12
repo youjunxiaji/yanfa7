@@ -1,8 +1,6 @@
 <template>
-    <div class="docs-page">
-        <div class="docs-body">
-            <div class="markdown-body" v-html="renderedHtml" />
-        </div>
+    <div class="reading">
+        <article class="markdown-body" v-html="renderedHtml" />
     </div>
 </template>
 
@@ -16,60 +14,65 @@ const renderedHtml = computed(() => md.render(readmeRaw))
 </script>
 
 <style scoped>
-.docs-page {
-    height: 100%;
-    overflow-y: auto;
-    background: #ffffff;
-}
-
-.docs-body {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 40px 48px 80px;
-}
-
 .markdown-body {
-    font-size: 15px;
-    line-height: 1.7;
-    color: #1d1d1f;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 40px 72px;
+    font-size: 14px;
+    line-height: 1.75;
     word-wrap: break-word;
 }
 
 .markdown-body :deep(h1) {
-    font-size: 28px;
+    margin: 0 0 12px;
+    font-size: 26px;
     font-weight: 700;
-    margin: 0 0 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #e5e5ea;
-    letter-spacing: -0.5px;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
 }
 
 .markdown-body :deep(h2) {
-    font-size: 22px;
-    font-weight: 600;
-    margin: 32px 0 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #f0f0f2;
+    margin: 36px 0 10px;
+    padding-top: 22px;
+    font-size: 18px;
+    font-weight: 650;
+    line-height: 1.4;
+    border-top: 1px solid var(--divider);
 }
 
 .markdown-body :deep(h3) {
-    font-size: 18px;
-    font-weight: 600;
     margin: 24px 0 8px;
-}
-
-.markdown-body :deep(h4) {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
-    margin: 20px 0 8px;
 }
 
-.markdown-body :deep(p) {
+.markdown-body :deep(p),
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
     margin: 0 0 12px;
+    color: var(--text-2);
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+    padding-left: 22px;
+}
+
+.markdown-body :deep(li) {
+    margin: 4px 0;
+}
+
+.markdown-body :deep(li::marker) {
+    color: var(--text-3);
+}
+
+.markdown-body :deep(strong) {
+    font-weight: 600;
+    color: var(--text-1);
 }
 
 .markdown-body :deep(a) {
-    color: var(--el-color-primary);
+    color: var(--accent);
     text-decoration: none;
 }
 
@@ -77,92 +80,65 @@ const renderedHtml = computed(() => md.render(readmeRaw))
     text-decoration: underline;
 }
 
-.markdown-body :deep(ul),
-.markdown-body :deep(ol) {
-    padding-left: 24px;
-    margin: 0 0 12px;
-}
-
-.markdown-body :deep(li) {
-    margin: 4px 0;
-}
-
-.markdown-body :deep(li > ul),
-.markdown-body :deep(li > ol) {
-    margin: 4px 0 0;
-}
-
 .markdown-body :deep(code) {
-    font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 13px;
-    background: #f5f5f7;
-    padding: 2px 6px;
+    padding: 1px 6px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text-1);
+    background: var(--muted);
     border-radius: 4px;
-    color: #e45649;
 }
 
 .markdown-body :deep(pre) {
-    background: #f5f5f7;
-    border-radius: 8px;
-    padding: 16px 20px;
-    overflow-x: auto;
     margin: 0 0 16px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    background: var(--subtle);
+    border: 1px solid var(--divider);
+    border-radius: 8px;
 }
 
 .markdown-body :deep(pre code) {
-    background: none;
     padding: 0;
-    color: #1d1d1f;
-    font-size: 13px;
-    line-height: 1.6;
+    font-size: 12.5px;
+    line-height: 1.65;
+    background: none;
 }
 
 .markdown-body :deep(table) {
     width: 100%;
-    border-collapse: collapse;
     margin: 0 0 16px;
-    font-size: 14px;
+    font-size: 13px;
+    border-collapse: collapse;
 }
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
-    border: 1px solid #e5e5ea;
     padding: 8px 12px;
     text-align: left;
+    border-bottom: 1px solid var(--divider);
 }
 
 .markdown-body :deep(th) {
-    background: #f5f5f7;
-    font-weight: 600;
-}
-
-.markdown-body :deep(tr:nth-child(even)) {
-    background: #fafafa;
+    font-weight: 500;
+    color: var(--text-3);
 }
 
 .markdown-body :deep(blockquote) {
-    border-left: 4px solid #e5e5ea;
     margin: 0 0 16px;
     padding: 4px 16px;
-    color: #86868b;
-}
-
-.markdown-body :deep(blockquote p:last-child) {
-    margin-bottom: 0;
+    color: var(--text-2);
+    border-left: 3px solid var(--border);
 }
 
 .markdown-body :deep(hr) {
-    border: none;
-    border-top: 1px solid #e5e5ea;
     margin: 24px 0;
+    border: none;
+    border-top: 1px solid var(--divider);
 }
 
 .markdown-body :deep(img) {
     max-width: 100%;
     border-radius: 8px;
-}
-
-.markdown-body :deep(strong) {
-    font-weight: 600;
 }
 </style>

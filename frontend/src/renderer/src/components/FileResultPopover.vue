@@ -1,41 +1,31 @@
 <template>
-    <el-popover
+    <n-popover
         trigger="hover"
-        :width="'auto'"
         placement="right"
+        :disabled="!previewItems?.length"
+        :delay="250"
+        :show-arrow="false"
     >
-        <template #reference>
+        <template #trigger>
             <slot />
         </template>
-        <div class="popover-content">
-            <div class="popover-title">{{ fileName }}</div>
-            <div
-                v-if="previewItems && previewItems.length > 0"
-                class="popover-previews"
-            >
-                <div
-                    v-for="item in previewItems"
-                    :key="item.colIndex"
-                    class="popover-preview"
-                >
-                    <div
-                        v-if="previewItems.length > 1"
-                        class="col-label"
-                    >
-                        第{{ item.colIndex }}列
+        <div class="thumb-pop">
+            <div class="thumb-title">{{ fileName }}</div>
+            <div class="thumb-list">
+                <div v-for="item in previewItems" :key="item.colIndex">
+                    <div v-if="(previewItems?.length ?? 0) > 1" class="thumb-label">
+                        第 {{ item.colIndex }} 列
                     </div>
-                    <img
-                        :src="localFileUrl(item.path)"
-                        alt="预览"
-                        class="preview-img"
-                    >
+                    <img :src="convertFileSrc(item.path)" alt="预览" class="thumb-img" />
                 </div>
             </div>
         </div>
-    </el-popover>
+    </n-popover>
 </template>
 
 <script setup lang="ts">
+// 文件名上的悬停缩略图：解析完成后才有 previewItems，没有时不弹
+import { NPopover } from 'naive-ui'
 import { convertFileSrc } from '@tauri-apps/api/core'
 
 export interface PreviewItem {
@@ -47,47 +37,37 @@ defineProps<{
     fileName: string
     previewItems?: PreviewItem[]
 }>()
-
-function localFileUrl(filePath: string): string {
-    return convertFileSrc(filePath)
-}
 </script>
 
 <style scoped>
-.popover-content {
-    min-width: 160px;
-    padding: 4px 0;
-}
-
-.popover-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1d1d1f;
-}
-
-.popover-previews {
+.thumb-pop {
     display: flex;
-    gap: 12px;
-    margin-top: 8px;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.popover-preview {
-    flex: 1;
-    min-width: 0;
+.thumb-title {
+    font-weight: 600;
 }
 
-.col-label {
-    font-size: 12px;
-    color: #86868b;
+.thumb-list {
+    display: flex;
+    gap: 10px;
+}
+
+.thumb-label {
     margin-bottom: 4px;
-    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-3);
 }
 
-.preview-img {
-    max-width: 200px;
+.thumb-img {
+    display: block;
+    width: 200px;
     max-height: 280px;
-    border-radius: 6px;
-    border: 1px solid #e5e5ea;
     object-fit: contain;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 6px;
 }
 </style>

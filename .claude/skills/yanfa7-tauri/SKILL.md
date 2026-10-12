@@ -58,7 +58,7 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 - 依赖三处配置：`Cargo.toml` 的 `tauri` 开 `protocol-asset` feature；`tauri.conf.json` 的 `app.security.assetProtocol`
   开启、`scope: ["**"]`；CSP 的 `img-src`、`frame-src` 放行 `asset:` 和 `http(s)://asset.localhost`。
 - 路径固定的图片重画后 URL 不变，webview 会用缓存：URL 后拼 `?t=<时间戳>`，只在后端重画成功后更新时间戳
-  （`PmaxView.vue`、`ReportPreviewView.vue` 的 `imgCacheBuster`）。`el-dialog` 的 `destroy-on-close` 只销毁 DOM，清不掉这层缓存。
+  （`PmaxView.vue`、`ReportPreviewView.vue` 的 `imgCacheBuster`）。弹窗关掉时销毁 DOM 也清不掉这层缓存。
 
 ## 主题与设置
 

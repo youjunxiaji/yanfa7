@@ -55,8 +55,8 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 
 ## 前端
 
-- 组件用 `<script setup lang="ts">`。UI 只用 Naive UI（根组件的 `n-config-provider` 配主题和中文 locale），
-  图标只用 `lucide-vue-next`。现有页面还是 Element Plus，迁移步骤见 `todo.md`。
+- 组件用 `<script setup lang="ts">`。UI 只用 Naive UI（`components/AppProviders.vue` 统一配主题和中文 locale），
+  图标只用 `@lucide/vue`。
 - Pinia store 用 Options API 写法（避开 Vue 3.5 的类型兼容问题），放 `stores/`；只属于单个页面的状态留在组件里（如 Pmax 页）。
 - 渲染层模块用 `@renderer/...` 导入（映射 `src/renderer/src/`）；`@root` 映射仓库根目录，用来导入 `README.md`。
   没有 `@/` 别名。

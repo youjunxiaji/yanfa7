@@ -1,10 +1,10 @@
 <template>
     <Teleport to="body">
         <Transition name="palette">
-            <div v-if="visible" class="palette-overlay" @click.self="close">
-                <div class="palette-panel">
-                    <div class="palette-input-wrapper">
-                        <el-icon :size="16" class="palette-search-icon"><Search /></el-icon>
+            <div v-if="visible" class="palette-mask" @mousedown.self="close">
+                <div class="palette">
+                    <div class="palette-input-row">
+                        <Search :size="16" />
                         <input
                             ref="inputRef"
                             v-model="query"
@@ -13,9 +13,9 @@
                             @keydown.up.prevent="moveSelection(-1)"
                             @keydown.down.prevent="moveSelection(1)"
                             @keydown.enter.prevent="confirmSelection"
-                            @keydown.esc="close"
+                            @keydown.esc.prevent="close"
                         />
-                        <kbd class="palette-kbd">ESC</kbd>
+                        <kbd>Esc</kbd>
                     </div>
                     <div v-if="filteredRoutes.length" class="palette-list">
                         <div
@@ -26,14 +26,17 @@
                             @mouseenter="activeIndex = idx"
                             @click="navigate(item.path)"
                         >
-                            <el-icon :size="18" class="palette-item-icon">
-                                <component :is="iconMap[item.icon]" />
-                            </el-icon>
-                            <span class="palette-item-title">{{ item.title }}</span>
-                            <span class="palette-item-path">{{ item.path }}</span>
+                            <component :is="item.icon" :size="16" />
+                            <span>{{ item.title }}</span>
+                            <span class="palette-path">{{ item.path }}</span>
                         </div>
                     </div>
                     <div v-else class="palette-empty">无匹配结果</div>
+                    <div class="palette-foot">
+                        <span><kbd>↑</kbd><kbd>↓</kbd>选择</span>
+                        <span><kbd>↵</kbd>打开</span>
+                        <span><kbd>Esc</kbd>关闭</span>
+                    </div>
                 </div>
             </div>
         </Transition>
@@ -41,14 +44,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, type Component, markRaw } from 'vue'
+// ⌘P / Ctrl+P 唤起的页面跳转面板，页面列表和图标都取自路由 meta
+import { ref, computed, watch, nextTick, type Component } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, HomeFilled, Histogram, TrendCharts } from '@element-plus/icons-vue'
+import { Search } from '@lucide/vue'
 
-const iconMap: Record<string, Component> = {
-    HomeFilled: markRaw(HomeFilled),
-    Histogram: markRaw(Histogram),
-    TrendCharts: markRaw(TrendCharts)
+interface RouteItem {
+    path: string
+    title: string
+    icon: Component
 }
 
 const visible = defineModel<boolean>('visible', { default: false })
@@ -58,188 +62,161 @@ const query = ref('')
 const activeIndex = ref(0)
 const inputRef = ref<HTMLInputElement | null>(null)
 
-interface RouteItem {
-    path: string
-    title: string
-    icon: string
-}
-
 const allRoutes = computed<RouteItem[]>(() =>
-    router.options.routes
-        .filter((r) => r.meta?.title && r.meta?.icon)
-        .map((r) => ({
-            path: r.path,
-            title: r.meta!.title as string,
-            icon: r.meta!.icon as string
-        }))
+    router.options.routes.flatMap((r) =>
+        r.meta?.title && r.meta?.icon
+            ? [{ path: r.path, title: r.meta.title, icon: r.meta.icon }]
+            : []
+    )
 )
 
 const filteredRoutes = computed(() => {
-    if (!query.value.trim()) return allRoutes.value
-    const q = query.value.toLowerCase()
+    const q = query.value.trim().toLowerCase()
+    if (!q) return allRoutes.value
     return allRoutes.value.filter(
         (r) => r.title.toLowerCase().includes(q) || r.path.toLowerCase().includes(q)
     )
 })
 
-watch(
-    () => visible.value,
-    (val) => {
-        if (val) {
-            query.value = ''
-            activeIndex.value = 0
-            nextTick(() => inputRef.value?.focus())
-        }
-    }
-)
+watch(visible, (val) => {
+    if (!val) return
+    query.value = ''
+    activeIndex.value = 0
+    nextTick(() => inputRef.value?.focus())
+})
 
 watch(filteredRoutes, () => {
     activeIndex.value = 0
 })
 
-function moveSelection(delta: number): void {
+const close = (): void => {
+    visible.value = false
+}
+
+const navigate = (path: string): void => {
+    router.push(path)
+    close()
+}
+
+const moveSelection = (delta: number): void => {
     const len = filteredRoutes.value.length
     if (!len) return
     activeIndex.value = (activeIndex.value + delta + len) % len
 }
 
-function confirmSelection(): void {
+const confirmSelection = (): void => {
     const item = filteredRoutes.value[activeIndex.value]
     if (item) navigate(item.path)
-}
-
-function navigate(path: string): void {
-    router.push(path)
-    close()
-}
-
-function close(): void {
-    visible.value = false
 }
 </script>
 
 <style scoped>
-.palette-overlay {
+.palette-mask {
     position: fixed;
     inset: 0;
-    z-index: 9999;
+    z-index: 3000;
     display: flex;
+    align-items: flex-start;
     justify-content: center;
-    padding-top: 20vh;
-    background: rgba(0, 0, 0, 0.25);
+    padding-top: 16vh;
+    background: var(--mask);
     backdrop-filter: blur(2px);
 }
 
-.palette-panel {
-    width: 480px;
-    max-height: 340px;
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.06);
+.palette {
+    width: 540px;
+    max-width: calc(100vw - 32px);
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    align-self: flex-start;
+    background: var(--panel);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
 }
 
-.palette-input-wrapper {
+.palette-input-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.palette-search-icon {
-    color: #909399;
-    flex-shrink: 0;
+    gap: 10px;
+    height: 50px;
+    padding: 0 14px;
+    color: var(--text-3);
+    border-bottom: 1px solid var(--divider);
 }
 
 .palette-input {
     flex: 1;
-    border: none;
-    outline: none;
+    min-width: 0;
+    font: inherit;
     font-size: 14px;
-    color: #303133;
+    color: var(--text-1);
     background: transparent;
-    line-height: 1.5;
+    border: 0;
+    outline: 0;
 }
 
 .palette-input::placeholder {
-    color: #c0c4cc;
-}
-
-.palette-kbd {
-    font-size: 11px;
-    color: #909399;
-    background: #f5f5f7;
-    border: 1px solid #e5e6eb;
-    border-radius: 4px;
-    padding: 1px 6px;
-    font-family: inherit;
-    line-height: 1.6;
-    flex-shrink: 0;
+    color: var(--text-3);
 }
 
 .palette-list {
-    overflow-y: auto;
+    max-height: 320px;
     padding: 6px;
+    overflow-y: auto;
 }
 
 .palette-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
+    height: 38px;
+    padding: 0 10px;
     border-radius: 8px;
     cursor: pointer;
-    transition: background 0.1s;
+}
+
+.palette-item .lucide {
+    color: var(--text-3);
 }
 
 .palette-item.is-active {
-    background: #f0f5ff;
+    background: var(--muted);
 }
 
-.palette-item-icon {
-    color: #606266;
-    flex-shrink: 0;
+.palette-item.is-active .lucide {
+    color: var(--accent);
 }
 
-.palette-item.is-active .palette-item-icon {
-    color: var(--el-color-primary);
-}
-
-.palette-item-title {
-    font-size: 14px;
-    color: #303133;
-    font-weight: 500;
-}
-
-.palette-item.is-active .palette-item-title {
-    color: var(--el-color-primary);
-}
-
-.palette-item-path {
+.palette-path {
     margin-left: auto;
+    font-family: var(--font-mono);
     font-size: 12px;
-    color: #c0c4cc;
-    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+    color: var(--text-3);
 }
 
 .palette-empty {
-    padding: 24px 16px;
+    padding: 28px;
+    color: var(--text-3);
     text-align: center;
-    font-size: 13px;
-    color: #909399;
 }
 
-/* Transition */
-.palette-enter-active {
-    transition: opacity 0.15s ease;
+.palette-foot {
+    display: flex;
+    gap: 16px;
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--text-3);
+    background: var(--subtle);
+    border-top: 1px solid var(--divider);
 }
 
+.palette-foot span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.palette-enter-active,
 .palette-leave-active {
-    transition: opacity 0.1s ease;
+    transition: opacity 0.14s ease;
 }
 
 .palette-enter-from,
@@ -247,18 +224,14 @@ function close(): void {
     opacity: 0;
 }
 
-.palette-enter-active .palette-panel {
-    animation: palette-slide-in 0.15s ease;
+.palette-enter-active .palette {
+    animation: palette-in 0.16s ease;
 }
 
-@keyframes palette-slide-in {
+@keyframes palette-in {
     from {
         opacity: 0;
-        transform: translateY(-8px) scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: translateY(-6px) scale(0.98);
     }
 }
 </style>
