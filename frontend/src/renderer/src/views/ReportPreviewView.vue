@@ -7,12 +7,17 @@
                     <span class="pv-file-name" :title="fileStem">{{ fileStem }}</span>
                 </div>
                 <div class="pv-controls">
-                    <n-select
-                        v-model:value="selectedCol"
-                        :options="columnOptions"
+                    <n-tabs
+                        :value="selectedCol"
+                        type="segment"
                         size="small"
-                        class="pv-col-select"
-                    />
+                        :animated="false"
+                        class="pv-col-tabs"
+                        :style="{ '--col-count': columns.length }"
+                        @update:value="handleColumnChange"
+                    >
+                        <n-tab v-for="col in columns" :key="col" :name="col">第 {{ col }} 列</n-tab>
+                    </n-tabs>
                     <n-tabs
                         :value="stressPosition"
                         type="segment"
@@ -240,7 +245,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
-import { NButton, NModal, NSelect, NSplit, NTab, NTabs, NTooltip, useMessage } from 'naive-ui'
+import { NButton, NModal, NSplit, NTab, NTabs, NTooltip, useMessage } from 'naive-ui'
 import { FileText, GripVertical, Info, MoveVertical } from '@lucide/vue'
 import Plotly from 'plotly.js-dist-min'
 import { convertFileSrc } from '@tauri-apps/api/core'
@@ -284,12 +289,15 @@ const params = window.previewAPI.getSearchParams()
 const fileStem = params.fileStem ?? ''
 const outputDir = (params.outputDir ?? '').replace(/\\/g, '/')
 const columns = (params.columns ?? '').split(',').filter(Boolean).map(Number)
-const columnOptions = columns.map((col) => ({ label: `第 ${col} 列`, value: col }))
 
 const selectedCol = ref(columns[0] ?? 1)
 const stressPosition = ref<StressPosition>('inner')
 const loadPolarMin = ref(0)
 const pressPolarMin = ref(0)
+
+const handleColumnChange = (value: string | number): void => {
+    selectedCol.value = Number(value)
+}
 
 const handlePositionChange = (value: string | number): void => {
     stressPosition.value = value === 'outer' ? 'outer' : 'inner'
@@ -618,19 +626,22 @@ onBeforeUnmount(() => {
     white-space: nowrap;
 }
 
+/* 列号、内外滚道两个分段控件每段一样宽：列号有几列就几段（--col-count 在模板里按列数设），滚道固定两段 */
 .pv-controls {
+    --seg-width: 84px;
+
     display: flex;
     flex-shrink: 0;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
 }
 
-.pv-col-select {
-    width: 104px;
+.pv-col-tabs {
+    width: calc(var(--col-count) * var(--seg-width));
 }
 
 .pv-track {
-    width: 168px;
+    width: calc(2 * var(--seg-width));
 }
 
 /* ========== 三栏 ========== */
