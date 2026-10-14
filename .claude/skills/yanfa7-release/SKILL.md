@@ -54,8 +54,9 @@ npm run tauri:build                 # Tauri 收进安装包 → 仓库根目录 
   安装目录里的 sidecar 只负责解包和看守，解包目录里的那个 exe 才跑 Python。
 - **无控制台**（`--windows-console-mode=disable`）：Tauri 拉起时 stdio 是管道，照常可用；直接双击运行时
   stdout 是 None，uvicorn 起不来。手动排查要重定向输出：`yanfa7-backend.exe > out.txt 2>&1`。
-- **lxml、openpyxl 显式带上**：pandas 读 HTM、读写 Excel 时按名字导入，Nuitka 静态分析不一定跟得到。
-  新增依赖凡是运行时按名字导入的，同样加在这里。
+- **lxml、openpyxl、polars、rich 显式带上**：pandas 读 HTM、读写 Excel 时按名字导入 lxml、openpyxl；
+  rich 的字符宽度表按 unicode 版本用 `import_module` 加载；polars 沿用 simple_load 打包时的整包包含。
+  Nuitka 静态分析不一定跟得到。新增依赖凡是运行时按名字导入的，同样加在这里。
 - **编译时 `MPLBACKEND=Agg`**：matplotlib 插件把编译时探测到的后端写进随包配置，装了 Tk 的机器上探测到的是 TkAgg。
 - **编译时 `CL=/utf-8`**（仅 Windows）：`--product-name` 这类参数里的中文，Nuitka 以 UTF-8 写进 `build_definitions.h`，
   而中文 Windows 上 MSVC 默认按 GBK 读，字符串常量被截坏，C 编译阶段报 `error C2001: 常量中有换行符`，

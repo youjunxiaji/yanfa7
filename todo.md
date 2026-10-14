@@ -1,5 +1,31 @@
 # yanfa7 待办
 
+## 载荷简化迁移
+
+simple_load v1.3.1 原样搬进了 `backend/`（`app_simpleLoad/`、`my_websockets/`、`tests/`）。下面每步一个提交，
+每步跑一遍 `uv run pytest`：算法用例和 `tests/test_real_baseline.py`（真实算例对拍）只许改 import，不许改断言。
+
+- **目录按项目规则重排**：`routes.py` 拆成 `urls.py` + `views.py`，`schemas.py` 改名 `serializers.py`，
+  `core/`、`services/` 并进 `module/`，`my_websockets/` 并进模块。
+- **日志换成 loguru**：删 `core/logger.py`、`core/memory.py` 和它们的用例，删 rich、psutil 依赖，
+  `build_backend.py` 的 `--include-package=rich` 一起删。
+- **重计算挪出事件循环**：划分区间、缩减的 polars 计算还直接跑在 async 函数里，缩减期间整个后端没响应，
+  改用 `asyncio.to_thread`。
+- **去掉 pyarrow**：只有 `cal_simpleLoad.py` 的两处 `to_pandas()` 要它，改写掉。
+- **代码风格**：`typing` 的 `List` / `Dict` 换成内置类型，docstring 换成 Google 风格。
+- **接口协议随前端移植一起改**：报错改 400 + `detail`，WebSocket 改成边缘应力那样每步一条，理顺报文字段名，
+  路径加 `/api/simple-load/`、`/ws/simple-load/` 前缀；删 `main.py` 里只对载荷简化生效的校验处理器、
+  区间表按位置对齐的旧前端兼容分支、加载前等前端重连 10 秒。
+- **前端 `SimpleLoadView.vue`**：Naive UI，原生选文件夹 / 文件，Plotly 直方图和框选求占比，Pinia store，
+  历史配置存本机（Tauri store）。列映射的拖拽排序、「加载 → 划分 → 缩减」三个按钮怎么摆，先出方案。
+- **打包验证，下次发版前必须做**：sidecar 启动就导入 polars，漏收模块会连边缘应力、Pmax 一起起不来。
+  在 Actions 手动触发一次构建（不打 tag 不发版），查编译报告确认 polars、pyarrow、rich 收进去了，装机能起来。
+  发版 CI 在打 sidecar 前加一步 `uv run pytest`。
+- **文档**：`yanfa7-ref` 加「载荷简化」参考（取 simple_load 的 README 算法公式、CLAUDE.md 约定、测试 skill），
+  `README.md` 加使用说明，删掉项目规则「项目边界」里载荷简化那条。
+- **下线旧软件**：simple_load 停止发版、GitHub 仓库归档；`tmb_web_v1` 删载荷简化页面、路由和
+  `useSimpleLoadSocket.ts`；服务器上的历史配置要不要导入，到时再定。
+
 ## Tauri 迁移收尾
 
 - **删 Electron 旧外壳**：打包和 CI 都已改走 Tauri，旧外壳没有流程在用。

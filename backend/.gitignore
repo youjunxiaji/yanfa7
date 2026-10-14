@@ -10,6 +10,14 @@ html/
 测试文件/
 .DS_Store
 
+# 载荷简化的真实算例和对拍基线，五百多 MB，tests/ 里找不到就跳过
+测试案例/
+
+# pytest 与覆盖率
+.pytest_cache/
+.coverage
+htmlcov/
+
 # build_backend.py 的中间产物（nuitka 的 .build / .dist / .onefile-build），几百 MB
 /build/
 nuitka-crash-report.xml

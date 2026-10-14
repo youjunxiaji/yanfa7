@@ -39,6 +39,9 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 - 例外：`src/preload/index.d.ts` 仍提供 `window.electron*` 的全局类型（`tsconfig.web.json` include），
   改兼容垫片的接口时同步它。
 - 开发端口：渲染层 Vite 5179，后端 8006；打包后的后端固定 8000。改端口要同步的位置见 Tauri Skill。
+- `backend/app_simpleLoad/`、`backend/my_websockets/` 是原样搬进来的载荷简化（simple_load v1.3.1）：目录、接口路径、
+  报错方式和日志都还是它原来的写法，没按「后端」一节整理，整理步骤见 `todo.md`；新模块不照着它写。
+  它还没有界面，同事们用的仍是网页版加 simple_load 的 exe：这期间 simple_load 冻结，要修的 bug 两边一起改。
 
 ## 架构约束
 
@@ -91,8 +94,9 @@ npm run build:renderer             # 渲染层打包
 cd src-tauri && cargo check        # 改了 Rust 时
 ```
 
-后端（`backend/`）没有自动化测试，改完至少确认能导入：
+后端（`backend/`）改完确认能导入，再跑测试；测试目前只覆盖载荷简化和 `main.py` 的装配，十秒左右：
 
 ```bash
 uv run python -c "import main"
+uv run pytest                      # 真实算例和对拍基线在 backend/测试案例/（不入库），没有就跳过那几条
 ```

@@ -200,6 +200,10 @@ def nuitka_args(version: str, output_name: str) -> list[str]:
         "--include-module=lxml.etree",
         "--include-module=lxml.html",
         "--include-package=openpyxl",
+        # 载荷简化沿用 simple_load 打包时的显式包含：rich 的字符宽度表按 unicode 版本用 import_module 加载，
+        # polars 整包带上
+        "--include-package=polars",
+        "--include-package=rich",
         f"--product-version={version}",
         f"--file-version={version}",
         "--product-name=研发七部工具包",
