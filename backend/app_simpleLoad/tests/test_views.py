@@ -1,306 +1,312 @@
-"""app_simpleLoad/views.py —— 三个 HTTP 接口
+"""app_simpleLoad/views.py —— 预览、清空两个 HTTP 接口，加载、缩减两条 WebSocket
 
-分支用 StubCalSimpleLoad 覆盖（快、只测路由逻辑），
-最后一组用真实流水线跑一遍完整链路。
+WebSocket 用 TestClient 在进程内连，跑的是真实计算，数据是 conftest 里两个工况各 4 行的合成数据集。
 """
 
-import dataclasses
 import json
 
 import pytest
 
 from app_simpleLoad import views as views_module
-from app_simpleLoad.module.config import FileParseError
+from app_simpleLoad.module.cache import LoadedDataCache
 from app_simpleLoad.tests import factories
-from app_simpleLoad.tests.excel_io import read_gl
-from app_simpleLoad.tests.fakes import StubCalSimpleLoad
-from app_simpleLoad.tests.test_reduce_load import DEFAULT_BINS, table_data
+from app_simpleLoad.tests.excel_io import read_gl, read_romax
+from app_simpleLoad.tests.factories import build_dataset, ramp_case
+from app_simpleLoad.tests.test_reduce_load import DEFAULT_BINS, SELECTED_COLUMNS
+
+LOAD_PATH = "/ws/simple-load/load"
+REDUCE_PATH = "/ws/simple-load/reduce"
 
 
-def load_payload(dataset, config) -> dict:
-    """构造 /api/load_file 的请求体。"""
-    return {
-        "file_path": {
-            "result_folder_save_path": str(dataset.out_dir),
-            "load_file_folder_path": str(dataset.load_dir),
-            "freq_table_path": str(dataset.freq_path),
-        },
-        "draggableElements": [{"name": name} for name in dataset.header],
-        "conversion_factors": dataclasses.asdict(config),
+def load_message(dataset, **overrides) -> dict:
+    """加载数据时前端发的参数：合成数据集第一行是列名，跳过 1 行。"""
+    body = {
+        "loadDir": str(dataset.load_dir),
+        "freqTablePath": str(dataset.freq_path),
+        "columns": dataset.header,
+        "skipRows": 1,
+        "unitForce": 1000,
+        "unitMoment": 1000,
+        "unitSpeed": 1,
     }
+    body.update(overrides)
+    return body
 
 
-def reduce_payload(table_rows: list[dict] | None = None) -> dict:
-    """构造 /api/reduce_load 的请求体（romax_origin 用报文形态的字典）。"""
-    return {
-        "tableData": [{"0": "-100", "1": "100"}] if table_rows is None else table_rows,
-        "romax_origin": factories.ROMAX_ORIGIN,
+def reduce_message(dataset, **overrides) -> dict:
+    """载荷缩减时前端发的参数：默认坐标映射下五个分量参与分组。"""
+    body = {
+        "intervals": dict(zip(SELECTED_COLUMNS, DEFAULT_BINS)),
+        "axisMapping": factories.ROMAX_ORIGIN,
+        "keepTorque": False,
+        "slope": 4,
+        "temperature": 40,
+        "tol": 1e-6,
+        "outputDir": str(dataset.out_dir),
     }
+    body.update(overrides)
+    return body
 
 
-def use_stub(api_client, monkeypatch, stub: StubCalSimpleLoad) -> StubCalSimpleLoad:
-    """让路由里新建的实例变成 stub。"""
-    monkeypatch.setattr(views_module, "CalSimpleLoad", lambda: stub)
-    return stub
+def run_ws(api_client, path: str, payload: dict) -> list[dict]:
+    """连上 WebSocket 发一条参数，收到 done 或 error 为止，返回收到的全部消息。"""
+    messages = []
+    with api_client.websocket_connect(path) as ws:
+        ws.send_json(payload)
+        while True:
+            message = ws.receive_json()
+            messages.append(message)
+            if message["type"] in ("done", "error"):
+                return messages
 
 
-class AlwaysConnectedWs:
-    """views 里 ws 的替身：连接始终正常。"""
+def last(messages: list[dict]) -> dict:
+    return messages[-1]
 
-    def __init__(self, active_after: int = 0) -> None:
-        self.active_after = active_after
-        self.checks = 0
 
-    def is_connection_active(self, client_id: str) -> bool:
-        self.checks += 1
-        return self.checks > self.active_after
+@pytest.fixture
+def loaded_via_ws(api_client, dataset):
+    """先走一遍加载，缓存里有数据。"""
+    assert last(run_ws(api_client, LOAD_PATH, load_message(dataset)))["type"] == "done"
+    return dataset
 
 
-# ─── /api/load_file ──────────────────────────────────────────
+# ─── POST /api/simple-load/preview ───────────────────────────
 
-class TestLoadFile:
-    def test_连接正常时新建实例并加载(self, api_client, monkeypatch, dataset, config):
-        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
-        stub = use_stub(api_client, monkeypatch, StubCalSimpleLoad())
+class TestPreview:
+    def test_返回_txt_个数大小和第一个文件的开头(self, api_client, dataset):
+        response = api_client.post("/api/simple-load/preview", json={"loadDir": str(dataset.load_dir)})
 
-        response = api_client.post("/api/load_file", json=load_payload(dataset, config))
+        body = response.json()
+        assert response.status_code == 200
+        assert body["fileCount"] == 2
+        assert body["totalSize"] == sum(p.stat().st_size for p in dataset.load_dir.glob("*.txt"))
+        assert body["sampleFile"] == "c1.txt"
+        assert body["lines"] == dataset.txt_path("c1").read_text(encoding="utf-8").splitlines()
 
-        assert response.json() == {"message": "读取文件完成", "status": "success"}
-        assert api_client.app.state.websocket_manager.cal_instance is stub
-        assert [name for name, _, _ in stub.calls] == ["setInit", "simple_Pre_processing"]
+    def test_子文件夹里的_txt_一起数(self, api_client, dataset):
+        nested = dataset.load_dir / "DLC12" / "a.txt"
+        nested.parent.mkdir()
+        nested.write_text("1 2 3\n", encoding="utf-8")
 
-    def test_把前端参数原样传给实例(self, api_client, monkeypatch, dataset, config):
-        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
-        stub = use_stub(api_client, monkeypatch, StubCalSimpleLoad())
-
-        api_client.post("/api/load_file", json=load_payload(dataset, config))
-
-        kwargs = stub.calls[0][2]
-        assert kwargs["header"] == dataset.header
-        assert kwargs["paths"].freq_table_path == str(dataset.freq_path)
-        assert kwargs["config"].translate_factor == config.translate_factor
-
-    def test_已有实例时复用(self, api_client, monkeypatch, dataset, config):
-        existing = StubCalSimpleLoad()
-        api_client.app.state.websocket_manager.cal_instance = existing
-        monkeypatch.setattr(views_module, "CalSimpleLoad", lambda: pytest.fail("不应新建实例"))
-
-        response = api_client.post("/api/load_file", json=load_payload(dataset, config))
-
-        assert response.json()["status"] == "success"
-        assert api_client.app.state.websocket_manager.cal_instance is existing
-
-    def test_连接断开且等不到重连时提示刷新(self, api_client, monkeypatch, dataset, config, instant_sleep):
-        instant_sleep(views_module)
-        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs(active_after=999))
-
-        response = api_client.post("/api/load_file", json=load_payload(dataset, config))
-
-        assert response.json() == {
-            "message": "WebSocket连接已断开，请刷新页面重新连接",
-            "status": "error",
-            "need_reconnect": True,
-        }
-        assert api_client.app.state.websocket_manager.cal_instance is None
-
-    def test_等待期间重连成功则继续处理(self, api_client, monkeypatch, dataset, config, instant_sleep):
-        instant_sleep(views_module)
-        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs(active_after=3))
-        use_stub(api_client, monkeypatch, StubCalSimpleLoad())
-
-        response = api_client.post("/api/load_file", json=load_payload(dataset, config))
-
-        assert response.json()["status"] == "success"
-
-    @pytest.mark.parametrize(
-        ("error", "expected"),
-        [
-            (ValueError("标题配置错误：缺少必需的列 ['Fx[KN]']"), "标题配置错误：缺少必需的列 ['Fx[KN]']"),
-        ],
-    )
-    def test_setInit_报错时返回错误信息(
-        self, api_client, monkeypatch, dataset, config, error, expected
-    ):
-        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
-        use_stub(api_client, monkeypatch, StubCalSimpleLoad(set_init_error=error))
-
-        response = api_client.post("/api/load_file", json=load_payload(dataset, config))
-
-        assert response.json() == {"message": expected, "status": "error"}
-
-    @pytest.mark.parametrize(
-        ("error", "expected"),
-        [
-            (ValueError("频次表与载荷文件不匹配：..."), "频次表与载荷文件不匹配：..."),
-            (FileParseError("c1.txt", "列数不匹配"), "文件 c1.txt 解析失败: 列数不匹配"),
-            (RuntimeError("磁盘炸了"), "文件加载失败: 磁盘炸了"),
-        ],
-    )
-    def test_预处理各类异常都转成错误响应(
-        self, api_client, monkeypatch, dataset, config, error, expected
-    ):
-        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
-        use_stub(api_client, monkeypatch, StubCalSimpleLoad(pre_processing_error=error))
-
-        response = api_client.post("/api/load_file", json=load_payload(dataset, config))
-
-        assert response.json() == {"message": expected, "status": "error"}
-
-
-# ─── /api/divide_interval ────────────────────────────────────
-
-class TestDivideInterval:
-    def test_未加载文件时提示(self, api_client):
-        response = api_client.post("/api/divide_interval", json={"romax_origin": []})
-
-        assert response.json() == {"message": "请先加载文件", "status": "error"}
-
-    def test_返回最值与图表数据(self, api_client, romax_origin):
-        stub = StubCalSimpleLoad(load1_result='{"min":{}}', save_pic_result={"Fx[KN]": "{}"})
-        api_client.app.state.websocket_manager.cal_instance = stub
-
-        response = api_client.post(
-            "/api/divide_interval", json={"romax_origin": factories.ROMAX_ORIGIN}
-        )
-
-        assert response.json() == {
-            "message": "划分区间完成",
-            "min_max": '{"min":{}}',
-            "echarts_data": {"Fx[KN]": "{}"},
-            "status": "success",
-        }
-        assert stub.calls[0] == ("simple_load1", (romax_origin,), {})
-
-    def test_缺省_romax_origin_时传空列表(self, api_client):
-        stub = StubCalSimpleLoad()
-        api_client.app.state.websocket_manager.cal_instance = stub
-
-        api_client.post("/api/divide_interval", json={})
-
-        assert stub.calls[0] == ("simple_load1", ([],), {})
-
-    def test_实例状态不全时提示先加载文件(self, api_client):
-        """savePic 在未划分区间时抛 AttributeError，路由兜住它。"""
-        stub = StubCalSimpleLoad(load1_error=AttributeError("max_min"))
-        api_client.app.state.websocket_manager.cal_instance = stub
-
-        response = api_client.post("/api/divide_interval", json={"romax_origin": []})
-
-        assert response.json() == {"message": "请先加载文件", "status": "error"}
-
-
-# ─── /api/reduce_load ────────────────────────────────────────
-
-class TestReduceLoad:
-    def test_未加载文件时提示(self, api_client):
-        response = api_client.post("/api/reduce_load", json=reduce_payload())
-
-        assert response.json() == {"message": "请先加载文件", "status": "error"}
-
-    def test_返回缩减后的工况数(self, api_client, romax_origin):
-        stub = StubCalSimpleLoad(load2_result=42)
-        api_client.app.state.websocket_manager.cal_instance = stub
-
-        response = api_client.post("/api/reduce_load", json=reduce_payload([{"0": "1"}]))
-
-        assert response.json() == {"message": "载荷简化处理全部完成", "count": 42}
-        # 报文里的 romax_origin 已被解析成 AxisMapping 再交给计算层
-        assert stub.calls[0] == ("simple_load2", ([{"0": "1"}], romax_origin), {})
-
-    def test_业务校验失败时透传错误信息(self, api_client):
-        stub = StubCalSimpleLoad(
-            load2_result={"message": "Fx[KN]的区间值必须是单调递增的", "status": "error"}
-        )
-        api_client.app.state.websocket_manager.cal_instance = stub
-
-        response = api_client.post("/api/reduce_load", json=reduce_payload())
-
-        assert response.json() == {"message": "Fx[KN]的区间值必须是单调递增的", "status": "error"}
-
-    def test_计算异常时返回失败原因(self, api_client):
-        stub = StubCalSimpleLoad(load2_error=IndexError("list index out of range"))
-        api_client.app.state.websocket_manager.cal_instance = stub
-
-        response = api_client.post("/api/reduce_load", json=reduce_payload())
-
-        assert response.json() == {
-            "message": "载荷缩减失败: list index out of range",
-            "status": "error",
-        }
-
-
-# ─── 请求体校验 ──────────────────────────────────────────────
-
-class TestRequestValidation:
-    """Pydantic 校验失败时，仍然是 200 + status=error 的业务错误形状。"""
-
-    def test_缺少必填字段(self, api_client, dataset, config):
-        payload = load_payload(dataset, config)
-        del payload["file_path"]["freq_table_path"]
-
-        body = api_client.post("/api/load_file", json=payload).json()
-
-        assert body["status"] == "error"
-        assert "freq_table_path" in body["message"]
-
-    def test_字段类型不对(self, api_client, dataset, config):
-        payload = load_payload(dataset, config)
-        payload["conversion_factors"]["tol"] = "很小"
-
-        body = api_client.post("/api/load_file", json=payload).json()
-
-        assert body["status"] == "error"
-        assert "tol" in body["message"]
-
-    def test_坐标映射不足三个轴(self, api_client):
         body = api_client.post(
-            "/api/reduce_load",
-            json={"tableData": [{"0": "1"}], "romax_origin": factories.ROMAX_ORIGIN[:2]},
+            "/api/simple-load/preview", json={"loadDir": str(dataset.load_dir)}
         ).json()
 
-        assert body["status"] == "error"
-        assert "romax_origin" in body["message"]
+        assert body["fileCount"] == 3
+        assert body["sampleFile"].replace("\\", "/") == "DLC12/a.txt"
 
-    def test_区间表为空(self, api_client):
-        body = api_client.post("/api/reduce_load", json=reduce_payload([])).json()
+    def test_最多读二十行_空行不算(self, api_client, tmp_path):
+        lines = ["Time Fx", "", *[f"{i} {i}" for i in range(30)]]
+        (tmp_path / "a.txt").write_text("\n".join(lines), encoding="utf-8")
 
-        assert body["status"] == "error"
-        assert "tableData" in body["message"]
+        body = api_client.post("/api/simple-load/preview", json={"loadDir": str(tmp_path)}).json()
 
-    def test_多余字段被忽略(self, api_client, romax_origin):
-        stub = StubCalSimpleLoad(load2_result=1)
-        api_client.app.state.websocket_manager.cal_instance = stub
-        payload = reduce_payload() | {"这个字段前端多传了": 123}
+        assert body["lines"] == ["Time Fx", *[f"{i} {i}" for i in range(19)]]
 
-        assert api_client.post("/api/reduce_load", json=payload).json()["count"] == 1
-
-
-# ─── 完整链路（真实计算） ────────────────────────────────────
-
-class TestFullFlowThroughApi:
-    def test_加载到导出三步走通(
-        self, api_client, monkeypatch, dataset, config, romax_origin, instant_sleep
-    ):
-        from app_simpleLoad.module import progress as progress_module
-
-        instant_sleep(progress_module)
-        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
-
-        load = api_client.post("/api/load_file", json=load_payload(dataset, config))
-        assert load.json()["status"] == "success"
-
-        divide = api_client.post(
-            "/api/divide_interval", json={"romax_origin": factories.ROMAX_ORIGIN}
+    def test_文件夹不存在(self, api_client, tmp_path):
+        response = api_client.post(
+            "/api/simple-load/preview", json={"loadDir": str(tmp_path / "没有")}
         )
-        body = divide.json()
-        assert body["status"] == "success"
-        assert set(json.loads(body["min_max"])) == {"min", "max"}
-        assert set(body["echarts_data"]) == {
+
+        assert response.status_code == 400
+        assert response.json()["detail"].startswith("载荷文件夹不存在")
+
+    def test_文件夹里没有_txt(self, api_client, tmp_path):
+        response = api_client.post("/api/simple-load/preview", json={"loadDir": str(tmp_path)})
+
+        assert response.status_code == 400
+        assert response.json()["detail"].startswith("载荷文件夹里没有 txt 文件")
+
+
+# ─── POST /api/simple-load/clear ─────────────────────────────
+
+class TestClear:
+    def test_丢掉加载过的数据(self, api_client, loaded_via_ws):
+        response = api_client.post("/api/simple-load/clear")
+
+        assert response.status_code == 204
+        assert LoadedDataCache.load() is None
+
+
+# ─── WS /ws/simple-load/load ─────────────────────────────────
+
+class TestLoad:
+    def test_推进度并带回六个分量的最值和分布(self, api_client, dataset):
+        messages = run_ws(api_client, LOAD_PATH, load_message(dataset))
+
+        done = last(messages)
+        progresses = [m["percent"] for m in messages if m["type"] == "progress"]
+        assert done["type"] == "done"
+        assert (done["fileCount"], done["rowCount"]) == (2, 8)
+        assert progresses == sorted(progresses) and progresses[-1] == 100
+        assert [c["component"] for c in done["components"]] == [
             "Fx[KN]", "Fy[KN]", "Fz[KN]", "Mx[KNm]", "My[KNm]", "Mz[KNm]",
+        ]
+        for component in done["components"]:
+            assert component["min"] <= component["max"]
+            assert len(component["binLeft"]) == len(component["binRight"]) == len(component["share"])
+            assert sum(component["share"]) == pytest.approx(1.0)
+        assert LoadedDataCache.load() is not None
+
+    def test_跳过行数和单位换算生效(self, api_client, tmp_path):
+        dataset = build_dataset(tmp_path, [ramp_case("c1", n_rows=4)])
+        txt = dataset.txt_path("c1")
+        lines = txt.read_text(encoding="utf-8").splitlines()
+        txt.write_text("\n".join([lines[0], "END_OF_HEADER", *lines[1:]]), encoding="utf-8")
+
+        done = last(run_ws(api_client, LOAD_PATH, load_message(dataset, skipRows=2, unitForce=2)))
+
+        fx = next(c for c in done["components"] if c["component"] == "Fx[KN]")
+        # ramp_case 的 Fx 是第 4 个分量：4000 + 100·i，力除以 2
+        assert (done["rowCount"], fx["min"], fx["max"]) == (4, 2000, 2150)
+
+    def test_列对应不全时推_error(self, api_client, dataset):
+        columns = [c for c in dataset.header if c != "Fz[KN]"]
+
+        done = last(run_ws(api_client, LOAD_PATH, load_message(dataset, columns=columns)))
+
+        assert done == {"type": "error", "message": "列对应缺少 Fz[KN]"}
+
+    def test_字段不合法时带上字段名(self, api_client, dataset):
+        done = last(run_ws(api_client, LOAD_PATH, load_message(dataset, skipRows=-1)))
+
+        assert done["type"] == "error"
+        assert done["message"].startswith("skipRows：")
+
+    def test_频次表不存在(self, api_client, dataset):
+        payload = load_message(dataset, freqTablePath=str(dataset.root / "没有.xlsx"))
+
+        done = last(run_ws(api_client, LOAD_PATH, payload))
+
+        assert done["type"] == "error"
+        assert done["message"].startswith("频次表不存在")
+
+    def test_频次表和_txt_对不上时推_error_旧数据也清掉(self, api_client, loaded_via_ws, tmp_path):
+        other = build_dataset(
+            tmp_path / "other", [ramp_case("c1"), ramp_case("c2")], freq_names=["c1", "c3"]
+        )
+
+        done = last(run_ws(api_client, LOAD_PATH, load_message(other)))
+
+        assert done["type"] == "error"
+        assert "频次表与载荷文件不匹配" in done["message"]
+        assert LoadedDataCache.load() is None
+
+
+# ─── WS /ws/simple-load/reduce ───────────────────────────────
+
+class TestReduce:
+    def test_没加载过时提示先加载(self, api_client, dataset):
+        done = last(run_ws(api_client, REDUCE_PATH, reduce_message(dataset)))
+
+        assert done == {"type": "error", "message": "请先加载数据"}
+
+    def test_写出两个_Excel_并带回格子数(self, api_client, loaded_via_ws):
+        dataset = loaded_via_ws
+
+        messages = run_ws(api_client, REDUCE_PATH, reduce_message(dataset))
+
+        done = last(messages)
+        assert done["type"] == "done"
+        assert done["cellCount"] == len(read_gl(dataset.gl_excel()))
+        assert [path.replace("\\", "/") for path in done["files"]] == [
+            dataset.gl_excel().as_posix(),
+            dataset.romax_excel().as_posix(),
+        ]
+        assert [m["percent"] for m in messages if m["type"] == "progress"][-1] == 100
+
+    def test_缩减参数随请求生效(self, api_client, loaded_via_ws):
+        dataset = loaded_via_ws
+
+        run_ws(api_client, REDUCE_PATH, reduce_message(dataset, temperature=55))
+
+        definition = read_romax(dataset.romax_excel())["工况表格定义"]
+        assert (definition["温度(C)"] == 55).all()
+
+    def test_改了区间直接再缩减(self, api_client, loaded_via_ws):
+        dataset = loaded_via_ws
+        coarse = dict.fromkeys(SELECTED_COLUMNS, [-10000, 10000])
+
+        first = last(run_ws(api_client, REDUCE_PATH, reduce_message(dataset)))
+        second = last(run_ws(api_client, REDUCE_PATH, reduce_message(dataset, intervals=coarse)))
+
+        assert first["type"] == second["type"] == "done"
+        assert second["cellCount"] < first["cellCount"]
+
+    def test_保留扭矩时六个分量都要给区间(self, api_client, loaded_via_ws):
+        dataset = loaded_via_ws
+
+        done = last(run_ws(api_client, REDUCE_PATH, reduce_message(dataset, keepTorque=True)))
+
+        assert done == {"type": "error", "message": "区间表缺少分量：My[KNm]"}
+
+    def test_区间没有从小到大时推_error(self, api_client, loaded_via_ws):
+        dataset = loaded_via_ws
+        intervals = dict(zip(SELECTED_COLUMNS, DEFAULT_BINS)) | {"Fx[KN]": [100, 0, -100]}
+
+        done = last(run_ws(api_client, REDUCE_PATH, reduce_message(dataset, intervals=intervals)))
+
+        assert done == {"type": "error", "message": "Fx[KN]的区间值必须是单调递增的"}
+
+    def test_输出目录不存在(self, api_client, loaded_via_ws):
+        payload = reduce_message(loaded_via_ws, outputDir=str(loaded_via_ws.root / "没有"))
+
+        done = last(run_ws(api_client, REDUCE_PATH, payload))
+
+        assert done["type"] == "error"
+        assert done["message"].startswith("输出目录不存在")
+
+    def test_结果文件被占用时不缩减(self, api_client, loaded_via_ws, monkeypatch):
+        dataset = loaded_via_ws
+        monkeypatch.setattr(views_module, "is_locked", lambda path: "_GL-" in path)
+
+        done = last(run_ws(api_client, REDUCE_PATH, reduce_message(dataset)))
+
+        assert done == {
+            "type": "error",
+            "message": f"{dataset.gl_excel().name} 正被其他程序占用，请关闭后重试",
+        }
+        assert not dataset.gl_excel().exists()
+
+
+# ─── 工具函数 ────────────────────────────────────────────────
+
+def same_for_all(value) -> dict:
+    """六个分量都用同一个值。"""
+    return dict.fromkeys(factories.LOAD_COLUMNS, value)
+
+
+class TestComponentStats:
+    def test_区间写法拆成左右边界(self):
+        min_max = {"min": same_for_all(-10.0), "max": same_for_all(10.0)}
+        histograms = same_for_all(json.dumps({"(-10, 0]": 0.4, "(0, 10]": 0.6}))
+
+        stats = views_module.component_stats(min_max, histograms)
+
+        assert stats[0].model_dump(mode="json") == {
+            "component": "Fx[KN]",
+            "min": -10.0,
+            "max": 10.0,
+            "binLeft": [-10.0, 0.0],
+            "binRight": [0.0, 10.0],
+            "share": [0.4, 0.6],
         }
 
-        reduce_ = api_client.post(
-            "/api/reduce_load", json=reduce_payload(table_data(*DEFAULT_BINS))
-        )
-        assert reduce_.json()["message"] == "载荷简化处理全部完成"
-        assert reduce_.json()["count"] == len(read_gl(dataset.gl_excel()))
+    def test_认不出的区间写法直接报错(self):
+        min_max = {"min": same_for_all(0.0), "max": same_for_all(1.0)}
+        histograms = same_for_all(json.dumps({"0 到 1": 1.0}))
+
+        with pytest.raises(ValueError, match="分布区间无法识别"):
+            views_module.component_stats(min_max, histograms)
+
+
+class TestIsLocked:
+    def test_文件不存在不算占用(self, tmp_path):
+        assert views_module.is_locked(str(tmp_path / "a.xlsx")) is False
+
+    def test_能打开来写不算占用(self, tmp_path):
+        path = tmp_path / "a.xlsx"
+        path.write_bytes(b"")
+
+        assert views_module.is_locked(str(path)) is False

@@ -2,11 +2,11 @@
 
 from fastapi import APIRouter
 
-from app_simpleLoad.views import load_file, simple_load, simple_pre_processing, websocket_endpoint
+from app_simpleLoad.views import clear, preview, ws_load, ws_reduce
 
 router = APIRouter()
 
-router.post("/api/load_file")(load_file)
-router.post("/api/divide_interval")(simple_pre_processing)
-router.post("/api/reduce_load")(simple_load)
-router.websocket("/ws/{client_id}")(websocket_endpoint)
+router.post("/api/simple-load/preview")(preview)
+router.post("/api/simple-load/clear", status_code=204)(clear)
+router.websocket("/ws/simple-load/load")(ws_load)
+router.websocket("/ws/simple-load/reduce")(ws_reduce)

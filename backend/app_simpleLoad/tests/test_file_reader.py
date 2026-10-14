@@ -1,7 +1,8 @@
 """app_simpleLoad/module/file_reader.py —— 文件读取服务
 
 覆盖：文件名归一化 / 频次表与 txt 的一致性校验 / 单文件解析（单位换算、
-占位符、时间信息、各类解析错误）/ 并发读取与进度推送 / 频次表读取。
+占位符、时间信息、各类解析错误）/ 并发读取与进度推送 / 预览用的 txt 列表和文件开头 /
+频次表读取。
 
 注意：单位换算在 Polars 里是 float32 除法（内部按倒数乘法实现），
 所以数值断言一律用 `pytest.approx`，不做精确相等比较。
@@ -18,9 +19,11 @@ from app_simpleLoad.module.file_reader import (
     _format_file_names,
     _parse_single_file,
     _validate_txt_file_mapping,
+    list_txt_files,
     normalize_load_file_name,
     read_all_txt_files,
     read_freq_table,
+    read_head_lines,
 )
 from app_simpleLoad.tests import factories
 from app_simpleLoad.tests.factories import write_freq_table, write_txt
@@ -354,6 +357,34 @@ class TestReadAllTxtFiles:
 
         with pytest.raises(FileParseError):
             await read_all_txt_files(str(tmp_path), HEADER, config, have_time=False)
+
+
+# ─── 预览：列出 txt、读文件开头 ──────────────────────────────
+
+class TestListTxtFiles:
+    def test_连同子文件夹按路径排序_扩展名不分大小写(self, tmp_path: Path):
+        for relative in ("b.txt", "a/c.TXT", "a/d.csv"):
+            path = tmp_path / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("1\n", encoding="utf-8")
+
+        names = [Path(p).relative_to(tmp_path).as_posix() for p in list_txt_files(str(tmp_path))]
+
+        assert names == ["a/c.TXT", "b.txt"]
+
+
+class TestReadHeadLines:
+    def test_超长的行截断后接着读下一行(self, tmp_path: Path):
+        path = tmp_path / "a.txt"
+        path.write_text("x" * 50 + "\n1 2\n", encoding="utf-8")
+
+        assert read_head_lines(str(path), 5, max_length=10) == ["x" * 10, "1 2"]
+
+    def test_换行是_CRLF_或最后一行没有换行(self, tmp_path: Path):
+        path = tmp_path / "a.txt"
+        path.write_bytes(b"Time Fx\r\n1 2")
+
+        assert read_head_lines(str(path), 5) == ["Time Fx", "1 2"]
 
 
 # ─── 频次表读取 ──────────────────────────────────────────────

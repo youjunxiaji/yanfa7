@@ -2,18 +2,18 @@
 
 原则：
 1. 每个测试都跑在自己的临时目录里，互不干扰；
-2. 全局单例（WebSocket 连接表）在每个用例前后自动复位，避免用例之间互相污染；
-3. 默认**不建立** WebSocket 连接 —— 此时 `ProgressReporter` 第一次发送
-   就失败并中断 sleep 循环，整套流水线测试因此是毫秒级的。
+2. 全局单例（加载完的数据缓存）在每个用例前后自动清空，避免用例之间互相污染；
+3. 计算实例默认不推进度，要看进度的用例用 `connected_ws` 接一个假连接。
 """
 import asyncio
 from pathlib import Path
 
 import pytest
 
+from app_simpleLoad.module.cache import LoadedDataCache
 from app_simpleLoad.module.config import AxisMapping, ConversionConfig
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
-from app_simpleLoad.module.global_ws import GlobalWebSocket, ws
+from app_simpleLoad.module.progress import ProgressReporter
 from app_simpleLoad.tests import factories
 from app_simpleLoad.tests.factories import Dataset, build_dataset, ramp_case
 from app_simpleLoad.tests.fakes import FakeWebSocket, InstantSleepAsyncio
@@ -26,18 +26,18 @@ REAL_CASE_DIR = BACKEND_ROOT / "测试案例"
 # ─── 全局状态隔离 ────────────────────────────────────────────
 
 @pytest.fixture(autouse=True)
-def _isolate_global_ws():
-    """GlobalWebSocket._connections 是类属性，用例之间必须清干净。"""
-    GlobalWebSocket._connections.clear()
+def _isolate_cache():
+    """LoadedDataCache 是类属性，用例之间必须清干净。"""
+    LoadedDataCache.clear()
     yield
-    GlobalWebSocket._connections.clear()
+    LoadedDataCache.clear()
 
 
 # ─── 基础配置 ────────────────────────────────────────────────
 
 @pytest.fixture
 def header() -> list[str]:
-    """前端传来的列映射（draggableElements 顺序）。"""
+    """txt 各列的列名（前端列对应展开后的样子）。"""
     return list(factories.DEFAULT_HEADER)
 
 
@@ -127,14 +127,14 @@ async def divided(loaded: CalSimpleLoad, romax_origin) -> CalSimpleLoad:
 
 @pytest.fixture
 def fake_ws() -> FakeWebSocket:
-    """未注册到 GlobalWebSocket 的假连接。"""
+    """记录推送内容的假连接。"""
     return FakeWebSocket()
 
 
 @pytest.fixture
-def connected_ws(fake_ws: FakeWebSocket) -> FakeWebSocket:
-    """已注册为 client_id='simple_load' 的假连接（进度推送会被记录）。"""
-    ws.set_connection("simple_load", fake_ws)
+def connected_ws(instance: CalSimpleLoad, fake_ws: FakeWebSocket) -> FakeWebSocket:
+    """把 `instance` 的进度推到假连接上（同一个用例里 loaded、divided 也是这个实例）。"""
+    instance.progress = ProgressReporter(fake_ws.send_json)
     return fake_ws
 
 
@@ -142,14 +142,16 @@ def connected_ws(fake_ws: FakeWebSocket) -> FakeWebSocket:
 def instant_sleep(monkeypatch):
     """把某个模块里的 asyncio.sleep 变成瞬时返回。
 
+    进度推送本身不 sleep，算法用例看进度前仍会调它；模块没 import asyncio 时直接挂上去，不报错。
+
     用法::
 
-        instant_sleep(progress_module)      # 之后 update_smoothly 不再真的等待
+        instant_sleep(progress_module)
     """
 
     def _patch(module) -> InstantSleepAsyncio:
         fake = InstantSleepAsyncio(asyncio)
-        monkeypatch.setattr(module, "asyncio", fake)
+        monkeypatch.setattr(module, "asyncio", fake, raising=False)
         return fake
 
     return _patch
@@ -159,15 +161,13 @@ def instant_sleep(monkeypatch):
 
 @pytest.fixture
 def api_client():
-    """带 lifespan 的 FastAPI 测试客户端（app.state.websocket_manager 已就绪）。"""
+    """FastAPI 测试客户端：进程内调应用，不开端口。"""
     from fastapi.testclient import TestClient
 
     import main
 
     with TestClient(main.app) as client:
-        client.app.state.websocket_manager.cal_instance = None
         yield client
-        client.app.state.websocket_manager.cal_instance = None
 
 
 # ─── 真实测试案例（可选） ────────────────────────────────────

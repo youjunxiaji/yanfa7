@@ -306,7 +306,7 @@ class CalSimpleLoad:
             result_dict[column] = filtered_ser.to_json()
 
             current_progress = round(((idx + 1) / len(columns)) * 100, 1)
-            await self.progress.update_smoothly(idx * 100 / len(columns), current_progress, 0.3)
+            await self.progress.send_progress(current_progress)
             await self.progress.send_text(f"已处理 {column} 列数据")
 
         await self.progress.send_text("图表数据生成完成")
@@ -355,7 +355,7 @@ class CalSimpleLoad:
             return {"message": "请先加载文件", "status": "error"}
 
         await self.progress.send_text("开始载荷缩减处理...")
-        await self.progress.update_smoothly(0, 10, 0.5)
+        await self.progress.send_progress(10)
 
         # 根据 romax_origin 确定要排除的轴
         z_corresponds_to = romax_origin[2].axis
@@ -403,7 +403,7 @@ class CalSimpleLoad:
         await self.progress.send_text("载荷缩减完成")
         await self.progress.send_text("正在转换数据")
         await self.progress.send_text("数据转换完成")
-        await self.progress.update_smoothly(10, 40, 1.0)
+        await self.progress.send_progress(40)
 
         # 过滤零值行
         filter_expr = pl.lit(True)
@@ -428,7 +428,7 @@ class CalSimpleLoad:
             )
 
         await self.progress.send_text("正在处理载荷数据...")
-        await self.progress.update_smoothly(40, 70, 1.0)
+        await self.progress.send_progress(70)
 
         # 逆幂变换
         inv_factor = 1 / translate_factor
@@ -472,12 +472,12 @@ class CalSimpleLoad:
         df_pivot = df_pivot.drop('_row_idx')
 
         await self.progress.send_text("正在保存Excel文件...")
-        await self.progress.update_smoothly(70, 95, 1.0)
+        await self.progress.send_progress(95)
 
         await asyncio.to_thread(self._write_excel, df_pivot, index_cols, romax_origin)
 
         await self.progress.send_text("Excel 已保存")
-        await self.progress.update_smoothly(95, 100, 0.5)
+        await self.progress.send_progress(100)
         await self.progress.send_text("载荷缩减处理全部完成！")
 
         # 释放内存
@@ -554,6 +554,22 @@ class CalSimpleLoad:
             .collect(engine='streaming')
         )
 
+    @staticmethod
+    def output_files(folder: str) -> tuple[str, str]:
+        """缩减结果写进哪两个文件，文件名里带结果目录的名字。
+
+        Args:
+            folder: 结果目录。
+
+        Returns:
+            GL 格式和 Romax 格式两个 Excel 的路径。
+        """
+        name = os.path.basename(folder)
+        return (
+            f'{folder}/Load_Reduction_GL-{name}.xlsx',
+            f'{folder}/Load_Reduction_Romax-{name}.xlsx',
+        )
+
     def _write_excel(self, df_pivot: pl.DataFrame, index_cols: list[str], romax_origin: list[AxisMapping]) -> None:
         """写出 GL 和 Romax 两个 Excel。
 
@@ -566,11 +582,8 @@ class CalSimpleLoad:
         df_pivot_pd = pd.DataFrame(df_pivot.to_dict(as_series=False))
         df_pivot_pd = df_pivot_pd.set_index(index_cols)
 
-        excel_name = os.path.basename(self.paths.result_folder_save_path)
-        df_pivot_pd.to_excel(
-            f'{self.paths.result_folder_save_path}/Load_Reduction_GL-{excel_name}.xlsx',
-            merge_cells=True,
-        )
+        gl_path, romax_path = self.output_files(self.paths.result_folder_save_path)
+        df_pivot_pd.to_excel(gl_path, merge_cells=True)
 
         # Romax 格式输出
         df_pivot_Romax = pd.DataFrame()
@@ -596,7 +609,7 @@ class CalSimpleLoad:
                 df_pivot_Romax[col] = 0.0
 
         df_pivot_Romax_T = df_pivot_Romax[['工况'] + cols_].T
-        with pd.ExcelWriter(f'{self.paths.result_folder_save_path}/Load_Reduction_Romax-{excel_name}.xlsx') as writer:
+        with pd.ExcelWriter(romax_path) as writer:
             df_pivot_Romax[['工况', 'time(h)', '温度(C)', 'speed[rpm]']].to_excel(writer, sheet_name='工况表格定义', index=False)
             df_pivot_Romax_T.to_excel(writer, sheet_name='载荷', header=False)
             df_pivot_Romax.to_excel(writer, sheet_name='未转置')

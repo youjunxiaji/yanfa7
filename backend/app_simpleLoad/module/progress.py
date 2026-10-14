@@ -1,41 +1,45 @@
-"""进度推送器 — 封装 WebSocket 进度推送逻辑"""
+"""进度推送器 — 把计算进度推给前端"""
 
-import asyncio
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from loguru import logger
 
-from app_simpleLoad.module.global_ws import ws
-
 
 class ProgressReporter:
-    """统一的 WebSocket 进度推送接口"""
+    """每次更新推一条 `{"type": "progress", "stage": 当前阶段, "percent": 0~100}`。
 
-    def __init__(self, client_id: str = "simple_load"):
-        self.client_id = client_id
+    不给 send 时只记下阶段和进度，不推；推送失败（连接断了）后不再推，计算照常做完。
+    一条 WebSocket 里会跑几段计算，每段都按 0~100 报进度，`span` 把接下来那段映射到总进度的一截。
+    """
+
+    def __init__(self, send: Callable[[dict[str, Any]], Awaitable[None]] | None = None):
+        self._send = send
+        self._low = 0.0
+        self._high = 100.0
+        self.stage = ""
+        self.percent = 0.0
+
+    def span(self, low: float, high: float):
+        """接下来报的 0~100 换算到总进度的 low~high。"""
+        self._low = low
+        self._high = high
 
     async def send_text(self, message: str):
-        """发送文本消息"""
-        await ws.send_message(self.client_id, "text", message)
+        """更新当前阶段的说明。"""
+        self.stage = message
+        await self._push()
 
     async def send_progress(self, value: float):
-        """发送进度百分比（0-100）"""
-        await ws.send_message(self.client_id, "progress", f"{round(value, 1)}")
+        """更新这一段的进度（0-100）。"""
+        self.percent = round(self._low + (self._high - self._low) * value / 100, 1)
+        await self._push()
 
-    async def update_smoothly(self, start: float, end: float, duration: float = 1.0):
-        """平滑更新进度条，每 0.1 秒递增一次"""
-        steps = max(int(duration * 10), 1)
-        step_size = (end - start) / steps
-        current = start
-
-        for _ in range(steps):
-            current += step_size
-            success = await ws.send_message(
-                self.client_id, "progress", f"{round(current, 1)}"
-            )
-            if not success:
-                logger.warning("WebSocket 连接断开，停止进度更新")
-                break
-            await asyncio.sleep(0.1)
-
-        # 确保最终进度准确
-        await ws.send_message(self.client_id, "progress", f"{round(end, 1)}")
+    async def _push(self):
+        if self._send is None:
+            return
+        try:
+            await self._send({"type": "progress", "stage": self.stage, "percent": self.percent})
+        except Exception as e:
+            logger.warning(f"进度推送失败，后面不再推送：{e}")
+            self._send = None

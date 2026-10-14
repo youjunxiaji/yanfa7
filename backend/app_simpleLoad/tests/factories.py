@@ -21,7 +21,7 @@ import pandas as pd
 
 # ─── 常量 ────────────────────────────────────────────────────
 
-#: 前端 draggableElements 的典型顺序（txt 各列的含义）
+#: txt 各列的典型顺序（前端列对应展开后的列名）
 DEFAULT_HEADER: list[str] = [
     "Time[s]",
     "speed[rpm]",

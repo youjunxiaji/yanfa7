@@ -168,6 +168,51 @@ def _parse_single_file(
         return FileResult(file_name_no_ext, df, row_count)
 
 
+def list_txt_files(folder_path: str) -> list[str]:
+    """载荷文件夹里的 txt，连同子文件夹里的，按路径排序。
+
+    Args:
+        folder_path: 载荷文件夹。
+
+    Returns:
+        txt 文件的完整路径，扩展名不分大小写。
+    """
+    file_paths = []
+    for root, _, files in os.walk(folder_path):
+        txt_files = [f for f in files if f.lower().endswith(".txt")]
+        file_paths.extend(os.path.join(root, f) for f in txt_files)
+    file_paths.sort()
+    return file_paths
+
+
+def read_head_lines(file_path: str, count: int, max_length: int = 2000) -> list[str]:
+    """读文件开头几行的原文，给前端预览列对应用。
+
+    空行不算：pandas 读数时跳过空行，标题行的行号也不数它们，前端按这些行数跳过行数才对得上。
+
+    Args:
+        file_path: txt 路径。
+        count: 最多读几行。
+        max_length: 每行最多留几个字符，防止没有换行的大文件整个读进来。
+
+    Returns:
+        去掉行尾换行的各行，不足 count 行时有几行给几行。
+    """
+    lines = []
+    with open(file_path, encoding="utf-8", errors="replace") as f:
+        while len(lines) < count:
+            line = f.readline(max_length)
+            if not line:
+                break
+            if not line.endswith("\n"):
+                # 这一行超长：留下前 max_length 个字符，余下的跳到行尾
+                while (rest := f.readline(max_length)) and not rest.endswith("\n"):
+                    pass
+            if line.strip():
+                lines.append(line.rstrip("\n"))
+    return lines
+
+
 async def read_all_txt_files(
     folder_path: str,
     header: list[str],
@@ -193,13 +238,7 @@ async def read_all_txt_files(
         ValueError: 文件夹里没有 txt，或频次表和 txt 对不上。
         FileParseError: 某个 txt 解析失败。
     """
-    # 收集文件路径
-    file_paths = []
-    for root, _, files in os.walk(folder_path):
-        txt_files = [f for f in files if f.lower().endswith(".txt")]
-        file_paths.extend(os.path.join(root, f) for f in txt_files)
-    file_paths.sort()
-
+    file_paths = list_txt_files(folder_path)
     total = len(file_paths)
 
     actual_file_names = [
@@ -248,7 +287,7 @@ async def read_all_txt_files(
         current_progress = round((processed / total) * 100, 1)
 
         if progress and (current_progress - last_progress >= 5 or processed == total):
-            await progress.update_smoothly(last_progress, current_progress, 0.5)
+            await progress.send_progress(current_progress)
             await progress.send_text(f"已处理 {processed}/{total} 个文件")
             last_progress = current_progress
 
