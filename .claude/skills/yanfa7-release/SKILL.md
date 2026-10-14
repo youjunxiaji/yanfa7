@@ -21,6 +21,8 @@ npm run tauri:build                 # Tauri 收进安装包 → 仓库根目录 
 - Windows 上直接跑仓库根目录的 `build.cmd`，双击也行：依次执行这两步，参数原样传给 `build_backend.py`
   （`build.cmd --version 2.1.0`）；前端没装过依赖时先 `npm install`，哪一步失败就停在那里。双击运行时结束前会停住，
   方便看输出。
+- `build.cmd` 只看 `frontend/node_modules` 在不在，不比对 `package.json`：拉到改了依赖的提交、或 `node_modules`
+  是别的分支装的旧版时，要自己在 `frontend/` 跑一次 `npm install`，否则第二步报找不到 `@electron-toolkit/tsconfig` 这类包。
 - `build.cmd` 前几行只能是英文：先切到 UTF-8 代码页，后面的中文才不会乱码；在 GBK 代码页下读 UTF-8 中文，
   cmd 可能把换行吞掉、跳过下一行命令。换行必须是 CRLF（`.gitattributes` 已经设好），LF 换行时 cmd 可能找不到 goto 的标签。
 - 第二步只拿 `frontend/src-tauri/binaries/` 里现成的 sidecar，不会重打后端：改了后端却只跑第二步，装出来的还是上一版后端。
@@ -55,6 +57,10 @@ npm run tauri:build                 # Tauri 收进安装包 → 仓库根目录 
 - **lxml、openpyxl 显式带上**：pandas 读 HTM、读写 Excel 时按名字导入，Nuitka 静态分析不一定跟得到。
   新增依赖凡是运行时按名字导入的，同样加在这里。
 - **编译时 `MPLBACKEND=Agg`**：matplotlib 插件把编译时探测到的后端写进随包配置，装了 Tk 的机器上探测到的是 TkAgg。
+- **编译时 `CL=/utf-8`**（仅 Windows）：`--product-name` 这类参数里的中文，Nuitka 以 UTF-8 写进 `build_definitions.h`，
+  而中文 Windows 上 MSVC 默认按 GBK 读，字符串常量被截坏，C 编译阶段报 `error C2001: 常量中有换行符`，
+  接着 `scons: *** [...obj] Error 2`。`build()` 给 Nuitka 的环境带上 `CL=/utf-8`，让 cl 统一按 UTF-8 读；
+  打包参数里有中文就靠它，别去掉。
 - **编译报告** `backend/build/compilation-report.xml`：装机后缺模块、缺数据文件时，先查这里有没有收进去。
 - Python 代码编译成 C，安装包里没有明文源码。
 

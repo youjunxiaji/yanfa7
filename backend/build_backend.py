@@ -234,6 +234,11 @@ def build(version: str) -> Path:
     # matplotlib 插件把编译时探测到的后端写进随包的配置；机器上装了 Tk 时探测到的是 TkAgg，
     # 会把 tkinter 牵进来。main.py 运行时用的是 Agg，编译时也定成 Agg。
     env = {**os.environ, "MPLBACKEND": "Agg"}
+    if sys.platform == "win32":
+        # nuitka_args() 里的产品名等中文，Nuitka 以 UTF-8 写进 build_definitions.h；中文 Windows 上
+        # MSVC 默认按 GBK（代码页 936）读源文件，字符串常量被截坏，报 C2001。CL 环境变量里的选项
+        # cl 每次调用都会带上，用它让 cl 统一按 UTF-8 读。
+        env["CL"] = f"{env.get('CL', '')} /utf-8".strip()
     subprocess.run(nuitka_args(version, final.name), cwd=HERE, env=env, check=True)
 
     built = HERE / "build" / final.name
