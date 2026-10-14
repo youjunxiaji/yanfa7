@@ -18,20 +18,16 @@ from app_simpleLoad.serializers import (
 
 
 async def load_file(request: Request, data_: LoadFileRequest):
-    """
-    说明
-    ---
-    FUNC 加载文件
-    """
+    """加载文件：读频次表和全部载荷 txt，完成预处理。"""
     manager = request.app.state.websocket_manager
     instance: CalSimpleLoad | None = manager.cal_instance
-    
+
     # 检查实例是否存在，如果不存在则创建新实例
     if instance is None:
         # 检查WebSocket连接状态，如果断开则等待重连
         if not ws.is_connection_active('simple_load'):
             logger.info("WebSocket连接断开，等待前端重连...")
-            
+
             # 等待前端重连，最多等待10秒
             for i in range(20):  # 20次 * 0.5秒 = 10秒
                 await asyncio.sleep(0.5)
@@ -41,15 +37,15 @@ async def load_file(request: Request, data_: LoadFileRequest):
             else:
                 # 10秒后仍未重连成功
                 return {
-                    "message": "WebSocket连接已断开，请刷新页面重新连接", 
+                    "message": "WebSocket连接已断开，请刷新页面重新连接",
                     "status": "error",
                     "need_reconnect": True
                 }
-        
+
         instance = CalSimpleLoad()
         manager.cal_instance = instance
         logger.info("创建新的 CalSimpleLoad 实例，WebSocket连接正常")
-    
+
     try:
         instance.setInit(
             paths=data_.file_path,
@@ -78,23 +74,19 @@ async def load_file(request: Request, data_: LoadFileRequest):
 
 
 async def simple_pre_processing(request: Request, data: DivideIntervalRequest):
-    """
-    说明
-    ---
-    FUNC 划分区间
-    """
+    """划分区间：算各分量的最值和加权直方图数据。"""
     manager = request.app.state.websocket_manager
     instance: CalSimpleLoad | None = manager.cal_instance
-    
+
     # 检查实例是否存在
     if instance is None:
         return {"message": "请先加载文件", "status": "error"}
-    
+
     try:
         min_max = await instance.simple_load1(data.romax_origin)
         echarts_data = await instance.savePic()
-    except AttributeError as e:
-        return {"message": f"请先加载文件", "status": "error"}
+    except AttributeError:
+        return {"message": "请先加载文件", "status": "error"}
     return {
         "message": "划分区间完成",
         "min_max": min_max,
@@ -104,14 +96,14 @@ async def simple_pre_processing(request: Request, data: DivideIntervalRequest):
 
 
 async def simple_load(request: Request, data: ReduceLoadRequest):
-    """载荷简化接口"""
+    """载荷缩减：按区间表分组缩减，写出 GL 和 Romax 两个 Excel。"""
     manager = request.app.state.websocket_manager
     instance: CalSimpleLoad | None = manager.cal_instance
-    
+
     # 检查实例是否存在
     if instance is None:
         return {"message": "请先加载文件", "status": "error"}
-    
+
     try:
         msg = await instance.simple_load2(data.tableData, data.romax_origin)
     except Exception as e:
@@ -126,13 +118,16 @@ async def simple_load(request: Request, data: ReduceLoadRequest):
 # ─── WebSocket ───────────────────────────────────────────────
 
 async def get_manager(websocket: WebSocket):
+    """取应用上挂着的连接管理器。"""
     return websocket.app.state.websocket_manager
+
 
 async def websocket_endpoint(
     websocket: WebSocket,
     client_id: str,
     manager: ConnectionManager = Depends(get_manager)
 ):
+    """客户端连上后收命令和广播消息；断开时清掉计算实例。"""
     try:
         await manager.connect(websocket, client_id)
         while True:

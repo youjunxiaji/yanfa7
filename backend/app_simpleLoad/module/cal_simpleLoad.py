@@ -7,23 +7,23 @@
 """
 
 import asyncio
-import os
-import polars as pl
-import numpy as np
-from typing import List, Dict
-from loguru import logger
 import gc
-import pandas as pd  # 仅用于 Excel 输出、IntervalIndex 和划分区间返回的 JSON
+import os
 
-from app_simpleLoad.module.config import AxisMapping, PathConfig, ConversionConfig
-from app_simpleLoad.module.progress import ProgressReporter
+import numpy as np
+import pandas as pd  # 仅用于 Excel 输出、IntervalIndex 和划分区间返回的 JSON
+import polars as pl
+from loguru import logger
+
+from app_simpleLoad.module.config import AxisMapping, ConversionConfig, PathConfig
 from app_simpleLoad.module.file_reader import read_all_txt_files, read_freq_table
+from app_simpleLoad.module.progress import ProgressReporter
 
 
 # ─── 分量与区间表 ─────────────────────────────────────────────
 
 #: 六个力/力矩分量：(标签前缀, 列名, 所在轴)，顺序即区间表按位置对齐时的行序
-ALL_COMPONENTS: List[tuple[str, str, str]] = [
+ALL_COMPONENTS: list[tuple[str, str, str]] = [
     ('fx', 'Fx[KN]', 'x'),
     ('fy', 'Fy[KN]', 'y'),
     ('fz', 'Fz[KN]', 'z'),
@@ -36,7 +36,7 @@ ALL_COMPONENTS: List[tuple[str, str, str]] = [
 COMPONENT_KEY = 'component'
 
 
-def _row_bins(row: Dict) -> List[float]:
+def _row_bins(row: dict) -> list[float]:
     """取一行里填了值的分段边界。
 
     只认数字键（"0"~"10"），因此 component、index 之类的附加字段自动被忽略；
@@ -60,9 +60,9 @@ def _row_bins(row: Dict) -> List[float]:
 
 
 def parse_interval_table(
-    table_data: List[Dict],
-    selected_components: List[tuple[str, str, str]],
-) -> tuple[List[List[float]] | None, str]:
+    table_data: list[dict],
+    selected_components: list[tuple[str, str, str]],
+) -> tuple[list[list[float]] | None, str]:
     """把前端的区间表对齐到参与分组的分量上。
 
     优先按行里的 `component` 字段对齐 —— 这样即使前端行序变了、或者用户改了
@@ -101,7 +101,7 @@ def parse_interval_table(
         return None, "区间表里有的行带分量名、有的不带，请统一"
 
     # ── 新前端：按分量名对齐 ──
-    by_component: Dict[str, Dict] = {}
+    by_component: dict[str, dict] = {}
     for row in labelled:
         name = str(row[COMPONENT_KEY])
         if name in by_component:
@@ -140,7 +140,7 @@ class CalSimpleLoad:
     def setInit(
             self,
             paths: PathConfig,
-            header: List[str],
+            header: list[str],
             config: ConversionConfig,
     ):
         # 提前校验 header
@@ -215,7 +215,7 @@ class CalSimpleLoad:
 
     # ─── 步骤二：划分区间 ─────────────────────────────────────
 
-    async def simple_load1(self, romax_origin: List[AxisMapping]):
+    async def simple_load1(self, romax_origin: list[AxisMapping]):
         """划分区间 — Polars 版本"""
         if self.df_all is None:
             logger.error("df_all is None")
@@ -336,7 +336,7 @@ class CalSimpleLoad:
 
     # ─── 步骤三：载荷缩减 ─────────────────────────────────────
 
-    async def simple_load2(self, table_data: List[Dict], romax_origin: List[AxisMapping]):
+    async def simple_load2(self, table_data: list[dict], romax_origin: list[AxisMapping]):
         """载荷缩减 — Polars 版本"""
         if self.df_all is None or self.df_ref is None:
             return {"message": "请先加载文件", "status": "error"}

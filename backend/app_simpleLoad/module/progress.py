@@ -1,8 +1,10 @@
 """进度推送器 — 封装 WebSocket 进度推送逻辑"""
 
 import asyncio
-from app_simpleLoad.module.global_ws import ws
+
 from loguru import logger
+
+from app_simpleLoad.module.global_ws import ws
 
 
 class ProgressReporter:

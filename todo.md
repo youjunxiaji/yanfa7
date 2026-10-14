@@ -5,7 +5,6 @@
 simple_load v1.3.1 搬进了 `backend/app_simpleLoad/`，目录已按项目规则排好，测试在它的 `tests/` 里。下面每步一个提交，
 每步跑一遍 `uv run pytest`：算法用例和 `tests/test_real_baseline.py`（真实算例对拍）只许改 import，不许改断言。
 
-- **代码风格**：`typing` 的 `List` / `Dict` 换成内置类型，docstring 换成 Google 风格。
 - **接口协议随前端移植一起改**：报错改 400 + `detail`，WebSocket 改成边缘应力那样每步一条，理顺报文字段名，
   路径加 `/api/simple-load/`、`/ws/simple-load/` 前缀；删 `main.py` 里只对载荷简化生效的校验处理器、
   区间表按位置对齐的旧前端兼容分支、加载前等前端重连 10 秒。

@@ -1,6 +1,7 @@
-"""配置数据类 — 用 dataclass 替代 Dict，提供类型安全和 IDE 补全"""
+"""配置数据类 — 用 dataclass 替代字典，提供类型安全和 IDE 补全"""
 
 from dataclasses import dataclass
+
 import polars as pl
 
 

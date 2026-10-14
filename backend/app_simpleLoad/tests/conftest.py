@@ -15,7 +15,7 @@ from app_simpleLoad.module.config import AxisMapping, ConversionConfig
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
 from app_simpleLoad.module.global_ws import GlobalWebSocket, ws
 from app_simpleLoad.tests import factories
-from app_simpleLoad.tests.factories import CaseSpec, Dataset, build_dataset, ramp_case
+from app_simpleLoad.tests.factories import Dataset, build_dataset, ramp_case
 from app_simpleLoad.tests.fakes import FakeWebSocket, InstantSleepAsyncio
 
 # 真实算例五百多 MB、不入库，放在 backend/测试案例/，不随测试放进 app 里

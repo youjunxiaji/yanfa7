@@ -8,7 +8,6 @@
 """
 from pathlib import Path
 
-import numpy as np
 import polars as pl
 import pytest
 
@@ -24,7 +23,7 @@ from app_simpleLoad.module.file_reader import (
     read_freq_table,
 )
 from app_simpleLoad.tests import factories
-from app_simpleLoad.tests.factories import CaseSpec, ramp_case, write_freq_table, write_txt
+from app_simpleLoad.tests.factories import write_freq_table, write_txt
 from app_simpleLoad.tests.fakes import RecordingProgress
 
 HEADER = factories.DEFAULT_HEADER

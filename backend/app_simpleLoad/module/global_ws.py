@@ -1,12 +1,12 @@
-from typing import Dict, Literal
+from typing import Literal
+
 from fastapi import WebSocket
 from loguru import logger
-import json
 
 
 class GlobalWebSocket:
     _instance = None
-    _connections: Dict[str, WebSocket] = {}
+    _connections: dict[str, WebSocket] = {}
 
     def __new__(cls):
         if cls._instance is None:
@@ -29,7 +29,7 @@ class GlobalWebSocket:
         """检查WebSocket连接是否活跃"""
         if client_id not in cls._connections:
             return False
-        
+
         websocket = cls._connections[client_id]
         try:
             # 检查WebSocket状态 - 使用更准确的检查方式
@@ -57,7 +57,7 @@ class GlobalWebSocket:
                     logger.warning(f"WebSocket连接 {client_id} 已断开，清理连接记录")
                     cls.remove_connection(client_id)
                     return False
-                
+
                 await websocket.send_json({
                     "type": message_type,
                     "message": content

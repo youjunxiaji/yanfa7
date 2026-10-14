@@ -1,14 +1,15 @@
-from fastapi import WebSocket
-from typing import Dict
-from loguru import logger
 import json
+
+from fastapi import WebSocket
+from loguru import logger
+
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
 from app_simpleLoad.module.global_ws import ws
 
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: Dict[str, WebSocket] = {}
+        self.active_connections: dict[str, WebSocket] = {}
         self.cal_instance = None
 
     async def connect(self, websocket: WebSocket, client_id: str):
@@ -16,7 +17,7 @@ class ConnectionManager:
         self.active_connections[client_id] = websocket
         ws.set_connection(client_id, websocket)
         logger.info(f"收到客户端连接请求: {client_id}")
-        
+
         if client_id == 'simple_load':
             self.cal_instance = CalSimpleLoad()
         logger.info(f"客户端 {client_id} 连接成功")
@@ -55,7 +56,7 @@ class ConnectionManager:
             if client_id in self.active_connections:
                 del self.active_connections[client_id]
 
-    async def handle_command(self, message: Dict, client_id: str):
+    async def handle_command(self, message: dict, client_id: str):
         """处理客户端发送的命令"""
         command = message.get("command")
         if command == "load_file":

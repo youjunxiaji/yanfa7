@@ -6,16 +6,17 @@
 - WebSocket 进度推送保持流畅
 """
 
-import os
 import asyncio
+import os
 from collections import Counter
-from typing import List, Tuple, Sequence
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
-import polars as pl
 import pandas as pd
-from app_simpleLoad.module.config import ConversionConfig, FileResult, FileParseError
+import polars as pl
+
+from app_simpleLoad.module.config import ConversionConfig, FileParseError, FileResult
 from app_simpleLoad.module.progress import ProgressReporter
 
 # 模块级线程池（复用，避免反复创建销毁）
@@ -23,7 +24,7 @@ _thread_pool = ThreadPoolExecutor(max_workers=os.cpu_count() or 4)
 
 
 def normalize_load_file_name(value: object) -> str:
-    """Normalize Excel/txt file identifiers for matching."""
+    """把频次表和 txt 里的文件名规整成同一种写法：去掉首尾空格和 .txt 后缀，方便一一匹配。"""
     text = str(value).strip()
     stem, ext = os.path.splitext(text)
     if ext.lower() == ".txt":
@@ -40,7 +41,7 @@ def _format_file_names(names: Sequence[str], limit: int = 10) -> str:
     return shown
 
 
-def _duplicate_names(names: Sequence[str]) -> List[str]:
+def _duplicate_names(names: Sequence[str]) -> list[str]:
     counts = Counter(names)
     return sorted(name for name, count in counts.items() if count > 1)
 
@@ -49,7 +50,15 @@ def _validate_txt_file_mapping(
     expected_names: Sequence[str],
     actual_names: Sequence[str],
 ) -> None:
-    """Validate that Excel frequency rows match actual txt files one-to-one."""
+    """校验频次表的文件名和实际的 txt 文件一一对应。
+
+    Args:
+        expected_names: 频次表第一列的文件名（已规整）。
+        actual_names: 载荷文件夹里 txt 的文件名（已规整）。
+
+    Raises:
+        ValueError: 有重复的文件名，或两边对不上；消息直接给用户看。
+    """
     duplicated_expected = _duplicate_names(expected_names)
     if duplicated_expected:
         raise ValueError(
@@ -90,7 +99,7 @@ def _validate_txt_file_mapping(
 
 def _parse_single_file(
     file_path: str,
-    header: List[str],
+    header: list[str],
     config: ConversionConfig,
     have_time: bool,
 ) -> FileResult:
@@ -161,17 +170,28 @@ def _parse_single_file(
 
 async def read_all_txt_files(
     folder_path: str,
-    header: List[str],
+    header: list[str],
     config: ConversionConfig,
     have_time: bool,
     expected_file_names: Sequence[str] | None = None,
     progress: ProgressReporter | None = None,
-) -> Tuple[pl.DataFrame, List[FileResult]]:
+) -> tuple[pl.DataFrame, list[FileResult]]:
     """异步并发读取文件夹下所有 TXT 载荷文件。
 
+    Args:
+        folder_path: 载荷文件夹，连同子文件夹里的 .txt 一起读。
+        header: 按列顺序排的列名，名字里带「占位符」的列不读。
+        config: 单位换算和标题行等配置。
+        have_time: 列名里有没有 `Time[s]`，有就按时间列算仿真时间和采样间隔。
+        expected_file_names: 频次表里的文件名，给了就先校验和 txt 一一对应。
+        progress: 进度推送器，不给就不推进度。
+
     Returns:
-        df_all:       合并后的全量 DataFrame（含 '文件名' 列）
-        file_results: 每个文件的解析结果列表
+        合并后的全量表（含 '文件名' 列）和每个文件的解析结果。
+
+    Raises:
+        ValueError: 文件夹里没有 txt，或频次表和 txt 对不上。
+        FileParseError: 某个 txt 解析失败。
     """
     # 收集文件路径
     file_paths = []
@@ -204,8 +224,8 @@ async def read_all_txt_files(
     loop = asyncio.get_running_loop()
     processed = 0
     last_progress = 0.0
-    frames: List[pl.DataFrame] = []
-    file_results: List[FileResult] = []
+    frames: list[pl.DataFrame] = []
+    file_results: list[FileResult] = []
 
     async def _run_one(fp: str):
         return await loop.run_in_executor(
