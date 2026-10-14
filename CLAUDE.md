@@ -39,8 +39,8 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 - 例外：`src/preload/index.d.ts` 仍提供 `window.electron*` 的全局类型（`tsconfig.web.json` include），
   改兼容垫片的接口时同步它。
 - 开发端口：渲染层 Vite 5179，后端 8006；打包后的后端固定 8000。改端口要同步的位置见 Tauri Skill。
-- `backend/app_simpleLoad/` 是从 simple_load v1.3.1 搬进来的载荷简化：目录已按「后端」一节排好，接口路径、报错方式、
-  日志和 WebSocket 用法还是它原来的写法，整理步骤见 `todo.md`；新模块不照着它写。
+- `backend/app_simpleLoad/` 是从 simple_load v1.3.1 搬进来的载荷简化：目录和日志已按「后端」一节整理，接口路径、
+  报错方式和 WebSocket 用法还是它原来的写法，整理步骤见 `todo.md`；新模块不照着它写。
   它还没有界面，同事们用的仍是网页版加 simple_load 的 exe：这期间 simple_load 冻结，要修的 bug 两边一起改。
 
 ## 架构约束
@@ -78,6 +78,7 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
   大的测试数据不入库，放 `backend/` 下（如载荷简化的 `测试案例/`），用例找不到数据就跳过。
 - 业务错误抛 `HTTPException(status_code=400, detail=...)`，`detail` 用中文写清哪里不对，前端读 `detail` 展示；
   WebSocket 推 `{"type": "error", "message": ...}`。
+- 日志一律用 loguru（`from loguru import logger`），不用标准库 `logging`。
 - 出图用 matplotlib 的 Agg 后端（`main.py` 入口设置），只写文件不弹窗，返回给前端的是文件绝对路径。
 - 打包用 Nuitka（`build_backend.py`，见发版 Skill）：判断是否打包看 `"__compiled__" in globals()`，Nuitka 不设
   `sys.frozen`；运行时按名字导入的依赖（pandas 的可选依赖、`importlib` 这类）要在 `nuitka_args()` 里显式带上，

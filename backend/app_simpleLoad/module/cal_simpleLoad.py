@@ -7,14 +7,11 @@ import os
 import polars as pl
 import numpy as np
 from typing import List, Dict
-from app_simpleLoad.module.logger import get_logger
+from loguru import logger
 import gc
-
-logger = get_logger(__name__)
 import pandas as pd  # 仅用于 Excel 输出和 IntervalIndex
 
 from app_simpleLoad.module.config import AxisMapping, PathConfig, ConversionConfig
-from app_simpleLoad.module.memory import log_memory, MemoryMonitor
 from app_simpleLoad.module.progress import ProgressReporter
 from app_simpleLoad.module.file_reader import read_all_txt_files, read_freq_table
 
@@ -160,16 +157,11 @@ class CalSimpleLoad:
 
     async def simple_Pre_processing(self):
         """加载文件 — 异步线程池版本"""
-        memory_start = log_memory("预处理-开始")
-        monitor = MemoryMonitor()
-        monitor.start("预处理-峰值监控")
-
         # 释放旧数据
         self.df_all = None
         self.df_dest = None
         self.df_ref = None
         gc.collect()
-        log_memory("预处理-GC后", memory_start)
 
         have_time = 'Time[s]' in self.header
 
@@ -186,7 +178,6 @@ class CalSimpleLoad:
             expected_file_names=expected_file_names,
             progress=self.progress,
         )
-        log_memory("预处理-文件读取完成", memory_start)
 
         # 构建参考表补充信息
         if have_time:
@@ -217,9 +208,6 @@ class CalSimpleLoad:
         self.df_ref = self.df_ref.with_columns(
             (pl.col('仿真时间（s）') * pl.col('全寿命发生次数') / total_weighted_time).alias('工况占比')
         )
-
-        log_memory("预处理-完成", memory_start)
-        monitor.stop()
 
     # ─── 步骤二：划分区间 ─────────────────────────────────────
 
@@ -333,10 +321,6 @@ class CalSimpleLoad:
         if self.df_all is None or self.df_ref is None:
             return {"message": "请先加载文件", "status": "error"}
 
-        memory_start = log_memory("载荷缩减-开始")
-        monitor = MemoryMonitor()
-        monitor.start("载荷缩减-峰值监控")
-
         await self.progress.send_text("开始载荷缩减处理...")
         await self.progress.update_smoothly(0, 10, 0.5)
 
@@ -380,18 +364,12 @@ class CalSimpleLoad:
 
         self.df_all = self.df_all.with_columns(new_columns)
 
-        log_memory("载荷缩减-标签创建后", memory_start)
-
         # Polars join
-        log_memory("载荷缩减-join前", memory_start)
-
         df_final = self.df_all.join(
             self.df_ref,
             on='文件名',
             how='left'
         )
-
-        log_memory("载荷缩减-join后", memory_start)
 
         # 向量化计算
         df_final = df_final.with_columns([
@@ -421,8 +399,6 @@ class CalSimpleLoad:
             power_transform(col) for col in value_list
         ])
 
-        log_memory("载荷缩减-载荷转换后", memory_start)
-
         await self.progress.send_text("载荷缩减完成")
         await self.progress.send_text("正在转换数据")
 
@@ -440,8 +416,6 @@ class CalSimpleLoad:
         index_cols = [label_name for label_name, _, _ in label_mappings]
         value_cols = processed_cols + ['格子转速', '格子时间']
 
-        log_memory("载荷缩减-groupby前", memory_start)
-
         df_pivot = df_final.group_by(index_cols).agg([
             pl.col(col).sum() for col in value_cols
         ])
@@ -449,7 +423,6 @@ class CalSimpleLoad:
         # 释放 df_final（df_all 已在 join 后释放）
         del df_final
         gc.collect()
-        log_memory("载荷缩减-groupby后(释放df_final)", memory_start)
 
         await self.progress.send_text("数据转换完成")
         await self.progress.update_smoothly(10, 40, 1.0)
@@ -570,7 +543,4 @@ class CalSimpleLoad:
         # 释放内存
         del df_pivot, df_pivot_pd, df_pivot_Romax, df_pivot_Romax_T
         gc.collect()
-
-        log_memory("载荷缩减-全部完成(已释放)", memory_start)
-        monitor.stop()
         return count_

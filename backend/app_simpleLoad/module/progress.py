@@ -2,9 +2,7 @@
 
 import asyncio
 from app_simpleLoad.module.global_ws import ws
-from app_simpleLoad.module.logger import get_logger
-
-logger = get_logger(__name__)
+from loguru import logger
 
 
 class ProgressReporter:

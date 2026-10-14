@@ -4,19 +4,17 @@ import asyncio
 import json
 
 from fastapi import Depends, Request, WebSocket, WebSocketDisconnect
+from loguru import logger
 
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
 from app_simpleLoad.module.config import FileParseError
 from app_simpleLoad.module.global_ws import ws
-from app_simpleLoad.module.logger import get_logger
 from app_simpleLoad.module.socket_manager import ConnectionManager
 from app_simpleLoad.serializers import (
     DivideIntervalRequest,
     LoadFileRequest,
     ReduceLoadRequest,
 )
-
-logger = get_logger(__name__)
 
 
 async def load_file(request: Request, data_: LoadFileRequest):

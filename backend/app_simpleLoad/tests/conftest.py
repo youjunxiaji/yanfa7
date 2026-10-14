@@ -2,18 +2,15 @@
 
 原则：
 1. 每个测试都跑在自己的临时目录里，互不干扰；
-2. 全局单例（WebSocket 连接表、日志 handler、内存监控开关）在每个用例
-   前后自动复位，避免用例之间互相污染；
+2. 全局单例（WebSocket 连接表）在每个用例前后自动复位，避免用例之间互相污染；
 3. 默认**不建立** WebSocket 连接 —— 此时 `ProgressReporter` 第一次发送
    就失败并中断 sleep 循环，整套流水线测试因此是毫秒级的。
 """
 import asyncio
-import logging
 from pathlib import Path
 
 import pytest
 
-from app_simpleLoad.module import memory as memory_module
 from app_simpleLoad.module.config import AxisMapping, ConversionConfig
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
 from app_simpleLoad.module.global_ws import GlobalWebSocket, ws
@@ -34,31 +31,6 @@ def _isolate_global_ws():
     GlobalWebSocket._connections.clear()
     yield
     GlobalWebSocket._connections.clear()
-
-
-@pytest.fixture(autouse=True)
-def _restore_root_logging():
-    """setup_logging() 会清空 root handler（含 pytest 的日志捕获），用完还原。"""
-    root = logging.getLogger()
-    handlers = root.handlers[:]
-    level = root.level
-    third_party = {
-        name: logging.getLogger(name).level
-        for name in ("uvicorn", "uvicorn.access", "uvicorn.error", "websockets")
-    }
-    yield
-    root.handlers[:] = handlers
-    root.setLevel(level)
-    for name, lvl in third_party.items():
-        logging.getLogger(name).setLevel(lvl)
-
-
-@pytest.fixture(autouse=True)
-def _restore_memory_switch():
-    """内存监控是模块级全局开关，测试改动后还原。"""
-    original = memory_module.is_enabled()
-    yield
-    memory_module.set_enabled(original)
 
 
 # ─── 基础配置 ────────────────────────────────────────────────
