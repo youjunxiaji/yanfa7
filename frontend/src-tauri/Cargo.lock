@@ -5414,7 +5414,7 @@ dependencies = [
 
 [[package]]
 name = "yanfa7"
-version = "2.0.4"
+version = "2.1.1"
 dependencies = [
  "serde",
  "serde_json",
