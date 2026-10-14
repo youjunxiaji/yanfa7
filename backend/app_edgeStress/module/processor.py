@@ -2,7 +2,6 @@
 边缘应力数据处理器
 
 负责文件解析和数据处理，无 UI 依赖。
-核心算法保持与原 calEdgeStress.py 一致。
 
 Author: gu lei
 Date: 2026-02-11
@@ -12,12 +11,10 @@ from typing import Callable
 
 import numpy as np
 import pandas as pd
-from scipy import signal
 
 from app_edgeStress.module.dataset import (
     FileType,
     InputConfig,
-    ProcessConfig,
     RollerColumn,
     StressData,
 )
@@ -218,12 +215,16 @@ class EdgeStressProcessor:
     """
     边缘应力数据处理器。
 
-    负责对加载后的原始数据执行去峰处理。
-    算法与原 calEdgeStress.MainPro.remove_Peaks 保持一致。
+    对加载后的原始数据逐条曲线（每个角度一条）补缺值，再去掉两端的边缘尖峰。
     """
 
-    def __init__(self, config: ProcessConfig):
-        self.config = config
+    # 应力恰好等于这个值的点当无效值，和缺失值一起补
+    INVALID_STRESS = 4000.0
+    # 接触区两端各留出接触长度的这一比例作边缘区：主体峰值在边缘区以内找，免得把边缘尖峰当成峰值；
+    # 凹口落在边缘区里才处理，主体数据不动
+    EDGE_RATIO = 0.1
+    # 拟合弧线用凹口内侧的点数
+    FIT_POINTS = 5
 
     def process(
         self,
@@ -253,68 +254,117 @@ class EdgeStressProcessor:
                 on_progress(i + 1, total)
 
     def _remove_peaks(self, df: pd.DataFrame) -> pd.DataFrame:
+        """逐条曲线补缺值、去边缘尖峰。
+
+        Args:
+            df: 原始接触应力，多层索引（角位置, 沿滚子距离），同一角度内按距离升序。
+
+        Returns:
+            处理后的接触应力，只保留「接触应力 (MPa)」一列，索引同输入。
         """
-        去除接触应力中的异常峰值。
+        df = df[["接触应力 (MPa)"]].astype(float)
+        curves = df.groupby(level=0, sort=False)["接触应力 (MPa)"]
+        df["接触应力 (MPa)"] = curves.transform(self._process_curve)
+        return df
 
-        算法步骤:
-        1. 提取 "接触应力 (MPa)" 列
-        2. 替换 4000 为 NaN 并插值
-        3. 使用 scipy.signal.find_peaks 检测异常谷值
-        4. 将异常区间设为 NaN 并插值
+    @classmethod
+    def _process_curve(cls, curve: pd.Series) -> np.ndarray:
+        """处理一个角度的应力曲线：先补缺值，再去两端的边缘尖峰。"""
+        x = curve.index.get_level_values(1).astype(float).to_numpy()
+        y = cls._fill_invalid(x, curve.to_numpy(dtype=float))
+        return cls._smooth_edges(x, y)
 
-        Parameters
-        ----------
-        df : pd.DataFrame
-            原始接触应力数据，多层索引。
+    @classmethod
+    def _fill_invalid(cls, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """缺失值和无效值在本角度内按沿滚子距离线性插值补上。
 
-        Returns
-        -------
-        pd.DataFrame
-            去峰后的接触应力数据。
+        两头缺的取最近的有效值；整条都没有有效值时原样返回。
+
+        Args:
+            x: 沿滚子距离（mm），升序。
+            y: 接触应力（MPa）。
+
+        Returns:
+            补好的接触应力。
         """
-        df = df[["接触应力 (MPa)"]].copy()
+        bad = np.isnan(y) | (y == cls.INVALID_STRESS)
+        if not bad.any() or bad.all():
+            return y
+        y = y.copy()
+        y[bad] = np.interp(x[bad], x[~bad], y[~bad])
+        return y
 
-        # 获取角度位置列表
-        level1_index = df.index.get_level_values(0)
-        level_unique = list(level1_index.unique())
+    @classmethod
+    def _smooth_edges(cls, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """把一条应力曲线两端的边缘尖峰换成弧线的延长线，处理后只剩一个峰。
 
-        # 替换 4000 为 NaN 并插值
-        df = df.replace(4000, np.nan)
-        df = df.interpolate()
+        滚子沿长度的接触应力应是一条单峰的弧。受载大的角度上，Romax 结果在接触端 2 mm 左右以内常有边缘效应：
+        弧线先压平出个凹口，再冲出尖峰（可能比主体峰值还高），然后落到 0。
 
-        # 逐角度检测并去除异常峰值
-        for angle in level_unique:
-            # 提取该角度的数据为 numpy 数组（避免链式赋值）
-            sub_df = df.loc[angle]
-            arr: np.ndarray = sub_df["接触应力 (MPa)"].values.copy()
+        Args:
+            x: 沿滚子距离（mm），升序。
+            y: 接触应力（MPa）。
 
-            valleys, _ = signal.find_peaks(
-                -arr,
-                threshold=self.config.peak_threshold,
-            )
-            if len(valleys) == 0:
-                continue
+        Returns:
+            处理后的接触应力；没有边缘尖峰时和 y 相同。
+        """
+        y = y.copy()
+        contact = np.flatnonzero(y > 0)
+        if contact.size == 0:
+            return y
+        first, last = int(contact[0]), int(contact[-1])
+        margin = cls.EDGE_RATIO * (x[last] - x[first])
+        body = np.flatnonzero((x >= x[first] + margin) & (x <= x[last] - margin))
+        if body.size == 0:
+            return y
+        peak = int(body[np.argmax(y[body])])
+        cls._smooth_edge(x, y, peak, last, 1, body)
+        cls._smooth_edge(x, y, peak, first, -1, body)
+        return y
 
-            # 逐个异常谷值处理
-            mid = len(arr) // 2
-            for v in valleys:
-                bound = arr[v]
-                if v < mid:
-                    # 异常点在左侧
-                    idx = np.flatnonzero(arr[:v] > bound)
-                    if idx.size > 0:
-                        if idx[0] > 0 and arr[idx[0] - 1] != 0:
-                            idx = np.insert(idx, 0, idx[0] - 1)
-                        arr[idx] = np.nan
-                elif v > mid:
-                    # 异常点在右侧
-                    idx = np.flatnonzero(arr[v:] > bound) + v
-                    if idx.size > 0:
-                        if idx[-1] + 1 < len(arr) and arr[idx[-1] + 1] != 0:
-                            idx = np.append(idx, idx[-1] + 1)
-                        arr[idx] = np.nan
+    @classmethod
+    def _smooth_edge(
+        cls, x: np.ndarray, y: np.ndarray, peak: int, end: int, step: int, body: np.ndarray
+    ) -> None:
+        """处理峰值往一端的这一侧，原地修改 y。
 
-            # 写回（单次赋值，无链式操作）
-            df.loc[angle, "接触应力 (MPa)"] = arr
+        从峰值往外走，应力应一路下降：第一次升高之前的最低点是凹口，凹口往外比它高的点是尖峰。
+        凹口在主体里不算边缘效应，不处理。用凹口内侧的点按沿滚子距离拟合二次曲线并向外延长，
+        替换凹口到尖峰这一段，且往外只降不升；尖峰外侧是接触端的落差点和 0，保持原样，接触长度不变。
+        按真实距离拟合是因为 Romax 在接触端切片很密，按点的序号均分会把延长线画成一道悬崖。
 
-        return df.interpolate()
+        Args:
+            x: 沿滚子距离（mm），升序。
+            y: 接触应力（MPa），原地修改。
+            peak: 主体峰值的下标。
+            end: 这一侧最外一个接触点（应力大于 0）的下标。
+            step: 往外走的方向，右侧 1，左侧 -1。
+            body: 主体（两端边缘区以内）的下标。
+        """
+        rise = next((i for i in range(peak + step, end + step, step) if y[i] > y[i - step]), None)
+        if rise is None:
+            return
+        valley = rise - step
+        if valley in body:
+            return
+        outward = np.arange(valley, end + step, step)
+        spike_end = int(outward[y[outward] > y[valley]][-1])
+
+        # 延长线从凹口内侧最近的点接上，拟合点不越过峰值
+        anchor = valley - step
+        fit = np.arange(anchor, anchor - step * cls.FIT_POINTS, -step)
+        fit = fit[(fit - peak) * step >= 0]
+        if fit.size < 3:
+            return
+        coef = np.polyfit(x[fit], y[fit], 2)
+        if coef[0] > 0:
+            # 拟合出来下凸，不成弧，改用最靠近凹口的三个点连直线
+            coef = np.r_[0.0, np.polyfit(x[fit[:3]], y[fit[:3]], 1)]
+        offset = y[anchor] - np.polyval(coef, x[anchor])
+
+        level = y[anchor]
+        for i in range(valley, spike_end + step, step):
+            level = max(min(np.polyval(coef, x[i]) + offset, level), 0.0)
+            y[i] = level
+        for i in range(spike_end + step, end + step, step):
+            y[i] = min(y[i], y[i - step])

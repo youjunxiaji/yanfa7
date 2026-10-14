@@ -15,7 +15,6 @@ class ParseRequestSerializer(BaseModel):
     """解析请求"""
     filePaths: list[str]
     fileType: str = "htm"
-    peakThreshold: float = 10.0
     outputDir: str
     reportConfig: ReportConfigSerializer
 

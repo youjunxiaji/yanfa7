@@ -61,23 +61,6 @@
 
                     <div class="param-section">
                         <div class="section-head">
-                            <span class="section-title">处理参数</span>
-                        </div>
-                        <div class="field">
-                            <span class="field-label">峰值阈值</span>
-                            <div class="field-control">
-                                <NumberInput
-                                    v-model="store.processConfig.peakThreshold"
-                                    :step="0.00001"
-                                    :min="0"
-                                    :max="4000"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="param-section">
-                        <div class="section-head">
                             <span class="section-title">报告图片</span>
                         </div>
                         <div class="field">
@@ -504,7 +487,6 @@ const startParse = (): void => {
     parseWithProgress(
         filePaths,
         store.fileType,
-        store.processConfig.peakThreshold,
         store.outputDir,
         {
             picWidth: store.reportConfig.picWidth,

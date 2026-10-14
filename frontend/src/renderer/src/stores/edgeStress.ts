@@ -14,10 +14,6 @@ export interface FileResult {
     reason: string
 }
 
-export interface ProcessConfig {
-    peakThreshold: number
-}
-
 export interface ReportConfig {
     picWidth: number
     picHeight: number
@@ -30,10 +26,6 @@ export const useEdgeStressStore = defineStore('edgeStress', {
         files: [] as FileInfo[],
         fileType: 'htm' as 'htm' | 'xlsx',
         outputDir: '',
-
-        processConfig: {
-            peakThreshold: 1
-        } as ProcessConfig,
 
         reportConfig: {
             picWidth: 10,

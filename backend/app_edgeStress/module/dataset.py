@@ -102,20 +102,6 @@ class RollerColumn:
 # ============================================================
 
 @dataclass
-class ProcessConfig:
-    """
-    数据处理配置。
-
-    Attributes
-    ----------
-    peak_threshold : float
-        峰值去除阈值，用于 scipy.signal.find_peaks 的 threshold 参数。
-        值越大，去除的峰越少。默认 10.0。
-    """
-    peak_threshold: float = 10.0
-
-
-@dataclass
 class ReportConfig:
     """
     报告生成配置。
@@ -184,14 +170,12 @@ class EdgeStressDataset:
     边缘应力数据集 — 整个分析流程的核心数据容器。
 
     职责：
-    - 持有所有配置 (input / process / report)
+    - 持有所有配置 (input / report)
     - 持有解析后的标准化数据 (columns)
     - 提供查询和汇总接口
 
     Attributes
     ----------
-    process_config : ProcessConfig
-        处理配置。
     input_config : InputConfig
         输入配置。
     report_config : ReportConfig
@@ -200,7 +184,6 @@ class EdgeStressDataset:
         所有文件所有列的滚子数据。
     """
     report_config: ReportConfig
-    process_config: ProcessConfig = field(default_factory=ProcessConfig)
     input_config: InputConfig = field(default_factory=InputConfig)
     columns: list[RollerColumn] = field(default_factory=list)
 

@@ -47,7 +47,6 @@ export type WsMessage =
 export const parseWithProgress = (
     filePaths: string[],
     fileType: 'htm' | 'xlsx',
-    peakThreshold: number,
     outputDir: string,
     reportConfig: {
         picWidth: number
@@ -65,9 +64,7 @@ export const parseWithProgress = (
         ws = socket
 
         socket.onopen = () => {
-            socket.send(
-                JSON.stringify({ filePaths, fileType, peakThreshold, outputDir, reportConfig })
-            )
+            socket.send(JSON.stringify({ filePaths, fileType, outputDir, reportConfig }))
         }
 
         socket.onmessage = (event) => {

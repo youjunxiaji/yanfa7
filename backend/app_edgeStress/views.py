@@ -11,7 +11,6 @@ from app_edgeStress.module.dataset import (
     EdgeStressDataset,
     FileType,
     InputConfig,
-    ProcessConfig,
     ReportConfig,
     StressPosition,
 )
@@ -69,7 +68,6 @@ async def ws_parse(ws: WebSocket):
                 return
 
         rc = req.reportConfig
-        process_config = ProcessConfig(peak_threshold=req.peakThreshold)
         report_config = ReportConfig(
             pic_width=rc.picWidth,
             pic_height=rc.picHeight,
@@ -78,7 +76,7 @@ async def ws_parse(ws: WebSocket):
         )
 
         loader = EdgeStressLoader()
-        processor = EdgeStressProcessor(process_config)
+        processor = EdgeStressProcessor()
 
         group_reporters: dict[str, EdgeStressReporter] = {}
 
@@ -144,7 +142,6 @@ async def ws_parse(ws: WebSocket):
 
         input_config = InputConfig(files=files, file_type=file_type, output_dir=output_dir)
         dataset = EdgeStressDataset(
-            process_config=process_config,
             input_config=input_config,
             report_config=report_config,
             columns=all_columns,
