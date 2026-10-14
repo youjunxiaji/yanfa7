@@ -211,6 +211,11 @@ const openPalette = (): void => {
     background: var(--success-soft);
 }
 
+.tool-icon.is-amber {
+    color: var(--warning);
+    background: var(--warning-soft);
+}
+
 .tool-arrow {
     color: var(--text-3);
     transition:

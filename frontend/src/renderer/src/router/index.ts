@@ -1,6 +1,6 @@
 import { markRaw, type Component } from 'vue'
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
-import { BookOpen, ChartColumn, ChartSpline, House, Settings } from '@lucide/vue'
+import { BookOpen, ChartColumn, ChartSpline, Funnel, House, Settings } from '@lucide/vue'
 import { ToolTone } from '@renderer/constants/ui'
 
 // 工具页的完整名称、一句话说明和色调：页面标题栏和首页工具卡都读这里
@@ -54,6 +54,20 @@ const routes: RouteRecordRaw[] = [
             }
         },
         component: () => import('@renderer/views/PmaxView.vue')
+    },
+    {
+        path: '/simple-load',
+        name: 'SimpleLoad',
+        meta: {
+            title: '载荷简化',
+            icon: markRaw(Funnel),
+            tool: {
+                name: '载荷简化',
+                desc: '时序载荷按区间分组，缩减成 Romax 等效工况',
+                tone: ToolTone.AMBER
+            }
+        },
+        component: () => import('@renderer/views/SimpleLoadView.vue')
     },
     {
         path: '/docs',

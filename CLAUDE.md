@@ -39,9 +39,9 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 - 例外：`src/preload/index.d.ts` 仍提供 `window.electron*` 的全局类型（`tsconfig.web.json` include），
   改兼容垫片的接口时同步它。
 - 开发端口：渲染层 Vite 5179，后端 8006；打包后的后端固定 8000。改端口要同步的位置见 Tauri Skill。
-- `backend/app_simpleLoad/` 是从 simple_load v1.3.1 搬进来的载荷简化：目录和日志已按「后端」一节整理，接口路径、
-  报错方式和 WebSocket 用法还是它原来的写法，整理步骤见 `todo.md`；新模块不照着它写。
-  它还没有界面，同事们用的仍是网页版加 simple_load 的 exe：这期间 simple_load 冻结，要修的 bug 两边一起改。
+- `backend/app_simpleLoad/` 是从 simple_load v1.3.1 搬进来的载荷简化，页面是 `SimpleLoadView.vue`，还没发版：
+  同事们用的仍是网页版加 simple_load 的 exe，这期间 simple_load 冻结，要修的 bug 两边一起改。
+  它的计算层 `module/cal_simpleLoad.py` 还是原来的命名和写法，新模块不照着它写。
 
 ## 架构约束
 

@@ -189,6 +189,11 @@ kbd {
     background: var(--success-soft);
 }
 
+.page-icon.is-amber {
+    color: var(--warning);
+    background: var(--warning-soft);
+}
+
 .page-title {
     flex-shrink: 0;
     font-size: 15px;
