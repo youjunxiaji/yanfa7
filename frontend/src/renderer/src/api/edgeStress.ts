@@ -5,19 +5,7 @@ export interface PreviewItem {
     path: string
 }
 
-export interface SkippedFile {
-    filename: string
-    reason: string
-}
-
-export interface ParseResult {
-    fileNames: string[]
-    columns: Record<string, number[]>
-    generatedFiles: string[]
-    previewMap: Record<string, PreviewItem[]>
-    skippedFiles: SkippedFile[]
-}
-
+// 开始处理第 current 个文件
 export interface ProgressMessage {
     type: 'progress'
     current: number
@@ -25,8 +13,23 @@ export interface ProgressMessage {
     filename: string
 }
 
-export interface DoneMessage extends ParseResult {
+// 单个文件处理完就推一条，index 是文件在请求 filePaths 里的下标
+export interface FileDoneMessage {
+    type: 'fileDone'
+    index: number
+    columns: number[]
+    previewItems: PreviewItem[]
+}
+
+export interface FileSkippedMessage {
+    type: 'fileSkipped'
+    index: number
+    reason: string
+}
+
+export interface DoneMessage {
     type: 'done'
+    generatedFiles: string[]
 }
 
 export interface ErrorMessage {
@@ -34,7 +37,12 @@ export interface ErrorMessage {
     message: string
 }
 
-export type WsMessage = ProgressMessage | DoneMessage | ErrorMessage
+export type WsMessage =
+    | ProgressMessage
+    | FileDoneMessage
+    | FileSkippedMessage
+    | DoneMessage
+    | ErrorMessage
 
 export const parseWithProgress = (
     filePaths: string[],

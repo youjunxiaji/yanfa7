@@ -21,7 +21,7 @@ class ParseRequestSerializer(BaseModel):
 
 
 class ProgressResponseSerializer(BaseModel):
-    """进度推送"""
+    """进度推送：开始处理第 current 个文件"""
     type: str = "progress"
     current: int
     total: int
@@ -34,13 +34,25 @@ class PreviewItemSerializer(BaseModel):
     path: str
 
 
+class FileDoneResponseSerializer(BaseModel):
+    """单个文件处理完：解析出的列号和每列的缩略图；index 是文件在 filePaths 里的下标"""
+    type: str = "fileDone"
+    index: int
+    columns: list[int]
+    previewItems: list[PreviewItemSerializer]
+
+
+class FileSkippedResponseSerializer(BaseModel):
+    """单个文件没能解析，跳过；index 同上"""
+    type: str = "fileSkipped"
+    index: int
+    reason: str
+
+
 class DoneResponseSerializer(BaseModel):
     """完成响应"""
     type: str = "done"
-    fileNames: list[str]
-    columns: dict[str, list[int]]
     generatedFiles: list[str]
-    previewMap: dict[str, list[PreviewItemSerializer]]
 
 
 class ErrorResponseSerializer(BaseModel):

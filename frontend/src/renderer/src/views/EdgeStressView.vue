@@ -194,6 +194,7 @@ import { computed, h, ref, type Component, type VNode } from 'vue'
 import {
     NButton,
     NDataTable,
+    NEllipsis,
     NInput,
     NInputGroup,
     NPopconfirm,
@@ -215,8 +216,8 @@ import {
     Play,
     X
 } from '@lucide/vue'
-import { useEdgeStressStore, type FileInfo } from '@renderer/stores/edgeStress'
-import { parseWithProgress, type PreviewItem, type WsMessage } from '@renderer/api/edgeStress'
+import { useEdgeStressStore, type FileInfo, type FileResult } from '@renderer/stores/edgeStress'
+import { parseWithProgress, type WsMessage } from '@renderer/api/edgeStress'
 import PageHeader from '@renderer/components/PageHeader.vue'
 import EmptyState from '@renderer/components/EmptyState.vue'
 import StatusStrip from '@renderer/components/StatusStrip.vue'
@@ -224,11 +225,8 @@ import NumberInput from '@renderer/components/NumberInput.vue'
 import FileResultPopover from '@renderer/components/FileResultPopover.vue'
 import { FileStatus } from '@renderer/constants/ui'
 
-interface FileRow extends FileInfo {
+interface FileRow extends FileInfo, FileResult {
     status: FileStatus
-    reason: string
-    columnCount: number
-    previewItems: PreviewItem[]
 }
 
 const STATUS_META: Record<FileStatus, { icon: Component; tip: string }> = {
@@ -257,40 +255,25 @@ const selectButtonText = computed(() => {
     return store.hasFiles ? '继续添加文件夹' : '选择文件夹'
 })
 
-// ========== 单文件状态：由最近一次解析的进度推出来 ==========
-const skippedReasons = computed(
-    () => new Map(store.skippedFiles.map((s) => [s.filename, s.reason]))
-)
+// ========== 单文件状态：由最近一次解析的进度和逐个推来的文件结果推出来 ==========
+const NO_RESULT: FileResult = { columns: [], previewItems: [], reason: '' }
 
-const statusOf = (file: FileInfo): FileStatus => {
+const statusOf = (file: FileInfo, result?: FileResult): FileStatus => {
+    if (result) return result.reason ? FileStatus.SKIPPED : FileStatus.DONE
     const index = store.runPaths.indexOf(file.path)
     if (index < 0) return FileStatus.IDLE
-    const started = store.processingName !== ''
-    switch (store.processStatus) {
-        case 'processing':
-            if (!started || index > store.progressCurrent) return FileStatus.QUEUED
-            return index < store.progressCurrent ? FileStatus.DONE : FileStatus.PROCESSING
-        case 'done':
-            return skippedReasons.value.has(file.name) ? FileStatus.SKIPPED : FileStatus.DONE
-        case 'error':
-            if (!started || index > store.progressCurrent) return FileStatus.IDLE
-            return index < store.progressCurrent ? FileStatus.DONE : FileStatus.ERROR
-        default:
-            return FileStatus.IDLE
+    // 还没结果的文件：后端正在处理的那个标处理中，其余排队；整批中途出错时，正在处理的那个标出错
+    const isCurrent = store.processingName !== '' && index === store.progressCurrent
+    if (store.processStatus === 'processing') {
+        return isCurrent ? FileStatus.PROCESSING : FileStatus.QUEUED
     }
+    return store.processStatus === 'error' && isCurrent ? FileStatus.ERROR : FileStatus.IDLE
 }
 
 const rows = computed<FileRow[]>(() =>
     store.files.map((file) => {
-        const status = statusOf(file)
-        const done = status === FileStatus.DONE
-        return {
-            ...file,
-            status,
-            reason: skippedReasons.value.get(file.name) ?? '',
-            columnCount: done ? (store.resultColumns[fileStemOf(file.name)]?.length ?? 0) : 0,
-            previewItems: done ? store.getPreviewItems(file.name) : []
-        }
+        const result = store.fileResults[file.path]
+        return { ...file, ...(result ?? NO_RESULT), status: statusOf(file, result) }
     })
 )
 
@@ -299,7 +282,6 @@ const rowKey = (row: FileRow): string => row.path
 // ========== 文件表 ==========
 const renderStatus = (row: FileRow): VNode => {
     const meta = STATUS_META[row.status]
-    const tip = row.status === FileStatus.SKIPPED ? `已跳过：${row.reason}` : meta.tip
     return h(
         NTooltip,
         { delay: 200 },
@@ -311,11 +293,12 @@ const renderStatus = (row: FileRow): VNode => {
                         class: row.status === FileStatus.PROCESSING ? 'spin' : undefined
                     })
                 ]),
-            default: () => tip
+            default: () => meta.tip
         }
     )
 }
 
+// 跳过原因写在文件名下面一行：报错可能很长，一行放不下就截断，截断了才悬停出全文
 const renderName = (row: FileRow): VNode =>
     h(
         FileResultPopover,
@@ -324,7 +307,16 @@ const renderName = (row: FileRow): VNode =>
             default: () =>
                 h('div', { class: 'file-cell' }, [
                     h('span', { class: 'file-name', title: row.path }, row.name),
-                    row.reason ? h('span', { class: 'file-reason' }, row.reason) : null
+                    row.reason
+                        ? h(
+                              NEllipsis,
+                              {
+                                  class: 'file-reason',
+                                  tooltip: { delay: 200, contentClass: 'long-tip' }
+                              },
+                              { default: () => row.reason }
+                          )
+                        : null
                 ])
         }
     )
@@ -369,7 +361,7 @@ const columns: DataTableColumns<FileRow> = [
         align: 'center',
         render: (row) =>
             row.status === FileStatus.DONE
-                ? h('span', { class: 'num' }, String(row.columnCount))
+                ? h('span', { class: 'num' }, String(row.columns.length))
                 : h('span', { class: 'cell-muted' }, '—')
     },
     {
@@ -379,8 +371,9 @@ const columns: DataTableColumns<FileRow> = [
         align: 'right',
         render: (row) =>
             h('div', { class: 'row-actions' }, [
+                // 预览读后端的数据集缓存，整批处理完才写入，所以要等整批完成
                 iconButton(Eye, '预览报告', {
-                    disabled: row.status !== FileStatus.DONE,
+                    disabled: !store.isDone || row.status !== FileStatus.DONE,
                     onClick: () => previewFile(row)
                 }),
                 iconButton(X, '移除', {
@@ -439,7 +432,7 @@ const previewFile = (row: FileRow): void => {
     window.electronAPI.openPreviewWindow({
         fileStem,
         outputDir: store.outputDir,
-        columns: (store.resultColumns[fileStem] ?? []).join(','),
+        columns: row.columns.join(','),
         title: `报告预览 - ${fileStem}`
     })
 }
@@ -478,7 +471,7 @@ const strip = computed(() => {
         }
     }
     if (store.processStatus === 'done') {
-        const skipped = store.skippedFiles.length
+        const skipped = Object.values(store.fileResults).filter((r) => r.reason).length
         const skippedText = skipped ? `，跳过 ${skipped} 个` : ''
         return {
             status: 'done' as const,
@@ -503,7 +496,7 @@ const startParse = (): void => {
     store.runPaths = filePaths
     store.processingName = ''
     store.generatedCount = 0
-    store.skippedFiles = []
+    store.fileResults = {}
     store.setProcessStatus('processing')
     store.updateProgress(0, filePaths.length)
     store.stageMessage = '正在连接解析服务…'
@@ -523,18 +516,23 @@ const startParse = (): void => {
             if (msg.type === 'progress') {
                 store.updateProgress(msg.current, msg.total)
                 store.processingName = msg.filename
+            } else if (msg.type === 'fileDone') {
+                store.setFileResult(msg.index, {
+                    columns: msg.columns,
+                    previewItems: msg.previewItems,
+                    reason: ''
+                })
+            } else if (msg.type === 'fileSkipped') {
+                store.setFileResult(msg.index, {
+                    columns: [],
+                    previewItems: [],
+                    reason: msg.reason
+                })
             } else if (msg.type === 'done') {
                 store.updateProgress(store.progressTotal, store.progressTotal)
                 store.setProcessStatus('done')
                 store.stageMessage = ''
                 store.generatedCount = msg.generatedFiles.length
-                store.skippedFiles = msg.skippedFiles ?? []
-                if (msg.previewMap) {
-                    store.setPreviewMap(msg.previewMap)
-                }
-                if (msg.columns) {
-                    store.setResultColumns(msg.columns)
-                }
                 message.success(`解析完成！已生成 ${msg.generatedFiles.length} 个文件`)
             } else if (msg.type === 'error') {
                 store.setProcessStatus('error', msg.message)
@@ -580,15 +578,13 @@ const startParse = (): void => {
     color: var(--danger);
 }
 
+/* 有跳过原因时分两行：文件名在上，原因在下，各自一行放不下就截断 */
 .result-body :deep(.file-cell) {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
-    min-width: 0;
+    flex-direction: column;
 }
 
 .result-body :deep(.file-name) {
-    min-width: 0;
     overflow: hidden;
     color: var(--text-1);
     text-overflow: ellipsis;
@@ -596,10 +592,8 @@ const startParse = (): void => {
 }
 
 .result-body :deep(.file-reason) {
-    flex-shrink: 0;
     font-size: 12px;
     color: var(--warning);
-    white-space: nowrap;
 }
 
 .result-body :deep(.cell-muted) {

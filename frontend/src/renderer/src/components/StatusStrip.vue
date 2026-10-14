@@ -7,7 +7,9 @@
                 :class="{ spin: status === 'processing' }"
                 :size="15"
             />
-            <span class="status-text">{{ text }}</span>
+            <n-ellipsis class="status-text" :tooltip="{ delay: 200, contentClass: 'long-tip' }">
+                {{ text }}
+            </n-ellipsis>
             <span v-if="meta" class="status-meta num">{{ meta }}</span>
         </div>
         <n-progress
@@ -25,7 +27,7 @@
 <script setup lang="ts">
 // 结果区工具栏下面的进度条带：处理中 / 完成 / 失败（见 UI Skill 界面标准第八节）
 import { computed } from 'vue'
-import { NProgress } from 'naive-ui'
+import { NEllipsis, NProgress } from 'naive-ui'
 import { CircleCheck, LoaderCircle, TriangleAlert } from '@lucide/vue'
 
 const props = withDefaults(
@@ -86,12 +88,11 @@ const icon = computed(() => {
     color: var(--danger);
 }
 
-.status-text {
+/* 失败原因可能很长：n-ellipsis 一行放不下就截断，截断了才悬停出全文。
+   它的根节点不带本组件的 scoped 标记，要用 :deep */
+.status-row :deep(.status-text) {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .status-meta {

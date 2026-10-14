@@ -1,10 +1,17 @@
 import { defineStore } from 'pinia'
-import type { SkippedFile } from '@renderer/api/edgeStress'
+import type { PreviewItem } from '@renderer/api/edgeStress'
 
 export interface FileInfo {
     name: string
     path: string
     size: number
+}
+
+// 最近一次解析里一个文件的处理结果：解析出的列号和悬停缩略图；被跳过时 reason 是原因，否则为空
+export interface FileResult {
+    columns: number[]
+    previewItems: PreviewItem[]
+    reason: string
 }
 
 export interface ProcessConfig {
@@ -40,21 +47,19 @@ export const useEdgeStressStore = defineStore('edgeStress', {
         progressCurrent: 0,
         progressTotal: 0,
         stageMessage: '',
-        // 最近一次解析：按顺序发给后端的文件路径、正在处理的文件名、生成的文件数和被跳过的文件，
+        // 最近一次解析：按顺序发给后端的文件路径、正在处理的文件名、生成的文件数，
+        // 以及处理完的文件结果（按路径存，后端每处理完一个文件推一条）；
         // 文件表的单文件状态由它们推出来
         runPaths: [] as string[],
         processingName: '',
         generatedCount: 0,
-        skippedFiles: [] as SkippedFile[],
+        fileResults: {} as Record<string, FileResult>,
 
         fileNames: [] as string[],
         currentFileName: '',
         stressPosition: 'inner' as 'inner' | 'outer',
         currentColumn: 1,
-        columnOptions: [1] as number[],
-
-        previewMap: {} as Record<string, { colIndex: number; path: string }[]>,
-        resultColumns: {} as Record<string, number[]>
+        columnOptions: [1] as number[]
     }),
 
     getters: {
@@ -84,7 +89,7 @@ export const useEdgeStressStore = defineStore('edgeStress', {
             this.runPaths = []
             this.processingName = ''
             this.generatedCount = 0
-            this.skippedFiles = []
+            this.fileResults = {}
         },
 
         setProcessStatus(status: 'idle' | 'processing' | 'done' | 'error', error?: string) {
@@ -111,17 +116,10 @@ export const useEdgeStressStore = defineStore('edgeStress', {
             }
         },
 
-        setPreviewMap(map: Record<string, { colIndex: number; path: string }[]>) {
-            this.previewMap = map
-        },
-
-        setResultColumns(columns: Record<string, number[]>) {
-            this.resultColumns = columns
-        },
-
-        getPreviewItems(fileName: string): { colIndex: number; path: string }[] {
-            const stem = fileName.replace(/\.[^.]+$/, '')
-            return this.previewMap[stem] ?? []
+        // index 是文件在 runPaths 里的下标，和后端推送的一致
+        setFileResult(index: number, result: FileResult) {
+            const path = this.runPaths[index]
+            if (path !== undefined) this.fileResults[path] = result
         },
 
         getGroupName(fileName: string): string {
@@ -133,11 +131,6 @@ export const useEdgeStressStore = defineStore('edgeStress', {
         getReportBasePath(fileName: string): string {
             const group = this.getGroupName(fileName)
             return `${this.outputDir}/res-output/${group}`
-        },
-
-        getColumnsByFile(fileName: string): number[] {
-            const stem = fileName.replace(/\.[^.]+$/, '')
-            return this.resultColumns[stem] ?? []
         }
     }
 })

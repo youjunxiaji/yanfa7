@@ -136,6 +136,11 @@ kbd {
     opacity: 0.35;
 }
 
+/* 装长文本（报错原因等）的 tooltip，用在 contentClass 上：限宽折行，不拉成横跨窗口的一整行 */
+.long-tip {
+    max-width: 360px;
+}
+
 .count-pill {
     padding: 0 7px;
     font-size: 12px;

@@ -101,8 +101,9 @@ async def ws_parse(ws: WebSocket):
 
         all_columns = []
         all_generated: list[str] = []
-        skipped_files: list[dict] = []
 
+        # 每个文件处理完立刻推结果，前端随即显示这一行的列数或跳过原因，不等整批结束；
+        # index 是文件在 filePaths 里的下标，前端按它对应到文件
         for i, file_path in enumerate(files):
             await ws.send_json({
                 "type": "progress",
@@ -113,11 +114,33 @@ async def ws_parse(ws: WebSocket):
 
             try:
                 file_columns, generated = await asyncio.to_thread(_process_one, file_path)
-                all_generated.extend(generated)
-                all_columns.extend(file_columns)
             except Exception as e:
                 logger.warning(f"跳过文件 {file_path.name}: {e}")
-                skipped_files.append({"filename": file_path.name, "reason": str(e)})
+                await ws.send_json({
+                    "type": "fileSkipped",
+                    "index": i,
+                    # 有的异常不带消息，str(e) 是空串，至少给出异常类型
+                    "reason": str(e) or type(e).__name__,
+                })
+                continue
+
+            all_generated.extend(generated)
+            all_columns.extend(file_columns)
+
+            # 文件名悬停缩略图：每列的内圈中文应力曲线
+            group_dir = output_dir / _get_group_name(file_path.stem)
+            preview_items: list[dict] = []
+            for col in file_columns:
+                candidate = group_dir / f"{col.filename}-{StressPosition.INNER.value}-第{col.col_index}列-中.png"
+                if candidate.exists():
+                    preview_items.append({"colIndex": col.col_index, "path": str(candidate)})
+
+            await ws.send_json({
+                "type": "fileDone",
+                "index": i,
+                "columns": [c.col_index for c in file_columns],
+                "previewItems": preview_items,
+            })
 
         input_config = InputConfig(files=files, file_type=file_type, output_dir=output_dir)
         dataset = EdgeStressDataset(
@@ -134,29 +157,7 @@ async def ws_parse(ws: WebSocket):
             max_summary.to_excel(str(summary_path))
             all_generated.append(str(summary_path))
 
-        result_columns: dict[str, list[int]] = {}
-        for fn in dataset.filenames:
-            result_columns[fn] = [c.col_index for c in dataset.get_columns_by_file(fn)]
-
-        preview_map: dict[str, list[dict]] = {}
-        for col in all_columns:
-            src_name = col.filename
-            group_name = _get_group_name(src_name)
-            candidate = output_dir / group_name / f"{src_name}-{StressPosition.INNER.value}-第{col.col_index}列-中.png"
-            if candidate.exists():
-                preview_map.setdefault(src_name, []).append({
-                    "colIndex": col.col_index,
-                    "path": str(candidate),
-                })
-
-        await ws.send_json({
-            "type": "done",
-            "fileNames": dataset.filenames,
-            "columns": result_columns,
-            "generatedFiles": all_generated,
-            "previewMap": preview_map,
-            "skippedFiles": skipped_files,
-        })
+        await ws.send_json({"type": "done", "generatedFiles": all_generated})
     except WebSocketDisconnect:
         logger.info("WebSocket 客户端断开")
     except Exception as e:
