@@ -17,12 +17,13 @@ from app_simpleLoad.module import memory as memory_module
 from app_simpleLoad.module.config import AxisMapping, ConversionConfig
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
 from app_simpleLoad.module.global_ws import GlobalWebSocket, ws
-from tests import factories
-from tests.factories import CaseSpec, Dataset, build_dataset, ramp_case
-from tests.fakes import FakeWebSocket, InstantSleepAsyncio
+from app_simpleLoad.tests import factories
+from app_simpleLoad.tests.factories import CaseSpec, Dataset, build_dataset, ramp_case
+from app_simpleLoad.tests.fakes import FakeWebSocket, InstantSleepAsyncio
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-REAL_CASE_DIR = PROJECT_ROOT / "测试案例"
+# 真实算例五百多 MB、不入库，放在 backend/测试案例/，不随测试放进 app 里
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+REAL_CASE_DIR = BACKEND_ROOT / "测试案例"
 
 
 # ─── 全局状态隔离 ────────────────────────────────────────────

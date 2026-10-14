@@ -9,9 +9,9 @@ import pytest
 from app_simpleLoad.module.config import ConversionConfig, FileParseError, PathConfig
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
 from app_simpleLoad.module import file_reader
-from tests import factories
-from tests.factories import CaseSpec, build_dataset, ramp_case
-from tests.reference import case_weights, convert_units, sample_interval
+from app_simpleLoad.tests import factories
+from app_simpleLoad.tests.factories import CaseSpec, build_dataset, ramp_case
+from app_simpleLoad.tests.reference import case_weights, convert_units, sample_interval
 
 REQUIRED_COLUMNS = ["Mx[KNm]", "My[KNm]", "Mz[KNm]", "Fx[KN]", "Fy[KN]", "Fz[KN]", "speed[rpm]"]
 

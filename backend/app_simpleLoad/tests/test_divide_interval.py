@@ -12,8 +12,8 @@ import polars as pl
 import pytest
 
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
-from tests import factories, reference
-from tests.factories import build_dataset, ramp_case
+from app_simpleLoad.tests import factories, reference
+from app_simpleLoad.tests.factories import build_dataset, ramp_case
 
 ALL_LOAD_COLUMNS = ["Mx[KNm]", "My[KNm]", "Mz[KNm]", "Fx[KN]", "Fy[KN]", "Fz[KN]"]
 

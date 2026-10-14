@@ -7,7 +7,7 @@ import pytest
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
 from app_simpleLoad.module.global_ws import GlobalWebSocket, ws
 from app_simpleLoad.module.socket_manager import ConnectionManager
-from tests.fakes import BareWebSocket, FakeWebSocket, OpaqueWebSocket
+from app_simpleLoad.tests.fakes import BareWebSocket, FakeWebSocket, OpaqueWebSocket
 
 
 # ─── 全局连接单例 ────────────────────────────────────────────

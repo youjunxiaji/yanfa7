@@ -73,6 +73,9 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 - Python ≥ 3.12，依赖和命令走 `uv`（`uv sync`、`uv add`、`uv run`）；`uv run main.py` 起开发服务（8006，热重载）。
 - 每个工具一个 `app_<模块名>/`：`urls.py` 建 `APIRouter` 注册路由，`views.py` 写接口，`serializers.py`
   放 Pydantic 请求 / 响应模型，`module/` 放解析、计算、出图；在 `main.py` 里 `include_router`。
+- 测试用 pytest，放各 app 自己的 `tests/`（带 `__init__.py`），只给这个 app 用的 fixture 写在它的 `tests/conftest.py`。
+  `pyproject.toml` 的 `testpaths = ["app_*/tests"]` 会自动收集新 app 的测试；`main.py` 不导入测试，打包不会收进 sidecar。
+  大的测试数据不入库，放 `backend/` 下（如载荷简化的 `测试案例/`），用例找不到数据就跳过。
 - 业务错误抛 `HTTPException(status_code=400, detail=...)`，`detail` 用中文写清哪里不对，前端读 `detail` 展示；
   WebSocket 推 `{"type": "error", "message": ...}`。
 - 出图用 matplotlib 的 Agg 后端（`main.py` 入口设置），只写文件不弹窗，返回给前端的是文件绝对路径。

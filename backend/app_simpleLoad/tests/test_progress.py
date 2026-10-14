@@ -5,7 +5,7 @@ import pytest
 from app_simpleLoad.module import progress as progress_module
 from app_simpleLoad.module.progress import ProgressReporter
 from app_simpleLoad.module.global_ws import ws
-from tests.fakes import FakeWebSocket
+from app_simpleLoad.tests.fakes import FakeWebSocket
 
 
 @pytest.fixture

@@ -2,7 +2,7 @@
 
 ## 载荷简化迁移
 
-simple_load v1.3.1 搬进了 `backend/app_simpleLoad/` 和 `backend/tests/`，目录已按项目规则排好。下面每步一个提交，
+simple_load v1.3.1 搬进了 `backend/app_simpleLoad/`，目录已按项目规则排好，测试在它的 `tests/` 里。下面每步一个提交，
 每步跑一遍 `uv run pytest`：算法用例和 `tests/test_real_baseline.py`（真实算例对拍）只许改 import，不许改断言。
 
 - **日志换成 loguru**：删 `module/logger.py`、`module/memory.py` 和它们的用例，删 rich、psutil 依赖，

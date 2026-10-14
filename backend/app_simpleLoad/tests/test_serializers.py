@@ -16,7 +16,7 @@ from app_simpleLoad.serializers import (
     LoadFileRequest,
     ReduceLoadRequest,
 )
-from tests import factories
+from app_simpleLoad.tests import factories
 
 PATHS = {
     "result_folder_save_path": "out",

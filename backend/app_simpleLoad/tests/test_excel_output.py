@@ -6,10 +6,10 @@
 
 import pytest
 
-from tests import factories
-from tests.excel_io import read_gl, read_romax, romax_load_matrix
-from tests.reference import romax_column_source
-from tests.test_reduce_load import DEFAULT_BINS, table_data
+from app_simpleLoad.tests import factories
+from app_simpleLoad.tests.excel_io import read_gl, read_romax, romax_load_matrix
+from app_simpleLoad.tests.reference import romax_column_source
+from app_simpleLoad.tests.test_reduce_load import DEFAULT_BINS, table_data
 
 ROMAX_LOAD_ROWS = ["Fx[KN]", "Fy[KN]", "Fz[KN]", "Mx[KNm]", "My[KNm]"]
 

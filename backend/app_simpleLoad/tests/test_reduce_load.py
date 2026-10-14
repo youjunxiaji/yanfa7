@@ -15,8 +15,8 @@ from app_simpleLoad.module.cal_simpleLoad import (
     CalSimpleLoad,
     parse_interval_table,
 )
-from tests import factories, reference
-from tests.excel_io import assert_frames_close, read_gl
+from app_simpleLoad.tests import factories, reference
+from app_simpleLoad.tests.excel_io import assert_frames_close, read_gl
 
 #: 默认 romax 映射（z←y）下参与打标签的分量，顺序即 table_data 的行顺序
 SELECTED_COLUMNS = ["Fx[KN]", "Fy[KN]", "Fz[KN]", "Mx[KNm]", "Mz[KNm]"]
@@ -304,7 +304,7 @@ class TestKeepTorqueComponent:
 
     async def test_Romax_载荷表多出_Mz_一行(self, divided_keep, dataset, romax_origin):
         """保留的分量落在 Romax 的 z 轴力矩上，载荷表要给它一行。"""
-        from tests.excel_io import read_romax, romax_load_matrix
+        from app_simpleLoad.tests.excel_io import read_romax, romax_load_matrix
 
         await divided_keep.simple_load2(table_data(*SIX_ROW_BINS), romax_origin)
 
@@ -320,7 +320,7 @@ class TestKeepTorqueComponent:
         )
 
     async def test_关闭时_Romax_仍是五行(self, divided, dataset, romax_origin):
-        from tests.excel_io import read_romax, romax_load_matrix
+        from app_simpleLoad.tests.excel_io import read_romax, romax_load_matrix
 
         await divided.simple_load2(table_data(*DEFAULT_BINS), romax_origin)
 

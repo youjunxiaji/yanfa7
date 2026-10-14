@@ -23,9 +23,9 @@ from app_simpleLoad.module.file_reader import (
     read_all_txt_files,
     read_freq_table,
 )
-from tests import factories
-from tests.factories import CaseSpec, ramp_case, write_freq_table, write_txt
-from tests.fakes import RecordingProgress
+from app_simpleLoad.tests import factories
+from app_simpleLoad.tests.factories import CaseSpec, ramp_case, write_freq_table, write_txt
+from app_simpleLoad.tests.fakes import RecordingProgress
 
 HEADER = factories.DEFAULT_HEADER
 

@@ -254,7 +254,7 @@ def reduce_loads(
 
 def build_ref_cases(dataset, config) -> list[RefCase]:
     """把合成数据集（原始值）换算成参考实现的输入。"""
-    from tests import factories
+    from app_simpleLoad.tests import factories
 
     columns = [*factories.LOAD_COLUMNS, "speed[rpm]"]
     return [

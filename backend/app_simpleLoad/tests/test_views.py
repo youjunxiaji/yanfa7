@@ -11,10 +11,10 @@ import pytest
 
 from app_simpleLoad import views as views_module
 from app_simpleLoad.module.config import FileParseError
-from tests import factories
-from tests.excel_io import read_gl
-from tests.fakes import StubCalSimpleLoad
-from tests.test_reduce_load import DEFAULT_BINS, table_data
+from app_simpleLoad.tests import factories
+from app_simpleLoad.tests.excel_io import read_gl
+from app_simpleLoad.tests.fakes import StubCalSimpleLoad
+from app_simpleLoad.tests.test_reduce_load import DEFAULT_BINS, table_data
 
 
 def load_payload(dataset, config) -> dict:

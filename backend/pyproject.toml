@@ -33,18 +33,21 @@ dev = [
     "pytest-cov>=7.1.0",
 ]
 
-# 测试目前只覆盖载荷简化，配置原样沿用 simple_load
+# 每个 app 的测试放在自己的 tests/ 里。目前只有载荷简化有测试，其余配置沿用 simple_load
 [tool.pytest.ini_options]
-minversion = "8.0"
-testpaths = ["tests"]
-pythonpath = ["."]                      # 让 tests 能直接 import app_simpleLoad / main
+minversion = "8.1"                      # consider_namespace_packages 从 8.1 起才有
+testpaths = ["app_*/tests"]             # 新 app 加了 tests/ 会自动收集，不用改这里
+pythonpath = ["."]                      # 让测试能直接 import main 和各 app
+# app 目录没有 __init__.py，是命名空间包；打开这项，测试模块才按 app_xxx.tests.test_yyy 命名，
+# 几个 app 都有 tests/ 时不会撞名
+consider_namespace_packages = true
 asyncio_mode = "auto"                   # async def 测试无需逐个加 @pytest.mark.asyncio
 asyncio_default_fixture_loop_scope = "function"
 addopts = "-q --strict-markers --strict-config"
 
 [tool.coverage.run]
 source = ["app_simpleLoad", "main"]
-omit = ["*/__pycache__/*"]
+omit = ["*/__pycache__/*", "*/tests/*"]
 
 [tool.coverage.report]
 show_missing = true
