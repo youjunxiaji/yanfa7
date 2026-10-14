@@ -77,8 +77,9 @@ Nuitka 不设 `sys.frozen`（那是 PyInstaller 的），`backend/main.py` 用 `
 
 ## CI
 
-`.github/workflows/build.yml`：推 `v*` tag 或手动触发，在 `windows-latest` 上跑同样的两步（tag 触发时 `--version` 取 tag，
-手动触发用 `--keep-version`），上传 `output/*.exe`；tag 触发时建 GitHub Release，自动生成 release notes。
+`.github/workflows/build.yml`：推 `v*` tag 或手动触发，在 `windows-latest` 上先跑后端测试（`uv run pytest`，不通过就停），
+再跑同样的两步（tag 触发时 `--version` 取 tag，手动触发用 `--keep-version`），上传 `output/*.exe`；
+tag 触发时建 GitHub Release，自动生成 release notes。
 
 ## 工具链（Windows）
 

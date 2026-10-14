@@ -11,8 +11,8 @@ simple_load v1.3.1 搬进了 `backend/app_simpleLoad/`，目录已按项目规�
 - **前端 `SimpleLoadView.vue`**：Naive UI，原生选文件夹 / 文件，Plotly 直方图和框选求占比，Pinia store，
   历史配置存本机（Tauri store）。列映射的拖拽排序、「加载 → 划分 → 缩减」三个按钮怎么摆，先出方案。
 - **打包验证，下次发版前必须做**：sidecar 启动就导入 polars，漏收模块会连边缘应力、Pmax 一起起不来。
-  在 Actions 手动触发一次构建（不打 tag 不发版），查编译报告确认 polars 收进去了，装机能起来。
-  发版 CI 在打 sidecar 前加一步 `uv run pytest`。
+  在 Actions 手动触发一次构建（不打 tag 不发版），装上确认应用能打开、边缘应力和 Pmax 照常可用；
+  同一次构建会先在 Windows 上跑一遍后端测试。
 - **文档**：`yanfa7-ref` 加「载荷简化」参考（取 simple_load 的 README 算法公式、CLAUDE.md 约定、测试 skill），
   `README.md` 加使用说明，删掉项目规则「项目边界」里载荷简化那条。
 - **下线旧软件**：simple_load 停止发版、GitHub 仓库归档；`tmb_web_v1` 删载荷简化页面、路由和
