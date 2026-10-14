@@ -9,7 +9,7 @@ import numpy as np
 from typing import List, Dict
 from loguru import logger
 import gc
-import pandas as pd  # 仅用于 Excel 输出和 IntervalIndex
+import pandas as pd  # 仅用于 Excel 输出、IntervalIndex 和划分区间返回的 JSON
 
 from app_simpleLoad.module.config import AxisMapping, PathConfig, ConversionConfig
 from app_simpleLoad.module.progress import ProgressReporter
@@ -258,7 +258,8 @@ class CalSimpleLoad:
             pl.col('max').ceil()
         ])
 
-        return self.df_dest.to_pandas().set_index('column').to_json()
+        # 用 to_dict 转 pandas，不走 polars 的 to_pandas：那个要 pyarrow
+        return pd.DataFrame(self.df_dest.to_dict(as_series=False)).set_index('column').to_json()
 
     # ─── 步骤二（续）：直方图数据生成 ────────────────────────────
 
@@ -496,8 +497,8 @@ class CalSimpleLoad:
         await self.progress.send_text("正在保存Excel文件...")
         await self.progress.update_smoothly(70, 95, 1.0)
 
-        # 转为 pandas 输出 Excel
-        df_pivot_pd = df_pivot.to_pandas()
+        # 转为 pandas 输出 Excel（同上，不走要 pyarrow 的 to_pandas）
+        df_pivot_pd = pd.DataFrame(df_pivot.to_dict(as_series=False))
         df_pivot_pd = df_pivot_pd.set_index(index_cols)
 
         excel_name = os.path.basename(self.paths.result_folder_save_path)

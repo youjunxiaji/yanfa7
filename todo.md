@@ -7,7 +7,6 @@ simple_load v1.3.1 搬进了 `backend/app_simpleLoad/`，目录已按项目规�
 
 - **重计算挪出事件循环**：划分区间、缩减的 polars 计算还直接跑在 async 函数里，缩减期间整个后端没响应，
   改用 `asyncio.to_thread`。
-- **去掉 pyarrow**：只有 `cal_simpleLoad.py` 的两处 `to_pandas()` 要它，改写掉。
 - **代码风格**：`typing` 的 `List` / `Dict` 换成内置类型，docstring 换成 Google 风格。
 - **接口协议随前端移植一起改**：报错改 400 + `detail`，WebSocket 改成边缘应力那样每步一条，理顺报文字段名，
   路径加 `/api/simple-load/`、`/ws/simple-load/` 前缀；删 `main.py` 里只对载荷简化生效的校验处理器、
@@ -15,7 +14,7 @@ simple_load v1.3.1 搬进了 `backend/app_simpleLoad/`，目录已按项目规�
 - **前端 `SimpleLoadView.vue`**：Naive UI，原生选文件夹 / 文件，Plotly 直方图和框选求占比，Pinia store，
   历史配置存本机（Tauri store）。列映射的拖拽排序、「加载 → 划分 → 缩减」三个按钮怎么摆，先出方案。
 - **打包验证，下次发版前必须做**：sidecar 启动就导入 polars，漏收模块会连边缘应力、Pmax 一起起不来。
-  在 Actions 手动触发一次构建（不打 tag 不发版），查编译报告确认 polars、pyarrow 收进去了，装机能起来。
+  在 Actions 手动触发一次构建（不打 tag 不发版），查编译报告确认 polars 收进去了，装机能起来。
   发版 CI 在打 sidecar 前加一步 `uv run pytest`。
 - **文档**：`yanfa7-ref` 加「载荷简化」参考（取 simple_load 的 README 算法公式、CLAUDE.md 约定、测试 skill），
   `README.md` 加使用说明，删掉项目规则「项目边界」里载荷简化那条。
