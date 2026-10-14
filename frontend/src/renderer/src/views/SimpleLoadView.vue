@@ -64,23 +64,75 @@
                             </n-input-group>
                         </div>
                         <div class="field">
-                            <span class="field-label">文件格式</span>
-                            <div class="field-control">
+                            <span class="field-label">输出目录</span>
+                            <n-input-group>
+                                <n-input
+                                    v-model:value="store.outputDir"
+                                    placeholder="选择或输入路径"
+                                    clearable
+                                    :title="store.outputDir"
+                                    :disabled="store.isBusy"
+                                    @change="handleOutputDirChange"
+                                >
+                                    <template #prefix
+                                        ><Folder class="input-prefix" :size="15"
+                                    /></template>
+                                </n-input>
+                                <n-button :disabled="store.isBusy" @click="browseOutputDir">
+                                    浏览
+                                </n-button>
+                            </n-input-group>
+                        </div>
+                    </div>
+
+                    <div class="param-section">
+                        <div class="section-head">
+                            <span class="section-title">文件格式</span>
+                            <button
+                                class="link-btn"
+                                :disabled="store.isBusy"
+                                @click="formatVisible = true"
+                            >
+                                设置
+                            </button>
+                        </div>
+                        <div class="summary-list">
+                            <div class="field">
+                                <span class="field-label">力转换系数</span>
                                 <span
-                                    class="summary-text"
+                                    class="summary-value num"
+                                    :class="{ 'is-error': store.unitForce <= 0 }"
+                                >
+                                    {{ store.unitForce }}
+                                </span>
+                            </div>
+                            <div class="field">
+                                <span class="field-label">力矩转换系数</span>
+                                <span
+                                    class="summary-value num"
+                                    :class="{ 'is-error': store.unitMoment <= 0 }"
+                                >
+                                    {{ store.unitMoment }}
+                                </span>
+                            </div>
+                            <div class="field">
+                                <span class="field-label">转速转换系数</span>
+                                <span
+                                    class="summary-value num"
+                                    :class="{ 'is-error': store.unitSpeed <= 0 }"
+                                >
+                                    {{ store.unitSpeed }}
+                                </span>
+                            </div>
+                            <div class="field">
+                                <span class="field-label">列对应</span>
+                                <span
+                                    class="summary-value"
                                     :class="{ 'is-error': formatError }"
                                     :title="formatSummary"
                                 >
                                     {{ formatSummary }}
                                 </span>
-                                <n-button
-                                    class="summary-btn"
-                                    size="small"
-                                    :disabled="!store.preview || store.isBusy"
-                                    @click="formatVisible = true"
-                                >
-                                    设置
-                                </n-button>
                             </div>
                         </div>
                         <n-button
@@ -95,29 +147,6 @@
                         <div class="section-note num" :class="{ 'is-warning': store.isStale }">
                             {{ loadNote }}
                         </div>
-                    </div>
-
-                    <div class="param-section">
-                        <div class="section-head">
-                            <span class="section-title">输出目录</span>
-                        </div>
-                        <n-input-group>
-                            <n-input
-                                v-model:value="store.outputDir"
-                                placeholder="选择或输入保存路径"
-                                clearable
-                                :title="store.outputDir"
-                                :disabled="store.isBusy"
-                                @change="handleOutputDirChange"
-                            >
-                                <template #prefix
-                                    ><Folder class="input-prefix" :size="15"
-                                /></template>
-                            </n-input>
-                            <n-button :disabled="store.isBusy" @click="browseOutputDir">
-                                浏览
-                            </n-button>
-                        </n-input-group>
                     </div>
 
                     <div class="param-section">
@@ -151,7 +180,7 @@
                                 <span class="summary-value">{{ torqueSummary }}</span>
                             </div>
                             <div class="field">
-                                <span class="field-label">S-N 斜率</span>
+                                <span class="field-label">转换系数</span>
                                 <span class="summary-value num">{{ store.slope }}</span>
                             </div>
                             <div class="field">
@@ -263,25 +292,37 @@
             :bordered="false"
             :mask-closable="false"
         >
+            <!-- 单位换算只有一行，放在上面；列对应的表长，放下面 -->
             <div class="modal-scroll">
-                <SimpleLoadColumnMap />
-                <div class="modal-units">
-                    <div class="field">
-                        <span class="field-label">单位换算</span>
-                        <div class="field-control">
-                            <NumberInput v-model="store.unitForce" :min="0" prefix="力 ÷" />
-                            <NumberInput v-model="store.unitMoment" :min="0" prefix="力矩 ÷" />
+                <div class="modal-block">
+                    <span class="section-title">单位换算</span>
+                    <div class="unit-grid">
+                        <div class="unit-item">
+                            <span class="field-label">力转换系数</span>
+                            <NumberInput v-model="store.unitForce" :min="0" prefix="÷" />
+                        </div>
+                        <div class="unit-item">
+                            <span class="field-label">力矩转换系数</span>
+                            <NumberInput v-model="store.unitMoment" :min="0" prefix="÷" />
+                        </div>
+                        <div class="unit-item">
+                            <span class="field-label">转速转换系数</span>
                             <NumberInput
                                 v-model="store.unitSpeed"
                                 :step="0.1"
                                 :min="0"
-                                prefix="转速 ×"
+                                prefix="×"
                             />
                         </div>
-                        <div class="field-hint">
-                            换成 KN、KNm、rpm：文件里是 N、N·m 时力和力矩填 1000
-                        </div>
                     </div>
+                    <div class="section-note">
+                        力、力矩除以它，转速乘以它，换成 KN、KNm、rpm；文件里是 N、N·m 时力和力矩填
+                        1000，是 rad/s 时转速填 9.5493
+                    </div>
+                </div>
+                <div class="modal-block">
+                    <span class="section-title">列对应</span>
+                    <SimpleLoadColumnMap />
                 </div>
             </div>
             <template #footer>
@@ -330,9 +371,9 @@
                     </div>
                 </div>
                 <div class="field">
-                    <span class="field-label">S-N 斜率</span>
+                    <span class="field-label">转换系数</span>
                     <NumberInput v-model="store.slope" :step="0.01" :min="0" />
-                    <div class="field-hint">幂等效变换的指数</div>
+                    <div class="field-hint">S-N 曲线斜率，幂等效变换的指数</div>
                 </div>
                 <div class="field">
                     <span class="field-label">温度</span>
@@ -486,7 +527,7 @@ const loadButtonText = computed(() => {
 
 const loadNote = computed(() => {
     if (store.isLoading) return '读取全部 txt 和频次表，进度见右侧'
-    if (store.loaded && store.isStale) return '路径、文件格式或单位改过，要重新加载'
+    if (store.loaded && store.isStale) return '载荷文件夹、频次表或文件格式改过，要重新加载'
     if (store.loaded) {
         return `已加载 ${store.loaded.fileCount} 个文件 · ${formatRows(store.loaded.rowCount)} 行`
     }
@@ -561,17 +602,6 @@ watch(
 }
 
 /* 参数栏里只放摘要，详细设置在弹窗里 */
-.field-control > .summary-text {
-    overflow: hidden;
-    color: var(--text-2);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.field-control > .summary-btn {
-    flex: none;
-}
-
 .summary-list {
     display: flex;
     flex-direction: column;
@@ -584,7 +614,7 @@ watch(
     white-space: nowrap;
 }
 
-.summary-text.is-error,
+.summary-value.is-error,
 .field-hint.is-error {
     color: var(--danger);
 }
@@ -635,22 +665,36 @@ watch(
     overflow-y: auto;
 }
 
-.modal-units {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--divider);
-}
-
 .modal-form {
     display: flex;
     flex-direction: column;
     gap: 14px;
 }
 
-.axis-grid {
+.modal-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.modal-block + .modal-block {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--divider);
+}
+
+.axis-grid,
+.unit-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
+}
+
+.unit-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
 }
 
 .modal-actions {

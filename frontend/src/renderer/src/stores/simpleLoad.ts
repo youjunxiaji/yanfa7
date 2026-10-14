@@ -215,7 +215,7 @@ export const useSimpleLoadStore = defineStore('simpleLoad', {
             if (!this.loadDir) return '请先选择载荷文件夹'
             if (!this.freqTablePath) return '请先选择频次表'
             if (Math.min(this.unitForce, this.unitMoment, this.unitSpeed) <= 0) {
-                return '单位换算的系数要大于 0'
+                return '力、力矩、转速的转换系数要大于 0'
             }
             if (this.previewing) return '正在读取载荷文件夹…'
             if (!this.preview) return this.previewError || '载荷文件夹还没读出来'
@@ -312,7 +312,7 @@ export const useSimpleLoadStore = defineStore('simpleLoad', {
             if (!this.loaded) return '请先加载数据'
             if (this.isStale) return '数据相关的参数改过，请重新加载'
             if (!this.outputDir) return '请先选择输出目录'
-            if (this.slope <= 0) return 'S-N 斜率要大于 0'
+            if (this.slope <= 0) return '转换系数要大于 0'
             return this.axisIssue || this.intervalIssue
         },
 

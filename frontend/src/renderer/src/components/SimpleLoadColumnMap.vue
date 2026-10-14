@@ -1,52 +1,57 @@
 <template>
     <div class="column-map">
-        <div v-if="store.preview" class="file-info num">
-            第一个文件 {{ store.preview.sampleFile }}，共 {{ store.preview.fileCount }} 个 txt、{{
-                formatBytes(store.preview.totalSize)
-            }}
-        </div>
-        <div class="skip-row">
-            <span class="skip-label">跳过前</span>
-            <NumberInput
-                class="skip-input"
-                :model-value="store.skipRows"
-                :min="0"
-                :max="maxSkip"
-                size="small"
-                suffix="行"
-                @update:model-value="store.setSkipRows"
-            />
-            <span class="skip-note">列名、END_OF_HEADER 这类；按第一行纯数字自动认出</span>
-        </div>
-
-        <div class="raw-lines">
-            <div
-                v-for="line in rawLines"
-                :key="line.no"
-                class="raw-line"
-                :class="{ 'is-skipped': line.skipped }"
-            >
-                <span class="raw-no num">{{ line.no }}</span>
-                <span class="raw-text">{{ line.text }}</span>
-                <span v-if="line.skipped" class="raw-tag">跳过</span>
-            </div>
-        </div>
-
-        <n-data-table
-            :columns="tableColumns"
-            :data="store.previewColumns"
-            :row-key="rowKey"
-            size="small"
-            :bordered="false"
-        />
-
-        <p class="map-note" :class="{ 'is-error': !!store.columnIssue }">
+        <p v-if="!store.preview" class="map-note" :class="{ 'is-error': !!store.previewError }">
             <Info :size="13" />
-            {{
-                store.columnIssue ||
-                '必需 speed[rpm] 和六个力 / 力矩；Time[s] 可选，没有就用频次表里的仿真时间'
-            }}
+            {{ emptyNote }}
         </p>
+        <template v-else>
+            <div class="file-info num">
+                第一个文件 {{ store.preview.sampleFile }}，共 {{ store.preview.fileCount }} 个
+                txt、{{ formatBytes(store.preview.totalSize) }}
+            </div>
+            <div class="skip-row">
+                <span class="skip-label">跳过前</span>
+                <NumberInput
+                    class="skip-input"
+                    :model-value="store.skipRows"
+                    :min="0"
+                    :max="maxSkip"
+                    size="small"
+                    suffix="行"
+                    @update:model-value="store.setSkipRows"
+                />
+                <span class="skip-note">列名、END_OF_HEADER 这类；按第一行纯数字自动认出</span>
+            </div>
+
+            <div class="raw-lines">
+                <div
+                    v-for="line in rawLines"
+                    :key="line.no"
+                    class="raw-line"
+                    :class="{ 'is-skipped': line.skipped }"
+                >
+                    <span class="raw-no num">{{ line.no }}</span>
+                    <span class="raw-text">{{ line.text }}</span>
+                    <span v-if="line.skipped" class="raw-tag">跳过</span>
+                </div>
+            </div>
+
+            <n-data-table
+                :columns="tableColumns"
+                :data="store.previewColumns"
+                :row-key="rowKey"
+                size="small"
+                :bordered="false"
+            />
+
+            <p class="map-note" :class="{ 'is-error': !!store.columnIssue }">
+                <Info :size="13" />
+                {{
+                    store.columnIssue ||
+                    '必需 speed[rpm] 和六个力 / 力矩；Time[s] 可选，没有就用频次表里的仿真时间'
+                }}
+            </p>
+        </template>
     </div>
 </template>
 
@@ -77,6 +82,11 @@ const options: SelectOption[] = [
     { label: '不使用', value: UNUSED },
     ...Object.values(LoadColumn).map((column) => ({ label: column, value: column }))
 ]
+
+const emptyNote = computed(() => {
+    if (store.previewing) return '正在读取载荷文件夹…'
+    return store.previewError || '先选载荷文件夹，读出第一个 txt 的开头后在这里核对每一列'
+})
 
 const maxSkip = computed(() => Math.max((store.preview?.lines.length ?? 1) - 1, 0))
 
