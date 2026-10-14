@@ -1,8 +1,12 @@
 """
 载荷简化计算模块 — 编排层
 调用 file_reader 完成文件读取，自身负责区间划分、直方图生成、载荷缩减。
+
+整个后端共用一个事件循环：大表上的计算和写 Excel 都用 asyncio.to_thread 放进线程，
+算的时候别的接口照常响应，进度也能实时推出去。
 """
 
+import asyncio
 import os
 import polars as pl
 import numpy as np
@@ -166,7 +170,7 @@ class CalSimpleLoad:
         have_time = 'Time[s]' in self.header
 
         # 读取 Excel 频次表
-        self.df_ref = read_freq_table(self.paths.freq_table_path, have_time)
+        self.df_ref = await asyncio.to_thread(read_freq_table, self.paths.freq_table_path, have_time)
         expected_file_names = self.df_ref["文件名"].to_list()
 
         # 异步读取所有 TXT 文件（线程池并发，不阻塞事件循环）
@@ -217,7 +221,7 @@ class CalSimpleLoad:
             logger.error("df_all is None")
             return
 
-        df_des = self.df_all.describe()
+        df_des = await asyncio.to_thread(self.df_all.describe)
 
         min_row = df_des.filter(pl.col('statistic') == 'min')
         max_row = df_des.filter(pl.col('statistic') == 'max')
@@ -281,19 +285,10 @@ class CalSimpleLoad:
         await self.progress.send_progress(0)
 
         # 按文件名分组（一次分组，多次使用）
-        groups = self.df_all.partition_by('文件名', as_dict=True)
+        groups = await asyncio.to_thread(self.df_all.partition_by, '文件名', as_dict=True)
 
         for idx, column in enumerate(columns):
-            weighted_hist = np.zeros(len(self.max_min[column]) - 1)
-
-            for key, group_df in groups.items():
-                # partition_by 的 key 可能是元组 ('文件名',) 或纯字符串
-                file_name = key[0] if isinstance(key, tuple) else key
-                col_data = group_df[column].to_numpy()
-                indices = np.digitize(col_data, self.max_min[column]) - 1
-                counts = np.bincount(indices, minlength=len(self.max_min[column]) - 1)
-                hist = counts / group_df.height
-                weighted_hist += hist * weights[file_name]
+            weighted_hist = await asyncio.to_thread(self._weighted_hist, groups, weights, column)
 
             # 创建区间索引
             intervals = pd.IntervalIndex.from_arrays(
@@ -314,6 +309,30 @@ class CalSimpleLoad:
 
         await self.progress.send_text("图表数据生成完成")
         return result_dict
+
+    def _weighted_hist(self, groups: dict, weights: dict[str, float], column: str) -> np.ndarray:
+        """按工况占比加权，算一个分量在各区间上的频次分布。
+
+        Args:
+            groups: `partition_by('文件名', as_dict=True)` 的结果，每个工况一组。
+            weights: 工况名到工况占比的映射。
+            column: 分量列名，如 `Fx[KN]`。
+
+        Returns:
+            与 `self.max_min[column]` 的区间一一对应的加权频次。
+        """
+        weighted_hist = np.zeros(len(self.max_min[column]) - 1)
+
+        for key, group_df in groups.items():
+            # partition_by 的 key 可能是元组 ('文件名',) 或纯字符串
+            file_name = key[0] if isinstance(key, tuple) else key
+            col_data = group_df[column].to_numpy()
+            indices = np.digitize(col_data, self.max_min[column]) - 1
+            counts = np.bincount(indices, minlength=len(self.max_min[column]) - 1)
+            hist = counts / group_df.height
+            weighted_hist += hist * weights[file_name]
+
+        return weighted_hist
 
     # ─── 步骤三：载荷缩减 ─────────────────────────────────────
 
@@ -349,39 +368,16 @@ class CalSimpleLoad:
 
         self._label_prefixes = {}
 
-        # 创建标签列
-        new_columns = []
+        # 区间边界先全部校验完，再进线程打标签
         for label_name, col_name, bins in label_mappings:
             if not all(x <= y for x, y in zip(bins[:-1], bins[1:])):
                 return {"message": f"{col_name}的区间值必须是单调递增的", "status": "error"}
-
-            col_data = self.df_all[col_name].to_numpy()
-            indices = np.digitize(col_data, bins) - 1
-            max_possible_index = len(bins)
-            indices = np.clip(indices, 0, max_possible_index - 1)
-
-            new_columns.append(pl.Series(label_name, indices.astype(np.int16)))
             self._label_prefixes[label_name] = label_name[0:2]
 
-        self.df_all = self.df_all.with_columns(new_columns)
+        # 创建标签列
+        self.df_all = await asyncio.to_thread(self._with_label_columns, label_mappings)
 
-        # Polars join
-        df_final = self.df_all.join(
-            self.df_ref,
-            on='文件名',
-            how='left'
-        )
-
-        # 向量化计算
-        df_final = df_final.with_columns([
-            pl.col('speed[rpm]').abs().alias('speed[rpm]'),
-            (pl.col('采样间隔（s）') * pl.col('全寿命发生次数')).alias('interval_life')
-        ])
-
-        df_final = df_final.with_columns([
-            (pl.col('interval_life') * pl.col('speed[rpm]')).alias('格子转速'),
-            pl.col('interval_life').alias('格子时间')
-        ])
+        df_final = await asyncio.to_thread(self._join_ref_table)
 
         # 幂变换
         value_list = ['Mx[KNm]', 'My[KNm]', 'Mz[KNm]', 'Fx[KN]', 'Fy[KN]', 'Fz[KN]']
@@ -396,7 +392,7 @@ class CalSimpleLoad:
                 pl.col(col_name).pow(translate_factor)
             ).alias(col_name)
 
-        df_final = df_final.with_columns([
+        df_final = await asyncio.to_thread(df_final.with_columns, [
             power_transform(col) for col in value_list
         ])
 
@@ -408,7 +404,7 @@ class CalSimpleLoad:
         speed_cols = ['speed[rpm]'] + dynamic_load_cols
         processed_cols = ['处理后_speed[rpm]'] + [f'处理后_{col}' for col in dynamic_load_cols]
 
-        df_final = df_final.with_columns([
+        df_final = await asyncio.to_thread(df_final.with_columns, [
             (pl.col(col) * pl.col('格子转速')).alias(f'处理后_{col}')
             for col in speed_cols
         ])
@@ -417,7 +413,7 @@ class CalSimpleLoad:
         index_cols = [label_name for label_name, _, _ in label_mappings]
         value_cols = processed_cols + ['格子转速', '格子时间']
 
-        df_pivot = df_final.group_by(index_cols).agg([
+        df_pivot = await asyncio.to_thread(df_final.group_by(index_cols).agg, [
             pl.col(col).sum() for col in value_cols
         ])
 
@@ -497,7 +493,71 @@ class CalSimpleLoad:
         await self.progress.send_text("正在保存Excel文件...")
         await self.progress.update_smoothly(70, 95, 1.0)
 
-        # 转为 pandas 输出 Excel（同上，不走要 pyarrow 的 to_pandas）
+        await asyncio.to_thread(self._write_excel, df_pivot, index_cols, romax_origin)
+
+        await self.progress.send_text("Excel 已保存")
+        await self.progress.update_smoothly(95, 100, 0.5)
+        await self.progress.send_text("载荷缩减处理全部完成！")
+
+        # 释放内存
+        del df_pivot
+        gc.collect()
+        return count_
+
+    def _with_label_columns(self, label_mappings: list[tuple[str, str, list[float]]]) -> pl.DataFrame:
+        """按区间边界给每一行打上各分量所在区间的标签。
+
+        Args:
+            label_mappings: (标签列名, 分量列名, 区间边界) 的列表，边界已校验过单调递增。
+
+        Returns:
+            加上标签列的 `df_all`。
+        """
+        new_columns = []
+        for label_name, col_name, bins in label_mappings:
+            col_data = self.df_all[col_name].to_numpy()
+            indices = np.digitize(col_data, bins) - 1
+            max_possible_index = len(bins)
+            indices = np.clip(indices, 0, max_possible_index - 1)
+
+            new_columns.append(pl.Series(label_name, indices.astype(np.int16)))
+
+        return self.df_all.with_columns(new_columns)
+
+    def _join_ref_table(self) -> pl.DataFrame:
+        """把参考表并到每一行上，算出每个时间步的格子转速和格子时间。
+
+        Returns:
+            带参考表各列、`interval_life`、`格子转速`、`格子时间` 的全量表。
+        """
+        # Polars join
+        df_final = self.df_all.join(
+            self.df_ref,
+            on='文件名',
+            how='left'
+        )
+
+        # 向量化计算
+        df_final = df_final.with_columns([
+            pl.col('speed[rpm]').abs().alias('speed[rpm]'),
+            (pl.col('采样间隔（s）') * pl.col('全寿命发生次数')).alias('interval_life')
+        ])
+
+        df_final = df_final.with_columns([
+            (pl.col('interval_life') * pl.col('speed[rpm]')).alias('格子转速'),
+            pl.col('interval_life').alias('格子时间')
+        ])
+        return df_final
+
+    def _write_excel(self, df_pivot: pl.DataFrame, index_cols: list[str], romax_origin: list[AxisMapping]) -> None:
+        """写出 GL 和 Romax 两个 Excel。
+
+        Args:
+            df_pivot: 缩减后的工况表，标签列已转成 `fx1` 这类展示值。
+            index_cols: 标签列名，GL 表按它们做多级索引、合并连续相同的格子。
+            romax_origin: Romax 轴与原始轴的对应关系。
+        """
+        # 转为 pandas 输出 Excel（同 simple_load1，不走要 pyarrow 的 to_pandas）
         df_pivot_pd = pd.DataFrame(df_pivot.to_dict(as_series=False))
         df_pivot_pd = df_pivot_pd.set_index(index_cols)
 
@@ -536,12 +596,3 @@ class CalSimpleLoad:
             df_pivot_Romax_T.to_excel(writer, sheet_name='载荷', header=False)
             df_pivot_Romax.to_excel(writer, sheet_name='未转置')
             df_pivot_Romax_T.to_excel(writer, sheet_name='已转置')
-
-        await self.progress.send_text("Excel 已保存")
-        await self.progress.update_smoothly(95, 100, 0.5)
-        await self.progress.send_text("载荷缩减处理全部完成！")
-
-        # 释放内存
-        del df_pivot, df_pivot_pd, df_pivot_Romax, df_pivot_Romax_T
-        gc.collect()
-        return count_

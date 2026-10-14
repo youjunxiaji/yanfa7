@@ -232,8 +232,8 @@ async def read_all_txt_files(
             await progress.send_text(f"已处理 {processed}/{total} 个文件")
             last_progress = current_progress
 
-    # 合并所有 DataFrame
-    df_all = pl.concat(frames)
+    # 合并所有 DataFrame（几百万行，放进线程，不卡事件循环）
+    df_all = await asyncio.to_thread(pl.concat, frames)
     del frames
 
     return df_all, file_results
