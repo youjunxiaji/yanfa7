@@ -34,6 +34,14 @@ async function getStore(): Promise<Store> {
     return settingsStore
 }
 
+// ---- account store --------------------------------------------------------
+// TMB 服务器的登录状态（令牌和用户信息）和设置分开放，内容由渲染层的 stores/account.ts 定
+let accountStore: Store | null = null
+const getAccountStore = async (): Promise<Store> => {
+    accountStore ??= await load('account.json', { defaults: {}, autoSave: true })
+    return accountStore
+}
+
 function shouldUseDark(mode: string): boolean {
     if (mode === 'dark') return true
     if (mode === 'light') return false
@@ -105,7 +113,11 @@ const electronAPIShim = {
     },
 
     openDir: async (options: { title?: string }) => {
-        const selected = await openDialog({ directory: true, multiple: false, title: options?.title })
+        const selected = await openDialog({
+            directory: true,
+            multiple: false,
+            title: options?.title
+        })
         if (selected == null) return { canceled: true, rootDir: '' }
         return { canceled: false, rootDir: selected as string }
     },
@@ -118,7 +130,11 @@ const electronAPIShim = {
     },
 
     openDirectoryDialog: async (options: { title?: string }) => {
-        const selected = await openDialog({ directory: true, multiple: false, title: options?.title })
+        const selected = await openDialog({
+            directory: true,
+            multiple: false,
+            title: options?.title
+        })
         if (selected == null) return { canceled: true, filePaths: [] }
         return { canceled: false, filePaths: [selected as string] }
     },
@@ -186,6 +202,18 @@ const electronAPIShim = {
             const store = await getStore()
             const source = ((await store.get<string>('appearance')) ?? 'light') as AppearanceMode
             return { source, shouldUseDarkColors: shouldUseDark(source) }
+        }
+    },
+
+    account: {
+        load: async (): Promise<unknown> => {
+            const store = await getAccountStore()
+            return (await store.get('account')) ?? null
+        },
+        save: async (account: unknown): Promise<void> => {
+            const store = await getAccountStore()
+            await store.set('account', account)
+            await store.save()
         }
     },
 

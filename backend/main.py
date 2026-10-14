@@ -9,6 +9,7 @@ import os
 import sys
 import threading
 
+from app_account.urls import router as account_router
 from app_edgeStress.urls import router as edge_stress_router
 from app_pmax.urls import router as pmax_router
 from app_simpleLoad.urls import router as simple_load_router
@@ -28,6 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(account_router)
 app.include_router(edge_stress_router)
 app.include_router(pmax_router)
 app.include_router(simple_load_router)

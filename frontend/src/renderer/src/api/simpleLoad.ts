@@ -1,3 +1,4 @@
+import { requestJson } from '@renderer/api/account'
 import { API_BASE, WS_BASE, waitBackend } from '@renderer/api/backend'
 import type { Axis, LoadColumn, SourceAxis } from '@renderer/constants/simpleLoad'
 
@@ -97,6 +98,33 @@ export const previewLoadDir = (loadDir: string): Promise<PreviewResult> =>
 
 // 丢掉后端加载过的数据，把内存还回去
 export const clearLoadedData = (): Promise<void> => postJson('/api/simple-load/clear', {})
+
+// 网页版存在 TMB 服务器上的一条配置，后端已换成这边的字段
+export interface HistoryRecord {
+    // 网页版保存时取输出目录的最后一级
+    projName: string
+    loadDir: string
+    freqTablePath: string
+    outputDir: string
+    skipRows: number
+    columns: (LoadColumn | null)[]
+    unitForce: number
+    unitMoment: number
+    unitSpeed: number
+    axisMapping: AxisMapping[]
+    keepTorque: boolean
+    slope: number
+    temperature: number
+    tol: number
+    // 分量 → 11 格：下界、9 个分段点、上界，没填的是 null；记录里没有的分量不在里面
+    intervals: Partial<Record<LoadColumn, (number | null)[]>>
+}
+
+// 要登录：只查得到自己存的，按项目名模糊匹配，服务器一次最多给 10 条，新存的在前
+export const fetchHistories = (access: string, query: string): Promise<HistoryRecord[]> =>
+    requestJson(`/api/simple-load/histories?${new URLSearchParams({ query })}`, {
+        headers: { Authorization: `Bearer ${access}` }
+    })
 
 // 加载和缩减各走一条 WebSocket：连上后发一条参数，后端推 progress，最后推 done 或 error 再关掉连接。
 // 收到 done 或 error 之前连接就断了，按出错处理。

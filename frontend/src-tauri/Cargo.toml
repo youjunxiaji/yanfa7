@@ -1,6 +1,6 @@
 [package]
 name = "yanfa7"
-version = "2.2.0"
+version = "2.2.1"
 description = "研发七部工具包"
 authors = ["gulei"]
 edition = "2021"

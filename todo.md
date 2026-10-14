@@ -13,10 +13,11 @@ simple_load v1.3.1 搬进了 `backend/app_simpleLoad/`，页面是 `SimpleLoadVi
 - **历史配置存本机**：路径、列对应、单位换算、坐标映射、缩减参数和区间表按项目存进 Tauri store，怎么存、怎么找到时再定。
 - **打包验证，下次发版前必须做**：sidecar 启动就导入 polars，漏收模块会连边缘应力、Pmax 一起起不来。
   在 Windows 上先在 `backend/` 跑一遍 `uv run pytest`（这套测试还没在 Windows 上跑过），再用 `build.cmd` 打包，
-  装上确认应用能打开，边缘应力、Pmax 照常可用，载荷简化能加载、缩减。
+  装上确认应用能打开，边缘应力、Pmax 照常可用，载荷简化能加载、缩减；sidecar 新带了 httpx，再确认能登录、能查历史记录。
 - **文档**：`yanfa7-ref` 加「载荷简化」参考（取 simple_load 的 README 算法公式、CLAUDE.md 约定、测试 skill）。
 - **下线旧软件**：simple_load 停止发版、GitHub 仓库归档；`tmb_web_v1` 删载荷简化页面、路由和
-  `useSimpleLoadSocket.ts`；删掉项目规则「项目边界」里载荷简化那条；服务器上的历史配置要不要导入，到时再定。
+  `useSimpleLoadSocket.ts`，`shanghai_yanfa7` 的载荷简化历史接口和模型留着，这边的「历史记录」靠它回填；
+  删掉项目规则「项目边界」里载荷简化那条。
 
 ## 载荷简化降内存
 
@@ -59,8 +60,8 @@ simple_load v1.3.1 搬进了 `backend/app_simpleLoad/`，页面是 `SimpleLoadVi
 
 ## 代码清理
 
-- 渲染层还有 `shims/tauri-bridge.ts` 没按 prettier 排过版
-  （`npx prettier --check 'src/renderer/src/**/*.{ts,vue}'` 列出），整仓跑一次 `npm run format` 单独提交，
+- 渲染层的 ts、vue 都按 prettier 排过了；`npm run format`（`prettier --write .`）还会扫到 `src-tauri/target` 的构建产物、
+  两个入口 HTML 和 Electron 旧外壳，先补 `.prettierignore`，再整仓跑一次单独提交，
   之后把项目规则验证命令里的 prettier 一行换成 `npm run format`。
 - 存量代码按全局代码风格收敛：
   - `shims/tauri-bridge.ts` 里 4 处 `function` 声明改成 `const` 箭头函数；箭头函数不提升，模块级的先确认没有在定义之前调用。

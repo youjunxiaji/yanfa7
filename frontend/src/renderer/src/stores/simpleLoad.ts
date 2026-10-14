@@ -6,6 +6,7 @@ import {
     reduceLoad,
     type AxisMapping,
     type ComponentStats,
+    type HistoryRecord,
     type LoadParams,
     type PreviewResult,
     type ReduceParams
@@ -117,6 +118,17 @@ const emptyIntervals = (): Partial<Record<LoadColumn, IntervalRow>> =>
 // 一行里填了的边界，按格子顺序
 const filledEdges = (row: IntervalRow | undefined): number[] =>
     (row ?? []).filter((value): value is number => value !== null)
+
+// ========== 历史记录 ==========
+// 回填时用记录里的跳过行数和列对应，不按文件重新认
+interface FileFormat {
+    skipRows: number
+    columns: (LoadColumn | null)[]
+}
+
+// 列对应补齐或截到文件的列数：网页版存的列名可以比文件的列少，后面的列不用
+const fitColumns = (columns: (LoadColumn | null)[], count: number): (LoadColumn | null)[] =>
+    Array.from({ length: count }, (_, index) => columns[index] ?? null)
 
 export const useSimpleLoadStore = defineStore('simpleLoad', {
     state: () => ({
@@ -322,8 +334,8 @@ export const useSimpleLoadStore = defineStore('simpleLoad', {
     },
 
     actions: {
-        // 读载荷文件夹里第一个 txt 的开头，认出跳过几行、每列是什么
-        async previewFolder() {
+        // 读载荷文件夹里第一个 txt 的开头，认出跳过几行、每列是什么；回填历史配置时用记录里的
+        async previewFolder(format?: FileFormat) {
             const dir = this.loadDir
             this.preview = null
             this.previewError = ''
@@ -337,13 +349,40 @@ export const useSimpleLoadStore = defineStore('simpleLoad', {
                 const result = await previewLoadDir(dir)
                 if (dir !== this.loadDir) return
                 this.preview = result
-                this.skipRows = detectSkipRows(result.lines)
-                this.columns = matchColumns(this.previewColumns)
+                this.skipRows = format ? format.skipRows : detectSkipRows(result.lines)
+                this.columns = format
+                    ? fitColumns(format.columns, this.previewColumns.length)
+                    : matchColumns(this.previewColumns)
             } catch (err) {
                 if (dir === this.loadDir) this.previewError = (err as Error).message
             } finally {
                 if (dir === this.loadDir) this.previewing = false
             }
+        },
+
+        // 回填网页版存的一条配置：路径、文件格式、转换系数、缩减参数和区间表都换成记录里的，再读一遍载荷文件夹
+        applyHistory(record: HistoryRecord) {
+            this.loadDir = record.loadDir
+            this.freqTablePath = record.freqTablePath
+            this.outputDir = record.outputDir
+            this.unitForce = record.unitForce
+            this.unitMoment = record.unitMoment
+            this.unitSpeed = record.unitSpeed
+            this.axisMapping = record.axisMapping.map((mapping) => ({ ...mapping }))
+            this.keepTorque = record.keepTorque
+            this.slope = record.slope
+            this.temperature = record.temperature
+            this.tol = record.tol
+            this.intervals = Object.fromEntries(
+                LOAD_COMPONENTS.map((component) => {
+                    const row = record.intervals[component] ?? []
+                    return [
+                        component,
+                        Array.from({ length: INTERVAL_SLOTS }, (_, i) => row[i] ?? null)
+                    ]
+                })
+            )
+            this.previewFolder({ skipRows: record.skipRows, columns: record.columns })
         },
 
         setSkipRows(value: number) {

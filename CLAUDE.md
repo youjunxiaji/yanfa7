@@ -22,7 +22,7 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 
 | 任务 | 先读 |
 |---|---|
-| 理解、排查或修改边缘应力、Pmax 等工具模块，或新增工具模块 | [yanfa7-ref](.claude/skills/yanfa7-ref/SKILL.md)：相关模块参考，再核对源码 |
+| 理解、排查或修改边缘应力、Pmax 等工具模块和 TMB 账号登录，或新增工具模块 | [yanfa7-ref](.claude/skills/yanfa7-ref/SKILL.md)：相关模块参考，再核对源码 |
 | 实现、修改或审查界面 | [yanfa7-ui-style](.claude/skills/yanfa7-ui-style/SKILL.md)：先读界面标准 |
 | 改 Tauri 外壳或原生能力：兼容垫片、Rust command、窗口、本地文件、插件权限、主题、端口与 CSP、图标 | [yanfa7-tauri](.claude/skills/yanfa7-tauri/SKILL.md) |
 | 打包、发版、CI | [yanfa7-release](.claude/skills/yanfa7-release/SKILL.md) |
@@ -55,6 +55,10 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 - 后端生成的本地图片用 `convertFileSrc` 显示；路径固定、内容会重画的图片在 URL 后拼 `?t=<时间戳>`，
   重画成功后再更新时间戳，否则 webview 显示的还是旧图。
 - 窗口之间经 URL query 传参，不共享 Pinia 状态。
+- TMB 服务器（tmb_web_v1）也只经后端访问：`backend/common/tmb_web.py` 转发，开发和打包都固定连 `10.0.3.198`；
+  渲染层不直连，webview 的源不在它的 CORS 白名单里。登录不是必需的，连不上内网时工具照常用。
+  JWT 存在渲染层（`stores/account.ts`），要登录的接口带 `Authorization` 头给本地后端，经 `withAccess` 续期重试。
+  约定见 yanfa7-ref 的 TMB 账号参考。
 
 ## 前端
 

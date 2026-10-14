@@ -1124,6 +1124,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "fastapi" },
     { name = "html5lib" },
+    { name = "httpx" },
     { name = "jinja2" },
     { name = "loguru" },
     { name = "lxml" },
@@ -1139,7 +1140,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "nuitka", extra = ["onefile"] },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1151,6 +1151,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.14.3" },
     { name = "fastapi", specifier = ">=0.133.0" },
     { name = "html5lib", specifier = ">=1.1" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "lxml", specifier = ">=6.0.2" },
@@ -1166,7 +1167,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.28.1" },
     { name = "nuitka", extras = ["onefile"], specifier = ">=4.3" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },

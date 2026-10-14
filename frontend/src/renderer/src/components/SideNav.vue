@@ -39,6 +39,45 @@
             </n-tooltip>
         </nav>
 
+        <div v-if="account.ready" class="nav-account">
+            <n-popover
+                v-if="account.user"
+                v-model:show="accountMenuVisible"
+                trigger="click"
+                placement="right-end"
+                :show-arrow="false"
+            >
+                <template #trigger>
+                    <button class="nav-item account-btn">
+                        <span class="avatar">{{ initial }}</span>
+                        <span class="nav-text">{{ account.user.name }}</span>
+                    </button>
+                </template>
+                <div class="account-menu">
+                    <div class="account-head">
+                        <span class="avatar is-large">{{ initial }}</span>
+                        <div class="account-meta">
+                            <div class="account-name">{{ account.user.name }}</div>
+                            <div class="account-sub">{{ accountSub }}</div>
+                        </div>
+                    </div>
+                    <button class="menu-item" @click="logout">
+                        <LogOut :size="15" />
+                        退出登录
+                    </button>
+                </div>
+            </n-popover>
+            <n-tooltip v-else placement="right" :disabled="!collapsed" :delay="200">
+                <template #trigger>
+                    <button class="nav-item account-btn" @click="account.loginVisible = true">
+                        <CircleUserRound :size="16" />
+                        <span class="nav-text">登录</span>
+                    </button>
+                </template>
+                登录
+            </n-tooltip>
+        </div>
+
         <div class="nav-footer">
             <span v-if="!collapsed" class="nav-version">v{{ version }}</span>
             <n-tooltip placement="right" :delay="300">
@@ -55,12 +94,13 @@
 </template>
 
 <script setup lang="ts">
-// 侧栏只放导航，不放搜索框；首页、工具、底部（文档、设置）三组都从路由 meta 读
-import { computed } from 'vue'
+// 侧栏只放导航，不放搜索框；首页、工具、底部（文档、设置）三组都从路由 meta 读，最下面是 TMB 账号入口
+import { computed, ref } from 'vue'
 import { useRoute, useRouter, type RouteRecordRaw } from 'vue-router'
-import { NTooltip } from 'naive-ui'
-import { PanelLeftClose, PanelLeftOpen } from '@lucide/vue'
+import { NPopover, NTooltip, useMessage } from 'naive-ui'
+import { CircleUserRound, LogOut, PanelLeftClose, PanelLeftOpen } from '@lucide/vue'
 import { APP_VERSION } from '@renderer/constants/app'
+import { useAccountStore } from '@renderer/stores/account'
 
 interface NavSection {
     key: string
@@ -83,6 +123,25 @@ const sections = computed<NavSection[]>(() => {
         { key: 'bottom', bottom: true, items: navRoutes.filter((r) => r.meta?.bottomNav) }
     ]
 })
+
+// ========== 账号 ==========
+const account = useAccountStore()
+const message = useMessage()
+const accountMenuVisible = ref(false)
+
+const initial = computed(() => account.user?.name.slice(0, 1) ?? '')
+
+const accountSub = computed(() => {
+    const user = account.user
+    if (!user) return ''
+    return user.department ? `${user.username} · ${user.department}` : user.username
+})
+
+const logout = async (): Promise<void> => {
+    accountMenuVisible.value = false
+    await account.logout()
+    message.success('已退出登录')
+}
 </script>
 
 <style scoped>
@@ -217,6 +276,91 @@ const sections = computed<NavSection[]>(() => {
 
 .is-collapsed .nav-text {
     display: none;
+}
+
+/* 账号入口：和导航隔一条线，长相同导航项 */
+.nav-account {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--divider);
+}
+
+.account-btn {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+}
+
+.avatar {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 999px;
+}
+
+.avatar.is-large {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+
+.account-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 200px;
+}
+
+.account-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 2px 10px;
+    border-bottom: 1px solid var(--divider);
+}
+
+.account-meta {
+    min-width: 0;
+}
+
+.account-name {
+    font-weight: 600;
+}
+
+.account-sub {
+    font-size: 12px;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 30px;
+    padding: 0 8px;
+    color: var(--text-2);
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition:
+        background 0.12s,
+        color 0.12s;
+}
+
+.menu-item:hover {
+    color: var(--danger);
+    background: var(--danger-soft);
 }
 
 .nav-footer {

@@ -1,12 +1,13 @@
-"""载荷简化 Pydantic 序列化模型：预览、加载、缩减的请求，以及 WebSocket 推送的报文
+"""载荷简化 Pydantic 序列化模型：预览、加载、缩减的请求，WebSocket 推送的报文，以及历史记录
 
 字段名用 camelCase，和前端 `api/simpleLoad.ts` 一致。请求模型负责换成计算层收的 dataclass
 （PathConfig、ConversionConfig、AxisMapping），`cal_simpleLoad` 不依赖 Pydantic。
 """
 
-from typing import ClassVar, Literal, Self
+import math
+from typing import Any, ClassVar, Literal, Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from app_simpleLoad.module.config import AxisMapping, ConversionConfig, PathConfig
 from common.constants import LoadColumn
@@ -164,3 +165,117 @@ class ErrorMessage(BaseModel):
 
     type: Literal["error"] = "error"
     message: str
+
+
+class HistoryRecord(BaseModel):
+    """网页版存在 TMB 服务器上的一条载荷简化配置，换成这边的字段，前端拿到直接回填
+
+    来源是 tmb_web_v1 的 `SimpleLoadCalculationHistoryModel`，几个 JSON 字段是网页版页面的写法：列对应是带
+    「占位符」的列名列表，区间表一行一个分量、11 格里数字和字符串都有。缺的字段按网页版的默认值补。
+    """
+
+    INTERVAL_SLOTS: ClassVar[int] = 11  # 区间表每行：下界、9 个分段点、上界
+    DEFAULT_AXIS_MAPPING: ClassVar[list[dict[str, str]]] = [
+        {"romax": "x", "origin": "-y"},
+        {"romax": "y", "origin": "-z"},
+        {"romax": "z", "origin": "x"},
+    ]
+
+    projName: str  # 网页版保存时取输出目录的最后一级
+    loadDir: str
+    freqTablePath: str
+    outputDir: str
+    skipRows: int
+    columns: list[LoadColumn | None]  # txt 每一列是什么，None 是不用的列（网页版的「占位符」）
+    unitForce: float
+    unitMoment: float
+    unitSpeed: float
+    axisMapping: list[AxisMappingPayload]
+    keepTorque: bool
+    slope: float  # 网页版叫转换系数（translate_factor）
+    temperature: float
+    tol: float
+    intervals: dict[LoadColumn, list[float | None]]  # 分量 → 11 格，没填的是 None
+
+    @classmethod
+    def from_tmb(cls, record: dict[str, Any]) -> Self:
+        """把 TMB 服务器返回的一条记录换成回填用的字段。
+
+        Args:
+            record: tmb_web_v1 的 `SimpleLoadCalculationHistorySerializer` 给的一条记录。
+
+        Returns:
+            回填用的配置。
+        """
+        paths = record.get("file_path_json") or {}
+        factors = record.get("conversion_factors_json") or {}
+        title_row = cls.number(factors.get("title_row"))
+        return cls(
+            projName=record.get("proj_name") or "",
+            loadDir=paths.get("load_file_folder_path") or "",
+            freqTablePath=paths.get("freq_table_path") or "",
+            outputDir=paths.get("result_folder_save_path") or "",
+            # 网页版存的是标题行的行号，它和它前面的行都跳过；没有标题行时是 None
+            skipRows=int(title_row) + 1 if title_row is not None and title_row >= 0 else 0,
+            columns=[cls.column(item) for item in record.get("draggable_elements_json") or []],
+            unitForce=cls.number_or(factors.get("unit_force"), 1000),
+            unitMoment=cls.number_or(factors.get("unit_moment"), 1000),
+            unitSpeed=cls.number_or(factors.get("unit_speed"), 1),
+            axisMapping=cls.axis_mapping(record.get("romax_origin_json")),
+            keepTorque=bool(paths.get("keep_torque_component", False)),
+            slope=cls.number_or(factors.get("translate_factor"), 4.05),
+            temperature=cls.number_or(factors.get("temperature"), 60),
+            tol=cls.number_or(factors.get("tol"), 1e-4),
+            intervals=cls.interval_rows(record.get("table_data_json")),
+        )
+
+    @staticmethod
+    def number(value: Any) -> float | None:
+        """网页版的数值有数字也有字符串（区间表的格子），空串和认不出的当作没填。"""
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, str):
+            try:
+                value = float(value.strip())
+            except ValueError:
+                return None
+        if isinstance(value, int | float) and math.isfinite(value):
+            return float(value)
+        return None
+
+    @classmethod
+    def number_or(cls, value: Any, default: float) -> float:
+        """没填时用网页版的默认值；填了 0 就是 0。"""
+        number = cls.number(value)
+        return default if number is None else number
+
+    @staticmethod
+    def column(item: Any) -> LoadColumn | None:
+        """列名换成分量；「占位符」和认不出的列名是不用的列。"""
+        name = item.get("name") if isinstance(item, dict) else item
+        try:
+            return LoadColumn(name)
+        except ValueError:
+            return None
+
+    @classmethod
+    def axis_mapping(cls, value: Any) -> list[AxisMappingPayload]:
+        """坐标映射要依次是 Romax 的 x、y、z，对不上就用网页版的默认映射。"""
+        try:
+            mapping = [AxisMappingPayload.model_validate(item) for item in value]
+        except (TypeError, ValidationError):
+            mapping = []
+        if [item.romax for item in mapping] != ["x", "y", "z"]:
+            mapping = [AxisMappingPayload.model_validate(item) for item in cls.DEFAULT_AXIS_MAPPING]
+        return mapping
+
+    @classmethod
+    def interval_rows(cls, rows: Any) -> dict[LoadColumn, list[float | None]]:
+        """区间表按分量名取，每行 11 格；不是力或力矩的行跳过。"""
+        intervals: dict[LoadColumn, list[float | None]] = {}
+        for row in rows if isinstance(rows, list) else []:
+            component = cls.column(row.get("component")) if isinstance(row, dict) else None
+            if component is None or component in (LoadColumn.TIME, LoadColumn.SPEED):
+                continue
+            intervals[component] = [cls.number(row.get(str(i))) for i in range(cls.INTERVAL_SLOTS)]
+        return intervals

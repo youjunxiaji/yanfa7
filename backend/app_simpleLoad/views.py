@@ -1,4 +1,4 @@
-"""载荷简化接口：预览载荷文件夹、加载数据、载荷缩减、清空数据
+"""载荷简化接口：预览载荷文件夹、加载数据、载荷缩减、清空数据、查网页版的历史记录
 
 加载和缩减各走一条 WebSocket：连上后前端发一条参数，后端边算边推 progress，最后推 done 或 error，
 再关掉连接。加载完的实例存在 LoadedDataCache，改了区间、坐标映射或缩减参数可以直接再缩减。
@@ -9,8 +9,9 @@ import json
 import os
 import re
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Header, HTTPException, WebSocket, WebSocketDisconnect
 from loguru import logger
 from pydantic import ValidationError
 
@@ -22,6 +23,7 @@ from app_simpleLoad.module.progress import ProgressReporter
 from app_simpleLoad.serializers import (
     ComponentStats,
     ErrorMessage,
+    HistoryRecord,
     LoadDoneMessage,
     LoadRequest,
     PreviewRequest,
@@ -29,6 +31,7 @@ from app_simpleLoad.serializers import (
     ReduceDoneMessage,
     ReduceRequest,
 )
+from common import tmb_web
 from common.constants import LoadColumn
 
 #: 预览读第一个 txt 的前几行，够看清列名、END_OF_HEADER 和头几行数据
@@ -80,6 +83,25 @@ async def preview(req: PreviewRequest) -> PreviewResponse:
 async def clear() -> None:
     """丢掉加载过的数据，把内存还回去。"""
     LoadedDataCache.clear()
+
+
+async def histories(
+    query: str = "", authorization: Annotated[str | None, Header()] = None
+) -> list[HistoryRecord]:
+    """查网页版存在 TMB 服务器上的载荷简化配置，换成这边的字段给前端回填。
+
+    要先登录，令牌经 Authorization 头带过来。服务器只给自己存的，按项目名模糊匹配，一次最多 10 条，
+    不排序；这里按存的先后倒过来排，新存的在前。
+    """
+    token = tmb_web.bearer_token(authorization)
+    data = await tmb_web.request(
+        "GET",
+        "/shanghai_yanfa7/simple-load-calculation-histories/",
+        token=token,
+        params={"query": query},
+    )
+    records = sorted(data["results"], key=lambda record: record.get("id") or 0, reverse=True)
+    return [HistoryRecord.from_tmb(record) for record in records]
 
 
 # ─── WebSocket ───────────────────────────────────────────────

@@ -25,6 +25,7 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 | `openPreviewWindow` | `WebviewWindow`（见多窗口） |
 | `onConfirmQuit` / `confirmQuit` | `getCurrentWindow().onCloseRequested` / `destroy()` |
 | `theme.set` / `theme.get` | plugin-store + `setTheme` + `.dark` class |
+| `account.load` / `account.save` | plugin-store 的 `account.json`（见主题与设置） |
 | `startDrag` | `@crabnebula/tauri-plugin-drag` |
 
 ## 新增原生能力
@@ -79,6 +80,8 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 ## 主题与设置
 
 - 设置存在 `@tauri-apps/plugin-store` 的 `settings.json`（`autoSave`），bridge 里懒加载单例；外观模式在 `appearance` 键。
+- TMB 账号的登录状态（令牌、用户信息、上次登录的工号，不存密码）单放 `account.json` 的 `account` 键。bridge 只管存取，
+  内容和校验在 `stores/account.ts`，见 yanfa7-ref 的 TMB 账号参考。
 - `applyTheme(mode)` 调 `getCurrentWindow().setTheme(mode === 'system' ? null : mode)`，原生窗口和 webview 的
   `prefers-color-scheme` 跟着变，同时切 `<html>` 的 `.dark` class；启动时 `initTauriBridge()` 读出来应用。
 - `system` 模式靠 `matchMedia('(prefers-color-scheme: dark)')`：`App.vue`、`preview.ts` 各挂一个监听切 `.dark`。

@@ -1,6 +1,11 @@
 <template>
     <div class="page">
-        <PageHeader />
+        <PageHeader>
+            <n-button size="small" :disabled="store.isBusy" @click="historyVisible = true">
+                <template #icon><History :size="15" /></template>
+                历史记录
+            </n-button>
+        </PageHeader>
         <div class="tool-body">
             <section class="param-pane">
                 <div class="param-scroll">
@@ -392,6 +397,8 @@
                 </div>
             </template>
         </n-modal>
+
+        <SimpleLoadHistory v-model:show="historyVisible" />
     </div>
 </template>
 
@@ -415,6 +422,7 @@ import {
     Folder,
     FolderInput,
     FolderOpen,
+    History,
     Info,
     Play,
     TriangleAlert
@@ -428,6 +436,7 @@ import NumberInput from '@renderer/components/NumberInput.vue'
 import SimpleLoadColumnMap from '@renderer/components/SimpleLoadColumnMap.vue'
 import SimpleLoadIntervalTable from '@renderer/components/SimpleLoadIntervalTable.vue'
 import SimpleLoadHistogram from '@renderer/components/SimpleLoadHistogram.vue'
+import SimpleLoadHistory from '@renderer/components/SimpleLoadHistory.vue'
 
 const AXIS_OPTIONS: SelectOption[] = SOURCE_AXES.map((axis) => ({ label: axis, value: axis }))
 
@@ -436,6 +445,7 @@ const message = useMessage()
 
 const formatVisible = ref(false)
 const reduceVisible = ref(false)
+const historyVisible = ref(false)
 
 const formatRows = (n: number): string => (n >= 10000 ? `${Math.round(n / 10000)} 万` : String(n))
 

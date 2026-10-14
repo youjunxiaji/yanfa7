@@ -9,6 +9,7 @@
             </main>
         </div>
         <CommandPalette v-model:visible="paletteVisible" />
+        <LoginModal />
         <n-modal
             v-model:show="quitVisible"
             preset="dialog"
@@ -28,6 +29,10 @@ import { NModal } from 'naive-ui'
 import AppProviders from '@renderer/components/AppProviders.vue'
 import SideNav from '@renderer/components/SideNav.vue'
 import CommandPalette from '@renderer/components/CommandPalette.vue'
+import LoginModal from '@renderer/components/LoginModal.vue'
+import { useAccountStore } from '@renderer/stores/account'
+
+const account = useAccountStore()
 
 const collapsed = ref(false)
 const paletteVisible = ref(false)
@@ -56,6 +61,8 @@ onMounted(() => {
     window.electronAPI?.onConfirmQuit(() => {
         quitVisible.value = true
     })
+    // 登录不是必需的：连不上内网时工具照常用，只有查历史记录要登录
+    account.restore()
 })
 
 onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
