@@ -1,10 +1,10 @@
-"""app_simpleLoad/core/progress.py —— WebSocket 进度推送"""
+"""app_simpleLoad/module/progress.py —— WebSocket 进度推送"""
 
 import pytest
 
-from app_simpleLoad.core import progress as progress_module
-from app_simpleLoad.core.progress import ProgressReporter
-from my_websockets.global_ws import ws
+from app_simpleLoad.module import progress as progress_module
+from app_simpleLoad.module.progress import ProgressReporter
+from app_simpleLoad.module.global_ws import ws
 from tests.fakes import FakeWebSocket
 
 

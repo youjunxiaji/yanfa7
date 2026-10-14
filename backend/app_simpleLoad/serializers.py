@@ -3,7 +3,7 @@
 约定：
 1. 字段名保持前端现有写法（`file_path` / `draggableElements` / `conversion_factors` /
    `tableData` / `romax_origin`），这些是对外契约，不要改名；
-2. 嵌套结构直接标注成 `core.config` 里的 dataclass —— Pydantic 会校验并构造出真正的
+2. 嵌套结构直接标注成 `module.config` 里的 dataclass —— Pydantic 会校验并构造出真正的
    dataclass 实例，所以 `cal_simpleLoad` 拿到的仍是 dataclass，不依赖 Pydantic；
 3. 校验失败由 main.py 的 RequestValidationError 处理器转成
    `{"message": ..., "status": "error"}`，与其他业务错误保持同一种形状。
@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app_simpleLoad.core.config import AxisMapping, ConversionConfig, PathConfig
+from app_simpleLoad.module.config import AxisMapping, ConversionConfig, PathConfig
 
 
 class HeaderColumn(BaseModel):

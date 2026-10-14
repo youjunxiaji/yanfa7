@@ -1,22 +1,22 @@
 """
 载荷简化计算模块 — 编排层
-调用 services 层完成文件读取，自身负责区间划分、直方图生成、载荷缩减。
+调用 file_reader 完成文件读取，自身负责区间划分、直方图生成、载荷缩减。
 """
 
 import os
 import polars as pl
 import numpy as np
 from typing import List, Dict
-from app_simpleLoad.core.logger import get_logger
+from app_simpleLoad.module.logger import get_logger
 import gc
 
 logger = get_logger(__name__)
 import pandas as pd  # 仅用于 Excel 输出和 IntervalIndex
 
-from app_simpleLoad.core.config import AxisMapping, PathConfig, ConversionConfig
-from app_simpleLoad.core.memory import log_memory, MemoryMonitor
-from app_simpleLoad.core.progress import ProgressReporter
-from app_simpleLoad.services.file_reader import read_all_txt_files, read_freq_table
+from app_simpleLoad.module.config import AxisMapping, PathConfig, ConversionConfig
+from app_simpleLoad.module.memory import log_memory, MemoryMonitor
+from app_simpleLoad.module.progress import ProgressReporter
+from app_simpleLoad.module.file_reader import read_all_txt_files, read_freq_table
 
 
 # ─── 分量与区间表 ─────────────────────────────────────────────

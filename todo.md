@@ -2,12 +2,10 @@
 
 ## 载荷简化迁移
 
-simple_load v1.3.1 原样搬进了 `backend/`（`app_simpleLoad/`、`my_websockets/`、`tests/`）。下面每步一个提交，
+simple_load v1.3.1 搬进了 `backend/app_simpleLoad/` 和 `backend/tests/`，目录已按项目规则排好。下面每步一个提交，
 每步跑一遍 `uv run pytest`：算法用例和 `tests/test_real_baseline.py`（真实算例对拍）只许改 import，不许改断言。
 
-- **目录按项目规则重排**：`routes.py` 拆成 `urls.py` + `views.py`，`schemas.py` 改名 `serializers.py`，
-  `core/`、`services/` 并进 `module/`，`my_websockets/` 并进模块。
-- **日志换成 loguru**：删 `core/logger.py`、`core/memory.py` 和它们的用例，删 rich、psutil 依赖，
+- **日志换成 loguru**：删 `module/logger.py`、`module/memory.py` 和它们的用例，删 rich、psutil 依赖，
   `build_backend.py` 的 `--include-package=rich` 一起删。
 - **重计算挪出事件循环**：划分区间、缩减的 polars 计算还直接跑在 async 函数里，缩减期间整个后端没响应，
   改用 `asyncio.to_thread`。

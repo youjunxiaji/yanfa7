@@ -177,12 +177,12 @@ class TestSavePic:
         assert await instance.savePic() == {"message": "请先加载文件", "status": "error"}
 
     async def test_未划分区间就画图会抛_AttributeError(self, loaded):
-        """routes 依赖这个异常返回「请先加载文件」，改动时要同步调整路由。"""
+        """views 依赖这个异常返回「请先加载文件」，改动时要同步调整路由。"""
         with pytest.raises(AttributeError, match="max_min"):
             await loaded.savePic()
 
     async def test_推送图表生成进度(self, divided, connected_ws, instant_sleep):
-        from app_simpleLoad.core import progress as progress_module
+        from app_simpleLoad.module import progress as progress_module
 
         instant_sleep(progress_module)
 

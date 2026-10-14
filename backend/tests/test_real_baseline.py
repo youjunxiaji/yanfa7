@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from openpyxl import load_workbook
 
-from app_simpleLoad.core.config import AxisMapping, ConversionConfig, PathConfig
+from app_simpleLoad.module.config import AxisMapping, ConversionConfig, PathConfig
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
 
 BASELINE = "基线_v1.3.1"

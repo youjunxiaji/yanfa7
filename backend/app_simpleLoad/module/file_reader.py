@@ -15,8 +15,8 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import polars as pl
 import pandas as pd
-from app_simpleLoad.core.config import ConversionConfig, FileResult, FileParseError
-from app_simpleLoad.core.progress import ProgressReporter
+from app_simpleLoad.module.config import ConversionConfig, FileResult, FileParseError
+from app_simpleLoad.module.progress import ProgressReporter
 
 # 模块级线程池（复用，避免反复创建销毁）
 _thread_pool = ThreadPoolExecutor(max_workers=os.cpu_count() or 4)

@@ -502,7 +502,7 @@ class TestErrors:
         assert result == {"message": "请先加载文件", "status": "error"}
 
     async def test_romax_映射缺失时抛_IndexError(self, divided):
-        """routes 会兜住这个异常并返回「载荷缩减失败」。"""
+        """views 会兜住这个异常并返回「载荷缩减失败」。"""
         with pytest.raises(IndexError):
             await divided.simple_load2(table_data(*DEFAULT_BINS), [])
 
@@ -528,7 +528,7 @@ class TestErrors:
 
 class TestProgress:
     async def test_推送缩减各阶段进度(self, divided, romax_origin, connected_ws, instant_sleep):
-        from app_simpleLoad.core import progress as progress_module
+        from app_simpleLoad.module import progress as progress_module
 
         instant_sleep(progress_module)
 

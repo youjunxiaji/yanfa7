@@ -12,7 +12,8 @@ from contextlib import asynccontextmanager
 
 from app_edgeStress.urls import router as edge_stress_router
 from app_pmax.urls import router as pmax_router
-from app_simpleLoad.routes import router as simple_load_router
+from app_simpleLoad.module.socket_manager import ConnectionManager
+from app_simpleLoad.urls import router as simple_load_router
 from fastapi import FastAPI, Request
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
@@ -20,8 +21,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from loguru import logger
-from my_websockets import socket_routes
-from my_websockets.socket_manager import ConnectionManager
 import uvicorn
 import matplotlib
 matplotlib.use("Agg")
@@ -29,7 +28,7 @@ matplotlib.use("Agg")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 载荷简化的计算实例挂在这个连接管理器上，见 my_websockets/socket_manager.py
+    # 载荷简化的计算实例挂在这个连接管理器上，见 app_simpleLoad/module/socket_manager.py
     app.state.websocket_manager = ConnectionManager()
     yield
 
@@ -45,12 +44,11 @@ app.add_middleware(
 
 app.include_router(edge_stress_router)
 app.include_router(pmax_router)
-# 载荷简化原样搬自 simple_load v1.3.1，接口还是它原来的路径：/api/load_file 这类，不带模块前缀。
-app.include_router(simple_load_router, prefix="/api")
-# /ws/{client_id} 能匹配任意一段的 /ws/xxx，必须排在边缘应力的 /ws/parse 之后注册，否则会把它截走。
-app.include_router(socket_routes.router)
+# 载荷简化的接口还是 simple_load 原来的路径：/api/load_file 这类，不带模块前缀。
+# 它的 /ws/{client_id} 能匹配任意一段的 /ws/xxx，必须排在边缘应力的 /ws/parse 之后注册，否则会把它截走。
+app.include_router(simple_load_router)
 
-SIMPLE_LOAD_PATHS = {f"/api{route.path}" for route in simple_load_router.routes if isinstance(route, APIRoute)}
+SIMPLE_LOAD_PATHS = {route.path for route in simple_load_router.routes if isinstance(route, APIRoute)}
 
 
 @app.exception_handler(RequestValidationError)

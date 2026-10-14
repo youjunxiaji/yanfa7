@@ -1,8 +1,8 @@
-"""app_simpleLoad/schemas.py —— 请求体模型
+"""app_simpleLoad/serializers.py —— 请求体模型
 
 重点验证两件事：
 1. 前端报文的字段名/形态没变（对外契约）；
-2. 校验后交给业务层的是 core.config 里的 dataclass，不是 Pydantic 对象。
+2. 校验后交给业务层的是 module.config 里的 dataclass，不是 Pydantic 对象。
 """
 
 import dataclasses
@@ -10,8 +10,8 @@ import dataclasses
 import pytest
 from pydantic import ValidationError
 
-from app_simpleLoad.core.config import AxisMapping, ConversionConfig, PathConfig
-from app_simpleLoad.schemas import (
+from app_simpleLoad.module.config import AxisMapping, ConversionConfig, PathConfig
+from app_simpleLoad.serializers import (
     DivideIntervalRequest,
     LoadFileRequest,
     ReduceLoadRequest,

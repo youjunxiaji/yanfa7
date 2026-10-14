@@ -13,10 +13,10 @@ from pathlib import Path
 
 import pytest
 
-from app_simpleLoad.core import memory as memory_module
-from app_simpleLoad.core.config import AxisMapping, ConversionConfig
+from app_simpleLoad.module import memory as memory_module
+from app_simpleLoad.module.config import AxisMapping, ConversionConfig
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
-from my_websockets.global_ws import GlobalWebSocket, ws
+from app_simpleLoad.module.global_ws import GlobalWebSocket, ws
 from tests import factories
 from tests.factories import CaseSpec, Dataset, build_dataset, ramp_case
 from tests.fakes import FakeWebSocket, InstantSleepAsyncio

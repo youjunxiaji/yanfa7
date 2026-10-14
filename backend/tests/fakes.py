@@ -95,7 +95,7 @@ class RecordingProgress:
 
 
 class StubCalSimpleLoad:
-    """CalSimpleLoad 的替身，供 routes 分支测试使用。
+    """CalSimpleLoad 的替身，供 views 分支测试使用。
 
     每个方法既可以返回预设值，也可以抛出预设异常。
     """

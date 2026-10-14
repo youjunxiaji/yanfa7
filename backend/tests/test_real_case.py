@@ -10,8 +10,8 @@ import os
 
 import pytest
 
-from app_simpleLoad.core.config import ConversionConfig
-from app_simpleLoad.services.file_reader import (
+from app_simpleLoad.module.config import ConversionConfig
+from app_simpleLoad.module.file_reader import (
     _validate_txt_file_mapping,
     _parse_single_file,
     normalize_load_file_name,

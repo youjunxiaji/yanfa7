@@ -1,7 +1,7 @@
 """统一日志模块 — 基于 Rich Console 自定义格式
 
 用法：
-    from app_simpleLoad.core.logger import setup_logging, get_logger
+    from app_simpleLoad.module.logger import setup_logging, get_logger
 
     # 应用启动时初始化一次
     setup_logging(debug=False)

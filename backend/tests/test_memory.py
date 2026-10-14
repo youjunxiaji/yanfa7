@@ -1,10 +1,10 @@
-"""app_simpleLoad/core/memory.py —— 内存监控（默认关闭，--debug 才开）"""
+"""app_simpleLoad/module/memory.py —— 内存监控（默认关闭，--debug 才开）"""
 
 import logging
 
 import pytest
 
-from app_simpleLoad.core import memory
+from app_simpleLoad.module import memory
 
 
 class TestSwitch:

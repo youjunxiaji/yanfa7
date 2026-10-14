@@ -49,7 +49,7 @@ ROMAX_ORIGIN: list[dict[str, str]] = [
 
 def axis_mappings(payload: Sequence[Mapping[str, str]] = ROMAX_ORIGIN) -> list:
     """把报文形态的坐标映射转成内部的 AxisMapping（计算层收的类型）。"""
-    from app_simpleLoad.core.config import AxisMapping
+    from app_simpleLoad.module.config import AxisMapping
 
     return [AxisMapping(**dict(item)) for item in payload]
 
@@ -118,7 +118,7 @@ class Dataset:
 
     def path_config(self, *, keep_torque_component: bool = False):
         """转成 PathConfig（延迟 import，避免 factories 依赖业务模块）。"""
-        from app_simpleLoad.core.config import PathConfig
+        from app_simpleLoad.module.config import PathConfig
 
         return PathConfig(
             result_folder_save_path=str(self.out_dir),

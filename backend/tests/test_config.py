@@ -1,10 +1,10 @@
-"""app_simpleLoad/core/config.py —— 配置数据类与自定义异常"""
+"""app_simpleLoad/module/config.py —— 配置数据类与自定义异常"""
 import dataclasses
 
 import polars as pl
 import pytest
 
-from app_simpleLoad.core.config import (
+from app_simpleLoad.module.config import (
     AxisMapping,
     ConversionConfig,
     FileParseError,

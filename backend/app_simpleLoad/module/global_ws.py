@@ -1,6 +1,6 @@
 from typing import Dict, Literal
 from fastapi import WebSocket
-from app_simpleLoad.core.logger import get_logger
+from app_simpleLoad.module.logger import get_logger
 import json
 
 logger = get_logger(__name__)

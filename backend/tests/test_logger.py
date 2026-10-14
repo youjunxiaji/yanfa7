@@ -1,4 +1,4 @@
-"""app_simpleLoad/core/logger.py —— 统一日志格式"""
+"""app_simpleLoad/module/logger.py —— 统一日志格式"""
 
 import io
 import logging
@@ -6,8 +6,8 @@ import logging
 import pytest
 from rich.console import Console
 
-from app_simpleLoad.core import logger as logger_module
-from app_simpleLoad.core.logger import RichConsoleHandler, get_logger, setup_logging
+from app_simpleLoad.module import logger as logger_module
+from app_simpleLoad.module.logger import RichConsoleHandler, get_logger, setup_logging
 
 
 @pytest.fixture

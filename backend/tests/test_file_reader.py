@@ -1,4 +1,4 @@
-"""app_simpleLoad/services/file_reader.py —— 文件读取服务
+"""app_simpleLoad/module/file_reader.py —— 文件读取服务
 
 覆盖：文件名归一化 / 频次表与 txt 的一致性校验 / 单文件解析（单位换算、
 占位符、时间信息、各类解析错误）/ 并发读取与进度推送 / 频次表读取。
@@ -12,9 +12,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from app_simpleLoad.core.config import ConversionConfig, FileParseError
-from app_simpleLoad.services import file_reader
-from app_simpleLoad.services.file_reader import (
+from app_simpleLoad.module.config import ConversionConfig, FileParseError
+from app_simpleLoad.module import file_reader
+from app_simpleLoad.module.file_reader import (
     _duplicate_names,
     _format_file_names,
     _parse_single_file,

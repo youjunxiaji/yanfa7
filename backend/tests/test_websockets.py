@@ -1,12 +1,12 @@
-"""my_websockets —— 全局连接单例、连接管理器、WebSocket 路由"""
+"""module/global_ws.py、module/socket_manager.py 与 /ws/{client_id} —— 全局连接单例、连接管理器、WebSocket 路由"""
 
 import json
 
 import pytest
 
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
-from my_websockets.global_ws import GlobalWebSocket, ws
-from my_websockets.socket_manager import ConnectionManager
+from app_simpleLoad.module.global_ws import GlobalWebSocket, ws
+from app_simpleLoad.module.socket_manager import ConnectionManager
 from tests.fakes import BareWebSocket, FakeWebSocket, OpaqueWebSocket
 
 

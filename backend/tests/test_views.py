@@ -1,4 +1,4 @@
-"""app_simpleLoad/routes.py —— 三个 HTTP 接口
+"""app_simpleLoad/views.py —— 三个 HTTP 接口
 
 分支用 StubCalSimpleLoad 覆盖（快、只测路由逻辑），
 最后一组用真实流水线跑一遍完整链路。
@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from app_simpleLoad import routes as routes_module
-from app_simpleLoad.core.config import FileParseError
+from app_simpleLoad import views as views_module
+from app_simpleLoad.module.config import FileParseError
 from tests import factories
 from tests.excel_io import read_gl
 from tests.fakes import StubCalSimpleLoad
@@ -40,12 +40,12 @@ def reduce_payload(table_rows: list[dict] | None = None) -> dict:
 
 def use_stub(api_client, monkeypatch, stub: StubCalSimpleLoad) -> StubCalSimpleLoad:
     """让路由里新建的实例变成 stub。"""
-    monkeypatch.setattr(routes_module, "CalSimpleLoad", lambda: stub)
+    monkeypatch.setattr(views_module, "CalSimpleLoad", lambda: stub)
     return stub
 
 
 class AlwaysConnectedWs:
-    """routes 里 ws 的替身：连接始终正常。"""
+    """views 里 ws 的替身：连接始终正常。"""
 
     def __init__(self, active_after: int = 0) -> None:
         self.active_after = active_after
@@ -60,7 +60,7 @@ class AlwaysConnectedWs:
 
 class TestLoadFile:
     def test_连接正常时新建实例并加载(self, api_client, monkeypatch, dataset, config):
-        monkeypatch.setattr(routes_module, "ws", AlwaysConnectedWs())
+        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
         stub = use_stub(api_client, monkeypatch, StubCalSimpleLoad())
 
         response = api_client.post("/api/load_file", json=load_payload(dataset, config))
@@ -70,7 +70,7 @@ class TestLoadFile:
         assert [name for name, _, _ in stub.calls] == ["setInit", "simple_Pre_processing"]
 
     def test_把前端参数原样传给实例(self, api_client, monkeypatch, dataset, config):
-        monkeypatch.setattr(routes_module, "ws", AlwaysConnectedWs())
+        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
         stub = use_stub(api_client, monkeypatch, StubCalSimpleLoad())
 
         api_client.post("/api/load_file", json=load_payload(dataset, config))
@@ -83,7 +83,7 @@ class TestLoadFile:
     def test_已有实例时复用(self, api_client, monkeypatch, dataset, config):
         existing = StubCalSimpleLoad()
         api_client.app.state.websocket_manager.cal_instance = existing
-        monkeypatch.setattr(routes_module, "CalSimpleLoad", lambda: pytest.fail("不应新建实例"))
+        monkeypatch.setattr(views_module, "CalSimpleLoad", lambda: pytest.fail("不应新建实例"))
 
         response = api_client.post("/api/load_file", json=load_payload(dataset, config))
 
@@ -91,8 +91,8 @@ class TestLoadFile:
         assert api_client.app.state.websocket_manager.cal_instance is existing
 
     def test_连接断开且等不到重连时提示刷新(self, api_client, monkeypatch, dataset, config, instant_sleep):
-        instant_sleep(routes_module)
-        monkeypatch.setattr(routes_module, "ws", AlwaysConnectedWs(active_after=999))
+        instant_sleep(views_module)
+        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs(active_after=999))
 
         response = api_client.post("/api/load_file", json=load_payload(dataset, config))
 
@@ -104,8 +104,8 @@ class TestLoadFile:
         assert api_client.app.state.websocket_manager.cal_instance is None
 
     def test_等待期间重连成功则继续处理(self, api_client, monkeypatch, dataset, config, instant_sleep):
-        instant_sleep(routes_module)
-        monkeypatch.setattr(routes_module, "ws", AlwaysConnectedWs(active_after=3))
+        instant_sleep(views_module)
+        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs(active_after=3))
         use_stub(api_client, monkeypatch, StubCalSimpleLoad())
 
         response = api_client.post("/api/load_file", json=load_payload(dataset, config))
@@ -121,7 +121,7 @@ class TestLoadFile:
     def test_setInit_报错时返回错误信息(
         self, api_client, monkeypatch, dataset, config, error, expected
     ):
-        monkeypatch.setattr(routes_module, "ws", AlwaysConnectedWs())
+        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
         use_stub(api_client, monkeypatch, StubCalSimpleLoad(set_init_error=error))
 
         response = api_client.post("/api/load_file", json=load_payload(dataset, config))
@@ -139,7 +139,7 @@ class TestLoadFile:
     def test_预处理各类异常都转成错误响应(
         self, api_client, monkeypatch, dataset, config, error, expected
     ):
-        monkeypatch.setattr(routes_module, "ws", AlwaysConnectedWs())
+        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
         use_stub(api_client, monkeypatch, StubCalSimpleLoad(pre_processing_error=error))
 
         response = api_client.post("/api/load_file", json=load_payload(dataset, config))
@@ -281,10 +281,10 @@ class TestFullFlowThroughApi:
     def test_加载到导出三步走通(
         self, api_client, monkeypatch, dataset, config, romax_origin, instant_sleep
     ):
-        from app_simpleLoad.core import progress as progress_module
+        from app_simpleLoad.module import progress as progress_module
 
         instant_sleep(progress_module)
-        monkeypatch.setattr(routes_module, "ws", AlwaysConnectedWs())
+        monkeypatch.setattr(views_module, "ws", AlwaysConnectedWs())
 
         load = api_client.post("/api/load_file", json=load_payload(dataset, config))
         assert load.json()["status"] == "success"

@@ -6,9 +6,9 @@
 import polars as pl
 import pytest
 
-from app_simpleLoad.core.config import ConversionConfig, FileParseError, PathConfig
+from app_simpleLoad.module.config import ConversionConfig, FileParseError, PathConfig
 from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
-from app_simpleLoad.services import file_reader
+from app_simpleLoad.module import file_reader
 from tests import factories
 from tests.factories import CaseSpec, build_dataset, ramp_case
 from tests.reference import case_weights, convert_units, sample_interval
@@ -221,7 +221,7 @@ class TestPreProcessingProgress:
     async def test_通过_WebSocket_推送读取进度(
         self, instance, connected_ws, instant_sleep
     ):
-        from app_simpleLoad.core import progress as progress_module
+        from app_simpleLoad.module import progress as progress_module
 
         instant_sleep(progress_module)
 

@@ -6,7 +6,7 @@ simple_load 的 main.py 没有搬过来，载荷简化在 yanfa7 的 main.py 里
 from fastapi.middleware.cors import CORSMiddleware
 
 import main
-from my_websockets.socket_manager import ConnectionManager
+from app_simpleLoad.module.socket_manager import ConnectionManager
 
 
 class TestAppWiring:

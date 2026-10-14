@@ -1,8 +1,8 @@
 """进度推送器 — 封装 WebSocket 进度推送逻辑"""
 
 import asyncio
-from my_websockets.global_ws import ws
-from app_simpleLoad.core.logger import get_logger
+from app_simpleLoad.module.global_ws import ws
+from app_simpleLoad.module.logger import get_logger
 
 logger = get_logger(__name__)
 

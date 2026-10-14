@@ -1,22 +1,24 @@
+"""载荷简化 HTTP 接口与 WebSocket 视图"""
+
 import asyncio
-from fastapi import APIRouter, Request
-from app_simpleLoad.core.logger import get_logger
+import json
 
-logger = get_logger(__name__)
+from fastapi import Depends, Request, WebSocket, WebSocketDisconnect
 
-from app_simpleLoad.core.config import FileParseError
-from app_simpleLoad.schemas import (
+from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
+from app_simpleLoad.module.config import FileParseError
+from app_simpleLoad.module.global_ws import ws
+from app_simpleLoad.module.logger import get_logger
+from app_simpleLoad.module.socket_manager import ConnectionManager
+from app_simpleLoad.serializers import (
     DivideIntervalRequest,
     LoadFileRequest,
     ReduceLoadRequest,
 )
-from app_simpleLoad.module.cal_simpleLoad import CalSimpleLoad
-from my_websockets.global_ws import ws
 
-router = APIRouter()
+logger = get_logger(__name__)
 
 
-@router.post("/load_file")
 async def load_file(request: Request, data_: LoadFileRequest):
     """
     说明
@@ -77,7 +79,6 @@ async def load_file(request: Request, data_: LoadFileRequest):
     return {"message": "读取文件完成", "status": "success"}
 
 
-@router.post("/divide_interval")
 async def simple_pre_processing(request: Request, data: DivideIntervalRequest):
     """
     说明
@@ -104,7 +105,6 @@ async def simple_pre_processing(request: Request, data: DivideIntervalRequest):
     }
 
 
-@router.post("/reduce_load")
 async def simple_load(request: Request, data: ReduceLoadRequest):
     """载荷简化接口"""
     manager = request.app.state.websocket_manager
@@ -123,3 +123,41 @@ async def simple_load(request: Request, data: ReduceLoadRequest):
     if isinstance(msg, dict):
         return {**msg, "status": "error"}
     return {"message": "载荷简化处理全部完成", "count": msg}
+
+
+# ─── WebSocket ───────────────────────────────────────────────
+
+async def get_manager(websocket: WebSocket):
+    return websocket.app.state.websocket_manager
+
+async def websocket_endpoint(
+    websocket: WebSocket,
+    client_id: str,
+    manager: ConnectionManager = Depends(get_manager)
+):
+    try:
+        await manager.connect(websocket, client_id)
+        while True:
+            try:
+                data = await websocket.receive_text()
+                logger.info(f"收到客户端 {client_id} 的消息: {data}")
+
+                try:
+                    message = json.loads(data)
+                    if message.get("type") == "command":
+                        await manager.handle_command(message, client_id)
+                    elif message.get("type") == "broadcast":
+                        await manager.broadcast(json.dumps({
+                            "type": "broadcast",
+                            "message": message.get("message")
+                        }))
+                except json.JSONDecodeError:
+                    logger.error(f"无效的 JSON 消息: {data}")
+
+            except WebSocketDisconnect:
+                manager.disconnect(client_id)
+                break
+
+    except Exception as e:
+        logger.error(f"WebSocket 错误: {str(e)}")
+        manager.disconnect(client_id)

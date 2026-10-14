@@ -1,7 +1,7 @@
 """内存监控模块 — 可选的调试工具
 
 使用方法：
-    from app_simpleLoad.core.memory import log_memory, MemoryMonitor, set_enabled
+    from app_simpleLoad.module.memory import log_memory, MemoryMonitor, set_enabled
 
     set_enabled(False)  # 关闭所有内存监控（生产模式）
 
@@ -19,7 +19,7 @@
 
 import threading
 import time
-from app_simpleLoad.core.logger import get_logger
+from app_simpleLoad.module.logger import get_logger
 import psutil
 
 logger = get_logger(__name__)
