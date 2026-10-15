@@ -4,6 +4,7 @@ import {
     BookOpen,
     ChartColumn,
     ChartSpline,
+    Cog,
     Funnel,
     House,
     ScrollText,
@@ -76,6 +77,20 @@ const routes: RouteRecordRaw[] = [
             }
         },
         component: () => import('@renderer/views/SimpleLoadView.vue')
+    },
+    {
+        path: '/gear-load',
+        name: 'GearLoad',
+        meta: {
+            title: '齿轮载荷',
+            icon: markRaw(Cog),
+            tool: {
+                name: '齿轮载荷',
+                desc: '各级齿轮的啮合力、部件转速和等效直径，多工况保存为 Excel',
+                tone: ToolTone.BLUE
+            }
+        },
+        component: () => import('@renderer/views/GearLoadView.vue')
     },
     {
         path: '/docs',

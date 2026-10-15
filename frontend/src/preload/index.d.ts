@@ -17,6 +17,13 @@ interface CustomElectronAPI {
         title?: string
     }) => Promise<{ canceled: boolean; filePaths: string[] }>
 
+    // 选保存位置，只给路径，文件由后端写
+    saveFileDialog: (options: {
+        title?: string
+        defaultPath?: string
+        filters?: { name: string; extensions: string[] }[]
+    }) => Promise<{ canceled: boolean; filePath: string }>
+
     openPreviewWindow: (options: {
         fileStem: string
         outputDir: string

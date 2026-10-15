@@ -11,6 +11,7 @@ import threading
 
 from app_account.urls import router as account_router
 from app_edgeStress.urls import router as edge_stress_router
+from app_gearLoad.urls import router as gear_load_router
 from app_log.module.buffer import LogBuffer
 from app_log.urls import router as log_router
 from app_log.views import log_http_error, log_validation_error
@@ -42,6 +43,7 @@ app.exception_handler(StarletteHTTPException)(log_http_error)
 
 app.include_router(account_router)
 app.include_router(edge_stress_router)
+app.include_router(gear_load_router)
 app.include_router(log_router)
 app.include_router(pmax_router)
 app.include_router(simple_load_router)

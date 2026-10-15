@@ -21,6 +21,7 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 | `window.electronAPI` | Tauri 实现 |
 |---|---|
 | `openFileDialog` / `openDir` / `openDirectoryDialog` | `@tauri-apps/plugin-dialog` 的 `open()` |
+| `saveFileDialog` | `@tauri-apps/plugin-dialog` 的 `save()`：只选路径，文件由后端写（齿轮载荷保存为 Excel） |
 | `scanDir` | `invoke('scan_dir')`（Rust） |
 | `openPreviewWindow` | `WebviewWindow`（见多窗口） |
 | `onConfirmQuit` / `confirmQuit` | `getCurrentWindow().onCloseRequested` / `destroy()` |
@@ -98,7 +99,7 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 | 插件 | 用途 |
 |---|---|
 | `window-state` | 记忆窗口位置、尺寸和最大化状态 |
-| `dialog` | 选文件、选目录 |
+| `dialog` | 选文件、选目录、选保存位置（`dialog:default` 含 `allow-save`） |
 | `store` | 设置持久化 |
 | `os` | 读平台 |
 | `drag`（`@crabnebula/tauri-plugin-drag`） | 把图表 PNG 拖到 Word 等外部应用（webview 里的 `<img>` 自己拖不出去，只带 asset 链接）。插件按原尺寸显示跟手的预览图，垫片的 `makeDragIcon` 先用 canvas 缩成 200 宽（asset 协议带 `Access-Control-Allow-Origin`，`crossOrigin` 加载不污染画布），缩不了用原图 |

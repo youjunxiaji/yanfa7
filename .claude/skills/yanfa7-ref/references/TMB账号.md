@@ -5,18 +5,21 @@
 网页版（tmb_web_v1）的载荷简化把每个项目的配置存在 TMB 服务器的数据库里。应用登录 TMB 账号后，
 载荷简化页的「保存配置」把现在的配置存成网页版的一条记录，「历史记录」按项目名查这些配置、点一条回填到参数栏；
 网页版和这边存的是同一种记录，两边都查得到。网页版存记录的规则不改，这边照着用。
+齿轮载荷页是从网页版照搬的，Ctrl+S、Ctrl+F 同样存、查网页版的齿轮计算历史，报文就是网页版发的那样。
 登录不是必需的：连不上内网时工具照常用，只有查、存历史记录要登录。
 
 ## 数据流
 
 ```text
-渲染层 stores/account.ts ──HTTP──> 本地后端 app_account / app_simpleLoad ──httpx──> http://10.0.3.198/v1/api
+渲染层 stores/account.ts ──HTTP──> 本地后端 app_account / app_simpleLoad / app_gearLoad ──httpx──> http://10.0.3.198/v1/api
                                        └─ common/tmb_web.py（转发、报错翻译）
 ```
 
 - 登录 `POST /api/account/login` → tmb_web_v1 `/users/login/`；续期 `POST /api/account/refresh` → `/users/refresh/`；
   当前登录的人 `GET /api/account/me` → `/users/user/`；查历史记录 `GET /api/simple-load/histories?query=`、
-  保存配置 `POST /api/simple-load/histories` → `/shanghai_yanfa7/simple-load-calculation-histories/`（查和存同一个地址）。
+  保存配置 `POST /api/simple-load/histories` → `/shanghai_yanfa7/simple-load-calculation-histories/`（查和存同一个地址）；
+  齿轮载荷查列表 `GET /api/gear-load/histories?query=`、存 `POST /api/gear-load/histories` →
+  `/shanghai_yanfa7/gearCalculation/history/`，取一条 `GET /api/gear-load/histories/{id}` → 同一地址接 `<id>/detail/`。
 - 令牌存在渲染层，经兼容垫片持久化到 `account.json`（不存密码）；要登录的接口带 `Authorization: Bearer` 给本地后端，
   后端只转发、不留存。
 
@@ -44,6 +47,13 @@
   输出目录先去掉首尾空白和末尾的斜杠，否则网页版取出的项目名是空串；去掉后还是空的不转发，回 400。
 - 回填用记录里的跳过行数和列对应，不按文件重新认；列数按第一个 txt 补齐或截断。载荷文件夹在本机不存在时，
   文件格式区显示读不到，跳过行数和列对应仍是记录里的，这时保存不会存成回填前的；改路径后按文件重新认。
+- 查齿轮计算历史（tmb_web_v1 `SaveOrSearchGearCalculationAsHistory`）：只给自己存的，齿轮单元、风机、载荷谱任一项
+  模糊匹配（不跨字段拼起来匹配），按 `id` 倒序、不限条数，每条只有 `id` 和 `label`（三项用「/」连起来）。
+  取一条按 `id`（`SaveOrSearchGearCalculationAsHistoryDetail`），服务器不查是谁存的；`id` 不存在时网页版回 500，这边转成 502。
+- 存齿轮计算历史：按「登录的人 + 齿轮单元 + 风机 + 载荷谱」`update_or_create`，输入表 `vars_json` 和多工况
+  `selected_data_json` 整个换成这次的，响应的 `created` 分得出新建还是覆盖；三项一字不差才算同一条。报文原样转发
+  （`HistorySaveRequest`，就是网页版 Ctrl+S 发的），两边互相能回填。网页版后端不查三项是否为空，这边后端查，空了回 400。
+  存要有 `add_gearcalculationhistory` 权限，没有时回 403，原话照转。
 
 ## 接口与页面
 
@@ -53,8 +63,10 @@
   确认框写明要存成的项目名和同名会被覆盖，确认后把 `simpleLoad` store 的 `historyConfig` 发给后端。
 - 「历史记录」打开 `SimpleLoadHistory.vue`：没登录显示登录入口，登录后边打边查，点一行调
   `simpleLoad` store 的 `applyHistory`。
-- 测试：`app_account/tests/test_views.py`、`app_simpleLoad/tests/test_history.py`（查和存，含存了再查回来一致），
-  假 TMB 服务器 `tmb_server` 在 `backend/conftest.py`。
+- 齿轮载荷页（`GearLoadView.vue`）：Ctrl+S 存，没填全三项基础设置先提示，没登录先打开登录弹窗、登录完接着存；
+  Ctrl+F 打开 `GearLoadHistory.vue`：没登录显示登录入口，登录后边打边查，点一行由页面取这一条回填。
+- 测试：`app_account/tests/test_views.py`、`app_simpleLoad/tests/test_history.py`（查和存，含存了再查回来一致）、
+  `app_gearLoad/tests/test_history.py`，假 TMB 服务器 `tmb_server` 在 `backend/conftest.py`。
 
 ## 关键文件路径
 
@@ -63,10 +75,12 @@ backend/common/tmb_web.py                              # 服务器地址、转�
 backend/app_account/                                   # 登录、续期、当前登录的人
 backend/app_simpleLoad/views.py                        # histories、save_history
 backend/app_simpleLoad/serializers.py                  # HistoryRecord.from_tmb、HistorySaveRequest.to_tmb：两种写法互换
+backend/app_gearLoad/views.py                          # 齿轮载荷的 histories、history、save_history
 frontend/src/renderer/src/api/account.ts               # requestJson（401 抛 AuthExpiredError）
 frontend/src/renderer/src/stores/account.ts            # 登录状态、续期、withAccess
 frontend/src/renderer/src/components/LoginModal.vue
 frontend/src/renderer/src/components/SimpleLoadHistory.vue
+frontend/src/renderer/src/components/GearLoadHistory.vue
 frontend/src/renderer/src/views/SimpleLoadView.vue     # 「保存配置」按钮和确认框
 frontend/src/renderer/src/shims/tauri-bridge.ts        # account.load / save → account.json
 ```

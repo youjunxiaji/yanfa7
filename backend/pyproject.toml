@@ -30,7 +30,7 @@ dev = [
     "pytest-cov>=7.1.0",
 ]
 
-# 每个 app 的测试放在自己的 tests/ 里。目前只有载荷简化有测试，其余配置沿用 simple_load
+# 每个 app 的测试放在自己的 tests/ 里，配置沿用 simple_load
 [tool.pytest.ini_options]
 minversion = "8.1"                      # consider_namespace_packages 从 8.1 起才有
 testpaths = ["app_*/tests"]             # 新 app 加了 tests/ 会自动收集，不用改这里

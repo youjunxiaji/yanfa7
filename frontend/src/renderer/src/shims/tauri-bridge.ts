@@ -10,7 +10,7 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { platform } from '@tauri-apps/plugin-os'
 import { load, type Store } from '@tauri-apps/plugin-store'
@@ -139,6 +139,21 @@ const electronAPIShim = {
         })
         if (selected == null) return { canceled: true, filePaths: [] }
         return { canceled: false, filePaths: [selected as string] }
+    },
+
+    // 选保存位置（如齿轮载荷导出的 xlsx），只给路径，文件由后端写
+    saveFileDialog: async (options: {
+        title?: string
+        defaultPath?: string
+        filters?: { name: string; extensions: string[] }[]
+    }) => {
+        const selected = await saveDialog({
+            title: options?.title,
+            defaultPath: options?.defaultPath,
+            filters: options?.filters
+        })
+        if (selected == null) return { canceled: true, filePath: '' }
+        return { canceled: false, filePath: selected }
     },
 
     openPreviewWindow: async (options: {
