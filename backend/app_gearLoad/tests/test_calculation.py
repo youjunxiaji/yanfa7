@@ -1,5 +1,6 @@
 """齿轮载荷的计算 —— 生产代码和网页版原代码（tests/reference.py）对跑，再加几条不依赖参照的物理关系
 
+网页版写死了 4 级，超过 4 级的期望值是用它逐级拼出来的，见 tests/expected.py。
 优化算法、改写法的时候，这里的用例和断言都不动：生产代码的输入输出变了，只改 conftest.py 的 `calculate`。
 数对不上就是改出了问题；有意改算法（比如不再四舍五入了再传给下一级），先和使用者对过，再改对应的用例。
 """
@@ -11,20 +12,24 @@ from dataclasses import replace
 import pytest
 
 from app_gearLoad.tests.compare import assert_same_results, normalize
+from app_gearLoad.tests.expected import chained_results, expected_results
 from app_gearLoad.tests.factories import (
     CONDITIONS,
     TYPICAL,
+    WEB_STAGES,
     Gearbox,
     helical,
     input_rows,
     planetary,
     random_condition,
     random_gearbox,
+    random_long_gearbox,
 )
 from app_gearLoad.tests.reference import reference_results
 
-#: 随机齿轮箱的个数，种子是 0～RANDOM_CASES-1
+#: 随机齿轮箱的个数，种子是 0～RANDOM_CASES-1；5、6 级的另外随机 RANDOM_LONG_CASES 个
 RANDOM_CASES = 100
+RANDOM_LONG_CASES = 30
 
 # 结果里各格的位置，同网页版的结果表
 POWER, OUTPUT_TORQUE, OUTPUT_SPEED = 0, 1, 2  # input_data
@@ -33,18 +38,13 @@ RING_TANGENTIAL, RING_RADIAL, RING_AXIAL, SUN_AXIAL = 4, 5, 6, 8
 PLANETARY_ONLY_LOADS = (PLANET_FORCE, RING_TANGENTIAL, RING_RADIAL, RING_AXIAL, SUN_AXIAL)
 
 
-def expected(gearbox: Gearbox, torque: float, speed: float) -> dict:
-    """网页版原代码算的结果。"""
-    return reference_results(input_rows(gearbox, torque, speed))
-
-
 class TestSameAsWeb:
     @pytest.mark.parametrize("torque, speed", CONDITIONS)
     @pytest.mark.parametrize("name", list(TYPICAL))
     def test_常见布置(self, calculate, name, torque, speed):
         gearbox = TYPICAL[name]
 
-        assert_same_results(calculate(gearbox, torque, speed), expected(gearbox, torque, speed))
+        assert_same_results(calculate(gearbox, torque, speed), expected_results(gearbox, torque, speed))
 
     @pytest.mark.parametrize("seed", range(RANDOM_CASES))
     def test_随机齿轮箱(self, calculate, seed):
@@ -52,7 +52,36 @@ class TestSameAsWeb:
         gearbox = random_gearbox(rng)
         torque, speed = random_condition(rng)
 
-        assert_same_results(calculate(gearbox, torque, speed), expected(gearbox, torque, speed))
+        assert_same_results(calculate(gearbox, torque, speed), expected_results(gearbox, torque, speed))
+
+    @pytest.mark.parametrize("seed", range(RANDOM_LONG_CASES))
+    def test_随机_5_6_级(self, calculate, seed):
+        rng = random.Random(seed)
+        gearbox = random_long_gearbox(rng)
+        torque, speed = random_condition(rng)
+
+        assert_same_results(calculate(gearbox, torque, speed), expected_results(gearbox, torque, speed))
+
+
+class TestChainedReference:
+    """超过 4 级的期望值是逐级拼出来的；4 级以内拼出来的要和网页版原代码直接算的一模一样，拼法才可信。"""
+
+    @pytest.mark.parametrize("name", [name for name, gearbox in TYPICAL.items() if len(gearbox.stages) <= WEB_STAGES])
+    def test_常见布置(self, name):
+        gearbox = TYPICAL[name]
+        torque, speed = CONDITIONS[0]
+
+        direct = reference_results(input_rows(gearbox, torque, speed))
+        assert_same_results(chained_results(gearbox, torque, speed), direct)
+
+    @pytest.mark.parametrize("seed", range(20))
+    def test_随机齿轮箱(self, seed):
+        rng = random.Random(seed)
+        gearbox = random_gearbox(rng)
+        torque, speed = random_condition(rng)
+
+        direct = reference_results(input_rows(gearbox, torque, speed))
+        assert_same_results(chained_results(gearbox, torque, speed), direct)
 
 
 class TestPhysics:
@@ -64,10 +93,11 @@ class TestPhysics:
 
         result = calculate(TYPICAL[name], torque, speed)
 
-        # 理想传动：输出扭矩 × 输出转速 = 输入扭矩 × 输入转速，只差四舍五入
+        # 理想传动：输出扭矩 × 输出转速 = 输入扭矩 × 输入转速，只差输出扭矩、转速各自四舍五入到 3 位小数
         for stage in result.values():
             output_torque, output_speed = stage["input_data"][OUTPUT_TORQUE], stage["input_data"][OUTPUT_SPEED]
-            assert math.isclose(output_torque * output_speed, torque * speed, rel_tol=1e-4)
+            rounding = 0.0005 * (abs(output_torque) + abs(output_speed)) + 1e-6
+            assert math.isclose(output_torque * output_speed, torque * speed, rel_tol=1e-9, abs_tol=rounding)
             torque, speed = output_torque, output_speed
 
     def test_功率原样传到每一级(self, calculate):
@@ -157,7 +187,7 @@ class TestDegenerate:
 
         result = calculate(gearbox, 1000.0, 12.0)
 
-        assert_same_results(result, expected(gearbox, 1000.0, 12.0))
+        assert_same_results(result, expected_results(gearbox, 1000.0, 12.0))
         assert normalize(result["stageI"]["gear_loads"][PLANET_FORCE]) == math.inf
 
     def test_太阳轮齿数是_0_无穷大传到下一级(self, calculate):
@@ -165,7 +195,7 @@ class TestDegenerate:
 
         result = calculate(gearbox, 1000.0, 12.0)
 
-        assert_same_results(result, expected(gearbox, 1000.0, 12.0))
+        assert_same_results(result, expected_results(gearbox, 1000.0, 12.0))
         assert normalize(result["stageII"]["speed_of_components"][1]) == math.inf
 
     def test_中心距太小_径向力轴向力算不出来(self, calculate):
@@ -173,7 +203,7 @@ class TestDegenerate:
 
         result = calculate(gearbox, 1000.0, 12.0)
 
-        assert_same_results(result, expected(gearbox, 1000.0, 12.0))
+        assert_same_results(result, expected_results(gearbox, 1000.0, 12.0))
         loads = result["stageI"]["gear_loads"]
         assert normalize(loads[MESH_TANGENTIAL]) is not None
         assert [normalize(loads[MESH_RADIAL]), normalize(loads[MESH_AXIAL])] == [None, None]

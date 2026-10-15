@@ -27,7 +27,10 @@ PARAMS = (
     "Tip diameter da (mm)",
     "Load factor KY",
 )
-STAGE_KEYS = ("stageI", "stageII", "stageIII", "stageIIII")
+#: 各级在输入表里的键：前 4 级沿用网页版的写法（第 4 级是 IIII），往后接 stageV、stageVI……
+STAGE_KEYS = ("stageI", "stageII", "stageIII", "stageIIII", "stageV", "stageVI", "stageVII", "stageVIII")
+#: 网页版页面上固定 4 级，用不到的空着
+WEB_STAGES = 4
 
 #: 没用到的级：网页版页面上布置默认 Planetary、旋向默认 L，其余空着
 EMPTY_COLUMN = ("Planetary", "", "", "L") + ("",) * 12
@@ -146,6 +149,25 @@ TYPICAL = {
             helical(7, 104, 27, helix_angle=12),
         )
     ),
+    "五级": Gearbox(
+        (
+            planetary(22, 28, 44, planets=4),
+            planetary(14, 23, 37),
+            planetary(9, 22, 31, helix_angle=8),
+            helical(8, 96, 24),
+            helical(6, 104, 27, helix_angle=12),
+        )
+    ),
+    "六级": Gearbox(
+        (
+            planetary(25, 30, 45, planets=5, load_factor=1.15),
+            helical(16, 110, 28),
+            planetary(10, 24, 36, planets=4, root_diameter=344.4, tip_diameter=384.4),
+            helical(8, 101, 26, helix_angle=12),
+            helical(6, 90, 25, shift=1.5),
+            helical(5, 88, 24, helix_angle=14, root_diameter=111.2, tip_diameter=133.7),
+        )
+    ),
     "平行级开头": Gearbox((helical(14, 110, 30), planetary(10, 25, 35, planets=4))),
     "行星级填了齿根圆齿顶圆": Gearbox(
         (planetary(16, 27, 36, root_diameter=540.33, tip_diameter=612.33),)
@@ -209,6 +231,13 @@ def random_gearbox(rng: random.Random) -> Gearbox:
     return Gearbox(tuple(stages), power=round(rng.uniform(1000, 15000), 1))
 
 
+def random_long_gearbox(rng: random.Random) -> Gearbox:
+    """随机 5～6 级：网页版写死了 4 级，这样的齿轮箱只有这边算得了。"""
+    stages = [random_planetary(rng)]
+    stages += [random_planetary(rng) if rng.random() < 0.3 else random_helical(rng) for _ in range(rng.randint(4, 5))]
+    return Gearbox(tuple(stages), power=round(rng.uniform(1000, 15000), 1))
+
+
 def random_condition(rng: random.Random) -> tuple[float, float]:
     """随机一组输入扭矩 (kNm)、转速 (rpm)，扭矩有正有负。"""
     return round(rng.uniform(-1000, 9000), 3), round(rng.uniform(0, 20), 3)
@@ -242,7 +271,7 @@ def stage_column(stage: Stage, power: float, torque: float, speed: float) -> tup
 
 
 def input_rows(gearbox: Gearbox, torque: float, speed: float) -> list[dict]:
-    """网页版页面算这个工况时发的输入表。
+    """网页版页面算这个工况时发的输入表：不到 4 级的，后面空着补够 4 级，同网页版的页面。
 
     二级以后的扭矩、转速算的时候由上一级的输出顶掉，这里先占个位，整列才算填满；
     功率照网页版前端填的，和 Stage I 一样。
@@ -251,7 +280,7 @@ def input_rows(gearbox: Gearbox, torque: float, speed: float) -> list[dict]:
         stage_column(stage, gearbox.power, *((torque, speed) if index == 0 else (0, 0)))
         for index, stage in enumerate(gearbox.stages)
     ]
-    columns += [EMPTY_COLUMN] * (len(STAGE_KEYS) - len(columns))
+    columns += [EMPTY_COLUMN] * (WEB_STAGES - len(columns))
     return [
         {
             "parameter": name,

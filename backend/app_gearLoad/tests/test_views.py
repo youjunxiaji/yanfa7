@@ -26,7 +26,8 @@ PARAMS = [
     "Tip diameter da (mm)",
     "Load factor KY",
 ]
-STAGES = ["stageI", "stageII", "stageIII", "stageIIII"]
+# 前 4 级沿用网页版的键（第 4 级是 IIII），往后接 stageV
+STAGES = ["stageI", "stageII", "stageIII", "stageIIII", "stageV"]
 
 # 没填的一级：网页版页面上布置默认 Planetary、旋向默认 L，其余空着
 EMPTY = ["Planetary", "", "", "L"] + [""] * 12
@@ -127,6 +128,29 @@ class TestCalculate:
         assert result["stageI"]["gear_loads"][0] == ""  # 2Ftan 要用中心距
         assert result["stageI"]["input_data"][1] == 214.286  # 输出扭矩用不到中心距，照样算
 
+    def test_级数不止_4_级(self, api_client):
+        response = calculate(api_client, PLANETARY, HELICAL, HELICAL, HELICAL, HELICAL)
+
+        assert list(response.json()) == ["stageI", "stageII", "stageIII", "stageIIII", "stageV"]
+
+    def test_少于_4_级的输入表也能算(self, api_client):
+        rows = input_data(PLANETARY, HELICAL)
+        for row in rows:
+            del row["stageIII"], row["stageIIII"]
+
+        response = api_client.post("/api/gear-load/calculate", json={"inputData": rows})
+
+        assert response.json() == {"stageI": STAGE_I, "stageII": STAGE_II}
+
+    def test_级不连着排_422(self, api_client):
+        rows = input_data(PLANETARY)
+        for row in rows:
+            del row["stageII"]
+
+        response = api_client.post("/api/gear-load/calculate", json={"inputData": rows})
+
+        assert response.status_code == 422
+
     def test_一级没填满什么都不算(self, api_client):
         no_power = PLANETARY.copy()
         no_power[PARAMS.index("Power P (kW)")] = ""
@@ -174,6 +198,13 @@ class TestExport:
         sheet = load_workbook(path)["stageI"]
         assert sheet.column_dimensions["A"].width == 8
         assert {sheet.column_dimensions[column].width for column in "BCDEFGHIJKLM"} == {15}
+
+    def test_第_5_级以后的表名接着排(self, api_client, tmp_path):
+        path = tmp_path / "out.xlsx"
+
+        export(api_client, path, inputData=input_data(PLANETARY, HELICAL, HELICAL, HELICAL, HELICAL))
+
+        assert load_workbook(path).sheetnames == ["stageI", "stageII", "stageIII", "stageIIII", "stageV"]
 
     def test_没有多工况_400(self, api_client, tmp_path):
         response = export(api_client, tmp_path / "out.xlsx", selectedData=[])

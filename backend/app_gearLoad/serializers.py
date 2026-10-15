@@ -1,35 +1,49 @@
 """齿轮载荷 Pydantic 序列化模型：计算、导出 Excel 的请求，以及网页版历史记录的查和存
 
-页面照搬网页版（tmb_web_v1 的 gearLoadsView.vue），数据也沿用网页版的写法：输入表一行一个参数，`parameter`
-是英文参数名，4 级的值是输入框里的字符串，`CalGearLoads` 按参数名取值；多工况一行一组扭矩、转速。
-历史记录存的就是这两张表，网页版和这边存的互相能回填。
+数据沿用网页版（tmb_web_v1 的 gearLoadsView.vue）的写法：输入表一行一个参数，`parameter` 是英文参数名，
+各级的值是字符串，键是 stageI、stageII……（`stage_keys`），`CalGearLoads` 按参数名和键取值；多工况一行一组扭矩、转速。
+历史记录存的就是这两张表，网页版和这边存的互相能回填，网页版只认前 4 级。
 """
 
-from typing import Any, Self
+import re
+from typing import Any, ClassVar, Self
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app_gearLoad.module.cal_gearLoads import stage_keys
 
 
 class InputRow(BaseModel):
-    """输入表的一行：参数名和 4 级的值，同网页版的 inputData
+    """输入表的一行：参数名和各级的值，同网页版的 inputData
 
-    空串是没填。网页版历史记录里的值都是字符串，万一有数字、null，也换成字符串、空串。
+    各级的值放在 stageI、stageII…… 这些键里，级数不限；空串是没填。网页版历史记录里的值都是字符串，
+    万一有数字、null，也换成字符串、空串。别的键丢掉，免得被当成一级。
     """
 
-    model_config = ConfigDict(coerce_numbers_to_str=True)
+    model_config = ConfigDict(extra="allow")
+
+    STAGE_KEY: ClassVar[re.Pattern[str]] = re.compile(r"^stage[IVXLCDM]+$")
 
     parameter: str
-    stageI: str = ""
-    stageII: str = ""
-    stageIII: str = ""
-    stageIIII: str = ""
     editable: bool = False  # 网页版页面用的标记，CalGearLoads 算之前会丢掉
 
-    @field_validator("stageI", "stageII", "stageIII", "stageIIII", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def blank_if_none(cls, value: Any) -> Any:
-        return "" if value is None else value
+    def keep_stages(cls, data: Any) -> Any:
+        """只留参数名、editable 和各级的值，各级的值换成字符串。"""
+        if not isinstance(data, dict):
+            return data
+        row = {key: data[key] for key in ("parameter", "editable") if key in data}
+        for key, value in data.items():
+            if isinstance(key, str) and cls.STAGE_KEY.match(key):
+                row[key] = "" if value is None else str(value)
+        return row
+
+    @property
+    def stages(self) -> list[str]:
+        """这一行有哪几级的键。"""
+        return list(self.model_extra or {})
 
 
 class ConditionRow(BaseModel):
@@ -46,8 +60,16 @@ class CalculateRequest(BaseModel):
 
     inputData: list[InputRow] = Field(min_length=1)
 
+    @model_validator(mode="after")
+    def check_stages(self) -> Self:
+        """各级要从 Stage I 起连着排：`CalGearLoads` 按输入表有几列认级。"""
+        keys = {key for row in self.inputData for key in row.stages}
+        if keys != set(stage_keys(len(keys))):
+            raise ValueError(f"输入表的级要从 stageI 起连着排，现在是 {'、'.join(sorted(keys))}")
+        return self
+
     def input_frame(self) -> pd.DataFrame:
-        """换成 `CalGearLoads` 收的输入表：行是参数名，列是 4 级。"""
+        """换成 `CalGearLoads` 收的输入表：行是参数名，列是各级。"""
         return pd.DataFrame([row.model_dump() for row in self.inputData]).set_index("parameter")
 
 

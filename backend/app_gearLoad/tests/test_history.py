@@ -100,13 +100,29 @@ class TestDetail:
             "selectedData": [{"torque": "1000", "rpm": "12"}],
         }
 
-    def test_数字换成字符串_null_换成空串(self, api_client, tmb_server):
+    def test_数字换成字符串_null_换成空串_没有的级不补(self, api_client, tmb_server):
         row = {"parameter": "Centre distance a (mm)", "stageI": 381, "stageII": None, "editable": True}
         tmb_server.reply("GET", f"{HISTORIES_PATH}7/detail/", web_record(vars_json=[row]))
 
         [cell] = api_client.get("/api/gear-load/histories/7", headers=AUTH).json()["inputData"]
 
-        assert (cell["stageI"], cell["stageII"], cell["stageIII"]) == ("381", "", "")
+        assert cell == {"parameter": "Centre distance a (mm)", "editable": True, "stageI": "381", "stageII": ""}
+
+    def test_第_5_级以后原样回填(self, api_client, tmb_server):
+        row = {"parameter": "Centre distance a (mm)", "stageI": "381", "stageIIII": "300", "stageV": "250"}
+        tmb_server.reply("GET", f"{HISTORIES_PATH}7/detail/", web_record(vars_json=[row]))
+
+        [cell] = api_client.get("/api/gear-load/histories/7", headers=AUTH).json()["inputData"]
+
+        assert (cell["stageIIII"], cell["stageV"]) == ("300", "250")
+
+    def test_不是级的键丢掉(self, api_client, tmb_server):
+        row = {"parameter": "Centre distance a (mm)", "stageI": "381", "note": "备注", "stage5": "1"}
+        tmb_server.reply("GET", f"{HISTORIES_PATH}7/detail/", web_record(vars_json=[row]))
+
+        [cell] = api_client.get("/api/gear-load/histories/7", headers=AUTH).json()["inputData"]
+
+        assert cell == {"parameter": "Centre distance a (mm)", "editable": False, "stageI": "381"}
 
     def test_没存输入表和多工况的记录给_null(self, api_client, tmb_server):
         record = web_record(vars_json=None, selected_data_json=None, load_spectrum=None)
@@ -135,6 +151,15 @@ class TestSave:
         sent = tmb_server.requests[0]
         assert sent.headers["Authorization"] == "Bearer access-1"
         assert json.loads(sent.content) == {"formData": FORM, "inputData": INPUT_DATA, "selectedData": CONDITIONS}
+
+    def test_第_5_级以后原样转给网页版(self, api_client, tmb_server):
+        tmb_server.reply("POST", HISTORIES_PATH, SAVED)
+        rows = [{**row, "stageV": "250"} for row in INPUT_DATA]
+
+        save(api_client, inputData=rows)
+
+        sent = json.loads(tmb_server.requests[0].content)["inputData"]
+        assert [row["stageV"] for row in sent] == ["250", "250"]
 
     def test_存过同名的是覆盖(self, api_client, tmb_server):
         tmb_server.reply("POST", HISTORIES_PATH, OVERWRITTEN)

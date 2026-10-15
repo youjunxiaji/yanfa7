@@ -1,11 +1,42 @@
 """齿轮载荷计算：照搬网页版（tmb_web_v1 的 shanghai_yanfa7/utils.py）的 CalGearLoads、format_result、Excel
 
-网页版还在用，两边要算得一样：这里的写法、命名、注释都原样保留，只去掉了 Django 相关的导入和发企业微信消息的函数。
+网页版还在用，两边要算得一样：公式、写法、命名都原样保留，只去掉了 Django 相关的导入和发企业微信消息的函数。
+和网页版不一样的只有级数：网页版写死 4 级，这里输入表有几列就有几级（`stage_keys`）。
 Excel 类的属性名是单元格号（E12 压力角……E84），输入表按英文参数名取值。新模块不照着这里的写法写。
 """
 
 import numpy as np
 import pandas as pd
+
+#: 罗马数字：数值从大到小
+ROMAN_NUMERALS = (
+    (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"),
+    (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+)
+
+
+def roman(number: int) -> str:
+    """正整数写成罗马数字，如 4 是 IV、6 是 VI。"""
+    letters = []
+    for value, letter in ROMAN_NUMERALS:
+        count, number = divmod(number, value)
+        letters.append(letter * count)
+    return "".join(letters)
+
+
+def stage_keys(count: int) -> list[str]:
+    """前 `count` 级在输入表里的键。
+
+    前 4 级沿用网页版的 stageI、stageII、stageIII、stageIIII（第 4 级网页版写成 IIII），第 5 级起接 stageV、stageVI……
+    网页版的历史记录、导出的表名都是这些键。
+
+    Args:
+        count: 级数。
+
+    Returns:
+        从 Stage I 起的各级的键。
+    """
+    return ["stageIIII" if index == 4 else f"stage{roman(index)}" for index in range(1, count + 1)]
 
 
 class CalGearLoads:
@@ -16,7 +47,8 @@ class CalGearLoads:
     ):
         self.df_inputData = df_inputData.drop(columns=['editable'], errors='ignore')
         self.df_selectedData = df_selectedData
-        self.stage_list = ["stageI", "stageII", "stageIII", "stageIIII"]
+        # 输入表的列就是各级（参数名是行索引），有几列就有几级；网页版这里写死了 4 级
+        self.stage_list = stage_keys(len(self.df_inputData.columns))
 
     def cal(self) -> dict:
         """
