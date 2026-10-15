@@ -21,7 +21,9 @@ simple_load v1.3.1 搬进了 `backend/app_simpleLoad/`，页面是 `SimpleLoadVi
 ## 齿轮载荷迁移
 
 网页版（tmb_web_v1）的齿轮载荷照搬进了 `backend/app_gearLoad/` 和 `GearLoadView.vue`，计算和页面交互都和网页版一样。
-下面是讨论过、先没动的；会改变计算结果的每条单独一个提交，测试的期望值改了要写明为什么。
+下面是讨论过、先没动的。每步一个提交，每步跑一遍 `uv run pytest`：`test_calculation.py`、`test_export.py` 拿生产代码和冻结的
+网页版原代码对跑，只许改 `tests/conftest.py` 里调生产代码的 `calculate`、`export_tables`，不许改用例和断言；有意改算法的
+（比如不再四舍五入了再传给下一级），先和使用者对过，再改对应的用例。前端的逻辑（二级以后的输入由上一级的结果填）没有测试。
 
 - **照搬过来的问题**（网页版也有）：
   - 新填的参数要点 N 次「计算结果」才算到第 N 级：后端只数有几列整列填满，二级以后的功率、扭矩、转速等上一次算完才由前端填上。

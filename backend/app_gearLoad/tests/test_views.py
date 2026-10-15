@@ -116,6 +116,17 @@ class TestCalculate:
 
         assert response.json() == {"stageI": STAGE_I}
 
+    def test_算几级只看有几列填满_不看是哪几列(self, api_client):
+        # 现状：Stage I 缺一格、Stage II 填满，还是算 Stage I，缺的那格当没有；改「整列填满才算」时这条跟着改
+        no_distance = PLANETARY.copy()
+        no_distance[PARAMS.index("Centre distance a (mm)")] = ""
+
+        result = calculate(api_client, no_distance, HELICAL).json()
+
+        assert list(result) == ["stageI"]
+        assert result["stageI"]["gear_loads"][0] == ""  # 2Ftan 要用中心距
+        assert result["stageI"]["input_data"][1] == 214.286  # 输出扭矩用不到中心距，照样算
+
     def test_一级没填满什么都不算(self, api_client):
         no_power = PLANETARY.copy()
         no_power[PARAMS.index("Power P (kW)")] = ""
