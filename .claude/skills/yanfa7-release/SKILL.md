@@ -23,8 +23,12 @@ npm run tauri:build                 # Tauri 收进安装包 → 仓库根目录 
   方便看输出。
 - `build.cmd` 只看 `frontend/node_modules` 在不在，不比对 `package.json`：拉到改了依赖的提交、或 `node_modules`
   是别的分支装的旧版时，要自己在 `frontend/` 跑一次 `npm install`，否则第二步报找不到 `@electron-toolkit/tsconfig` 这类包。
-- `build.cmd` 前几行只能是英文：先切到 UTF-8 代码页，后面的中文才不会乱码；在 GBK 代码页下读 UTF-8 中文，
-  cmd 可能把换行吞掉、跳过下一行命令。换行必须是 CRLF（`.gitattributes` 已经设好），LF 换行时 cmd 可能找不到 goto 的标签。
+- `build.cmd` 全文只能是 ASCII：注释和提示写英文，也不要在里面 `chcp`。cmd 按字符数而不是字节数推算下一行的起点，
+  文件里有 UTF-8 中文时读指针会比真实位置多跳 2 字节/字，落进 `rem` 注释行的中间，剩下半行被当命令执行
+  （报 `'y：' 不是内部或外部命令`；注释里的 `cmd --keep-version` 还会拉起一个停在提示符上的嵌套交互式 cmd，
+  看着像脚本结束了）。`chcp 65001` 救不了：这个 cmd.exe 进程已经在中文代码页（936）下启动，只有切换之后新起的
+  cmd 才读得对，所以症状是「第一次失败，在嵌套提示符里重敲一次反而成功」。换行必须是 CRLF（`.gitattributes` 已经设好），
+  LF 换行时 cmd 可能找不到 goto 的标签。
 - 第二步只拿 `frontend/src-tauri/binaries/` 里现成的 sidecar，不会重打后端：改了后端却只跑第二步，装出来的还是上一版后端。
 - 产物是 `output/yanfa7-toolkit-<版本>-setup.exe`，由 `frontend/scripts/collect-output.mjs` 从
   `src-tauri/target/release/bundle/nsis/` 拷出来改名：Tauri 按 productName 起的中文文件名，传到 GitHub Release 会被改掉。

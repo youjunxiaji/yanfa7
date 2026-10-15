@@ -1,20 +1,24 @@
 @echo off
 setlocal
-for /f "tokens=2 delims=:." %%c in ('chcp') do set "ORIGINAL_CP=%%c"
-chcp 65001 >nul
 
-rem 上面几行只能是英文：先切到 UTF-8 代码页，后面的中文才不会乱码、不会吞掉换行；结束时切回原来的代码页。
+rem Build the Windows installer in one go. Step 1: Nuitka packs the backend into a sidecar exe.
+rem Step 2: Tauri builds the NSIS installer. The order matters (see the yanfa7-release skill).
 rem
-rem 一键出安装包（Windows）：先用 Nuitka 把后端打成 sidecar，再用 Tauri 打安装包，顺序不能反，见发版 Skill。
-rem 参数原样传给 backend\build_backend.py：
-rem   build.cmd                    问一次版本
-rem   build.cmd --version 2.1.0    直接定版本
-rem   build.cmd --keep-version     沿用当前版本
-rem 安装包在 output\yanfa7-toolkit-<版本>-setup.exe。
+rem Arguments are passed through to backend\build_backend.py:
+rem   build.cmd                    ask for the version once
+rem   build.cmd --version 2.1.0    set the version directly
+rem   build.cmd --keep-version     keep the current version
+rem The installer ends up in output\yanfa7-toolkit-VERSION-setup.exe
+rem
+rem Keep this file pure ASCII: no Chinese in comments or messages, and no chcp in here.
+rem cmd works out where the next line starts by counting characters instead of bytes, so UTF-8
+rem text in a running batch file makes it resume in the middle of a line and run the rest of that
+rem line as a command. Switching the code page inside the script does not help, cmd.exe is already
+rem running. Details are in the yanfa7-release skill.
 
 for %%t in (uv rustc npm) do (
     where %%t >nul 2>nul || (
-        echo 没找到 %%t，先把打包要的工具装好，见发版 Skill 的「工具链」一节
+        echo [build] %%t not found. Install the build toolchain first, see the "Toolchain" section of .claude\skills\yanfa7-release\SKILL.md
         goto :fail
     )
 )
@@ -25,7 +29,7 @@ if errorlevel 1 goto :fail_popd
 popd
 
 pushd "%~dp0frontend"
-rem 新机器上第一次打包时先装前端依赖
+rem Install the frontend dependencies on the first run on a new machine
 if not exist node_modules (
     call npm install
     if errorlevel 1 goto :fail_popd
@@ -35,7 +39,7 @@ if errorlevel 1 goto :fail_popd
 popd
 
 echo.
-echo 打包完成，安装包在 %~dp0output
+echo Build finished. The installer is in %~dp0output
 set "EXIT_CODE=0"
 goto :end
 
@@ -43,11 +47,11 @@ goto :end
 popd
 :fail
 echo.
-echo 打包失败，原因见上面的输出
+echo Build FAILED, see the output above.
 set "EXIT_CODE=1"
 
 :end
-rem 双击运行时窗口一结束就关，停一下好看输出；在已经打开的命令行里运行时不停
+rem Double-clicked: the window closes as soon as the script ends, so pause to read the output.
+rem Run from an open prompt: do not pause.
 echo %cmdcmdline% | findstr /i /c:"%~nx0" >nul && pause
-chcp %ORIGINAL_CP% >nul
 exit /b %EXIT_CODE%
