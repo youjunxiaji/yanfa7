@@ -4,6 +4,7 @@ import AppProviders from './components/AppProviders.vue'
 import ReportPreviewView from './views/ReportPreviewView.vue'
 import './assets/tokens.css'
 import './assets/main.css'
+import { installErrorReporting } from './api/logs'
 import { initTauriBridge } from './shims/tauri-bridge'
 
 const syncDarkClass = (): void => {
@@ -19,5 +20,7 @@ initTauriBridge().finally(() => {
         render: () => h(AppProviders, null, { default: () => h(ReportPreviewView) })
     })
 
+    // 预览窗口没接住的报错也记进主窗口的「日志」页
+    installErrorReporting(app)
     app.mount('#app')
 })

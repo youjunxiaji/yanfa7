@@ -1,6 +1,14 @@
 import { markRaw, type Component } from 'vue'
 import { createRouter, createWebHashHistory, type RouteRecordRaw } from 'vue-router'
-import { BookOpen, ChartColumn, ChartSpline, Funnel, House, Settings } from '@lucide/vue'
+import {
+    BookOpen,
+    ChartColumn,
+    ChartSpline,
+    Funnel,
+    House,
+    ScrollText,
+    Settings
+} from '@lucide/vue'
 import { ToolTone } from '@renderer/constants/ui'
 
 // 工具页的完整名称、一句话说明和色调：页面标题栏和首页工具卡都读这里
@@ -74,6 +82,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Docs',
         meta: { title: '文档', icon: markRaw(BookOpen), bottomNav: true },
         component: () => import('@renderer/views/DocsView.vue')
+    },
+    {
+        path: '/logs',
+        name: 'Logs',
+        meta: { title: '日志', icon: markRaw(ScrollText), bottomNav: true },
+        component: () => import('@renderer/views/LogView.vue')
     },
     {
         path: '/settings',

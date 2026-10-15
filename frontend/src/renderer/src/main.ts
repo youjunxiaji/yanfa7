@@ -5,6 +5,7 @@ import App from './App.vue'
 import router from './router'
 import './assets/tokens.css'
 import './assets/main.css'
+import { installErrorReporting } from './api/logs'
 import { initTauriBridge } from './shims/tauri-bridge'
 
 // Install the Tauri compatibility shim before mounting so window.electronAPI
@@ -13,6 +14,8 @@ import { initTauriBridge } from './shims/tauri-bridge'
 initTauriBridge().finally(() => {
     const app = createApp(App)
 
+    // 没接住的报错记进「日志」页
+    installErrorReporting(app)
     app.use(createPinia() as unknown as Plugin)
     app.use(router as unknown as Plugin)
 

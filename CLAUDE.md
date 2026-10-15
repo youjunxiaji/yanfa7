@@ -22,7 +22,7 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 
 | 任务 | 先读 |
 |---|---|
-| 理解、排查或修改边缘应力、Pmax 等工具模块和 TMB 账号登录，或新增工具模块 | [yanfa7-ref](.claude/skills/yanfa7-ref/SKILL.md)：相关模块参考，再核对源码 |
+| 理解、排查或修改边缘应力、Pmax 等工具模块、TMB 账号登录和日志页，或新增工具模块 | [yanfa7-ref](.claude/skills/yanfa7-ref/SKILL.md)：相关模块参考，再核对源码 |
 | 实现、修改或审查界面 | [yanfa7-ui-style](.claude/skills/yanfa7-ui-style/SKILL.md)：先读界面标准 |
 | 改 Tauri 外壳或原生能力：兼容垫片、Rust command、窗口、本地文件、插件权限、主题、端口与 CSP、图标 | [yanfa7-tauri](.claude/skills/yanfa7-tauri/SKILL.md) |
 | 打包、发版、CI | [yanfa7-release](.claude/skills/yanfa7-release/SKILL.md) |
@@ -71,6 +71,7 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 - 静态资源放 `src/renderer/src/assets/`。
 - 颜色和阴影只用 `assets/tokens.css` 里的设计变量（`:root` 浅色、`html.dark` 暗色），组件里不写 hex，也不写暗色覆盖；
   配色、骨架和交互模式见 UI Skill。
+- 界面上的报错用 `api/logs.ts` 的 `logError` / `logWarning`：照常打到控制台，同时记进「日志」页；不直接写 `console.error`。
 
 ## 后端
 
@@ -82,7 +83,8 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
   大的测试数据不入库，放 `backend/` 下（如载荷简化的 `测试案例/`），用例找不到数据就跳过。
 - 业务错误抛 `HTTPException(status_code=400, detail=...)`，`detail` 用中文写清哪里不对，前端读 `detail` 展示；
   WebSocket 推 `{"type": "error", "message": ...}`。
-- 日志一律用 loguru（`from loguru import logger`），不用标准库 `logging`。
+- 日志一律用 loguru（`from loguru import logger`），不用标准库 `logging`。「日志」页显示的就是它的输出：
+  第一行写清是什么事，要堆栈用 `logger.exception`，见 yanfa7-ref 的日志参考。
 - 出图用 matplotlib 的 Agg 后端（`main.py` 入口设置），只写文件不弹窗，返回给前端的是文件绝对路径。
 - 打包用 Nuitka（`build_backend.py`，见发版 Skill）：判断是否打包看 `"__compiled__" in globals()`，Nuitka 不设
   `sys.frozen`；运行时按名字导入的依赖（pandas 的可选依赖、`importlib` 这类）要在 `nuitka_args()` 里显式带上，
@@ -100,6 +102,7 @@ npx prettier --write <改动的文件>    # 只排改动的文件，整仓还有
 npx eslint <改动的文件>
 npm run build:renderer             # 渲染层打包
 cd src-tauri && cargo check        # 改了 Rust 时
+cd src-tauri && cargo test --lib   # 改了 backend.rs 时：日志文件的命名、保留和大小上限
 ```
 
 后端（`backend/`）改完确认能导入，再跑测试；测试目前只覆盖载荷简化和 `main.py` 的装配，十秒左右：

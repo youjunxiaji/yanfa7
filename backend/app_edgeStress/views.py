@@ -18,6 +18,7 @@ from app_edgeStress.module.cache import DatasetCache
 from app_edgeStress.module.processor import EdgeStressLoader, EdgeStressProcessor
 from app_edgeStress.module.reporter import EdgeStressReporter
 from app_edgeStress.serializers import ParseRequestSerializer, UpdateStressPointRequest, RegeneratePolarRequest
+from common.constants import LogSource
 
 
 def _get_group_name(filename: str) -> str:
@@ -39,14 +40,19 @@ async def ws_parse(ws: WebSocket):
         files = [Path(p) for p in req.filePaths]
         total_files = len(files)
 
+        # 推给前端的错误同一句话记进日志，「日志」页看得到
+        request_log = logger.bind(source=LogSource.REQUEST)
+
         missing = [str(f) for f in files if not f.exists()]
         if missing:
+            request_log.warning(f"{ws.url.path}：文件不存在: {', '.join(missing)}")
             await ws.send_json({"type": "error", "message": f"文件不存在: {', '.join(missing)}"})
             await ws.close()
             return
 
         base_output = Path(req.outputDir)
         if not base_output.exists():
+            request_log.warning(f"{ws.url.path}：输出目录不存在: {req.outputDir}")
             await ws.send_json({"type": "error", "message": f"输出目录不存在: {req.outputDir}"})
             await ws.close()
             return
@@ -60,6 +66,7 @@ async def ws_parse(ws: WebSocket):
                 with open(summary_path, "a"):
                     pass
             except (PermissionError, OSError):
+                request_log.warning(f"{ws.url.path}：最大应力汇总.xlsx 正被其他程序占用")
                 await ws.send_json({
                     "type": "error",
                     "message": "最大应力汇总.xlsx 正被其他程序占用，请关闭后重试",
@@ -158,11 +165,11 @@ async def ws_parse(ws: WebSocket):
     except WebSocketDisconnect:
         logger.info("WebSocket 客户端断开")
     except Exception as e:
+        logger.exception("边缘应力解析出错")
         try:
             await ws.send_json({"type": "error", "message": str(e)})
         except Exception:
             pass
-        logger.error(f"WebSocket 解析异常: {e}")
     finally:
         try:
             await ws.close()

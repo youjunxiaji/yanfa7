@@ -11,9 +11,11 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import { revealItemInDir } from '@tauri-apps/plugin-opener'
 import { platform } from '@tauri-apps/plugin-os'
 import { load, type Store } from '@tauri-apps/plugin-store'
 import { startDrag as tauriStartDrag } from '@crabnebula/tauri-plugin-drag'
+import { logError } from '@renderer/api/logs'
 
 type AppearanceMode = 'light' | 'dark' | 'system'
 
@@ -172,7 +174,7 @@ const electronAPIShim = {
             await win.maximize()
             await win.setFocus()
         })
-        win.once('tauri://error', (e) => console.error('[preview] create error', e))
+        win.once('tauri://error', (e) => logError('[preview] 预览窗口没能打开', e))
     },
 
     onConfirmQuit: (callback: () => void) => {
@@ -217,12 +219,20 @@ const electronAPIShim = {
         }
     },
 
+    // 在资源管理器里打开日志目录，选中这次运行的日志（外壳按启动时间命名，见 src-tauri/src/backend.rs）；
+    // 开发版不拉起后端，没有日志文件
+    openLogDir: async (): Promise<void> => {
+        const path = await invoke<string | null>('backend_log_path')
+        if (!path) throw new Error('这次运行没有日志文件')
+        await revealItemInDir(path)
+    },
+
     startDrag: (filePath: string): void => {
         // Native drag-out (e.g. into Word): the webview's own <img> drag only carries
         // an asset:// URL that other apps cannot open.
         makeDragIcon(filePath)
             .then((icon) => tauriStartDrag({ item: [filePath], icon }))
-            .catch((e) => console.error('[startDrag]', e))
+            .catch((e) => logError('[startDrag] 图片没能拖出去', e))
     }
 }
 
@@ -270,7 +280,7 @@ export async function initTauriBridge(): Promise<void> {
         const source = ((await store.get<string>('appearance')) ?? 'light') as AppearanceMode
         await applyTheme(source)
     } catch (e) {
-        console.error('[tauri-bridge] theme init failed', e)
+        logError('[tauri-bridge] 外观设置没能应用', e)
     }
 
     const w = window as unknown as Record<string, unknown>

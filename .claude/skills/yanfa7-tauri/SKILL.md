@@ -26,6 +26,7 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 | `onConfirmQuit` / `confirmQuit` | `getCurrentWindow().onCloseRequested` / `destroy()` |
 | `theme.set` / `theme.get` | plugin-store + `setTheme` + `.dark` class |
 | `account.load` / `account.save` | plugin-store 的 `account.json`（见主题与设置） |
+| `openLogDir` | `invoke('backend_log_path')` 拿这次运行的日志，再用 `@tauri-apps/plugin-opener` 的 `revealItemInDir` 选中它 |
 | `startDrag` | `@crabnebula/tauri-plugin-drag` |
 
 ## 新增原生能力
@@ -38,8 +39,9 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 4. 权限加在 `src-tauri/capabilities/default.json`（作用于 `windows: ["main", "preview"]`），不是 `tauri.conf.json`。
 5. 在 `src/preload/index.d.ts` 的 `CustomElectronAPI` 补签名。
 
-现有唯一的 command 是 `scan_dir(root_dir, extensions)` → `{ filePaths, fileSizes }`：递归扫描，扩展名不分大小写，
-默认 `["htm"]`，结果按路径排序。
+现有两个 command：
+- `scan_dir(root_dir, extensions)` → `{ filePaths, fileSizes }`：递归扫描，扩展名不分大小写，默认 `["htm"]`，结果按路径排序。
+- `backend_log_path()` → 这次运行的后端日志路径，开发版不拉起后端，是 `null`（见后端进程）。
 
 业务数据（解析、计算、出图）不走 Tauri IPC，走后端 HTTP / WS，见项目规则。
 
@@ -70,7 +72,9 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
   环境变量 `PYTHONIOENCODING=utf-8`、`PYTHONUNBUFFERED=1`，日志统一 UTF-8、被结束前的输出也能落盘。
 - 正常退出时结束的是 Nuitka onefile 的引导进程，真正跑 Python 的子进程每秒查一次父进程，发现没了自己退出。
 - sidecar 的 stdout / stderr 要一直读走：shell 插件的事件通道容量是 1，没人读，后端就卡在写输出上。现在写进
-  `<应用日志目录>/backend.log`（Windows 上是 `%LOCALAPPDATA%\com.rd7.yanfa7\logs\`），每次启动覆盖。
+  `<应用日志目录>`（Windows 上是 `%LOCALAPPDATA%\com.rd7.yanfa7\logs\`）：每次运行一个文件，按启动时间命名，启动时删掉
+  7 天前的，单个文件写到 10 MB 停写。路径存在 `Backend` 状态里，command `backend_log_path` 给「日志」页的「打开日志目录」。
+  应用里的「日志」页见 yanfa7-ref 的日志参考。
 - externalBin 只写在 `tauri.windows.conf.json`：Tauri 的构建脚本不分 dev / build 都校验它指的文件存在，写进
   `tauri.conf.json` 的话 macOS 上连 `tauri:dev` 都起不来。Tauri 按 RFC 7396 合并平台配置，数组整体替换，
   以后加第二个 sidecar 要把整个数组重写。不要改用 `tauri build --config` 绕：直接敲 `tauri build` 就会静默打出不带后端的包。
@@ -98,7 +102,7 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 | `store` | 设置持久化 |
 | `os` | 读平台 |
 | `drag`（`@crabnebula/tauri-plugin-drag`） | 把图表 PNG 拖到 Word 等外部应用（webview 里的 `<img>` 自己拖不出去，只带 asset 链接）。插件按原尺寸显示跟手的预览图，垫片的 `makeDragIcon` 先用 canvas 缩成 200 宽（asset 协议带 `Access-Control-Allow-Origin`，`crossOrigin` 加载不污染画布），缩不了用原图 |
-| `opener` | 已注册，前端还没有调用点 |
+| `opener` | 「日志」页的「打开日志目录」（`revealItemInDir`）；`opener:default` 里就有这个权限，路径不受 scope 限制，但文件要存在 |
 | `shell` | 拉起后端 sidecar，只在 Rust 侧用（见后端进程） |
 
 ## 开发端口与 CSP
@@ -115,7 +119,7 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 - `npm run dev:renderer`：只起渲染层 Vite，不启动 Tauri 外壳，原生能力不可用。
 - `npm run tauri:build`：打包，要先有 `backend/build_backend.py` 打好的 sidecar；`beforeBuildCommand` 跑 `build:renderer`，
   打完由 `scripts/collect-output.mjs` 把安装包收到仓库根目录 `output/`，见发版 Skill。
-- 只改了 Rust 时可以先在 `src-tauri/` 里 `cargo check`。
+- 只改了 Rust 时可以先在 `src-tauri/` 里 `cargo check`。`backend.rs` 的日志文件命名、保留、大小上限有单元测试，`cargo test --lib`。
 - 应用图标源在 `src-tauri/icons/`（`bundle.icon` 引用）。开发时的 Dock 图标在编译期用 `include_bytes!` 嵌进 `icon.icns`，
   改图标后要 `cargo clean -p yanfa7` 再 `tauri:dev` 才会更新。
 

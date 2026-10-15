@@ -38,6 +38,9 @@ interface CustomElectronAPI {
         save: (account: unknown) => Promise<void>
     }
 
+    // 在资源管理器里打开日志目录，选中这次运行的日志；开发版没有日志文件
+    openLogDir: () => Promise<void>
+
     startDrag: (filePath: string) => void
 }
 

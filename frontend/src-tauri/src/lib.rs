@@ -45,6 +45,15 @@ fn scan_dir(root_dir: String, extensions: Option<Vec<String>>) -> ScanResult {
     }
 }
 
+/// This run's backend log, for the log page's "open log folder". `None` in debug builds, which
+/// do not start the backend.
+#[tauri::command]
+fn backend_log_path(backend: tauri::State<'_, backend::Backend>) -> Option<String> {
+    backend
+        .log_path()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -56,7 +65,7 @@ pub fn run() {
         .plugin(tauri_plugin_drag::init())
         .plugin(tauri_plugin_shell::init())
         .manage(backend::Backend::default())
-        .invoke_handler(tauri::generate_handler![scan_dir])
+        .invoke_handler(tauri::generate_handler![scan_dir, backend_log_path])
         .setup(|app| {
             backend::spawn(app.handle());
             Ok(())

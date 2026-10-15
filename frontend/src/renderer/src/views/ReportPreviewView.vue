@@ -252,6 +252,7 @@ import { convertFileSrc } from '@tauri-apps/api/core'
 import { usePlotlyDrag, type DragEndInfo } from '@renderer/composables/usePlotlyDrag'
 import { useDarkClass } from '@renderer/composables/useDarkClass'
 import { API_BASE } from '@renderer/api/backend'
+import { logError } from '@renderer/api/logs'
 import EmptyState from '@renderer/components/EmptyState.vue'
 import NumberInput from '@renderer/components/NumberInput.vue'
 
@@ -482,13 +483,13 @@ const handleDragEnd = async (info: DragEndInfo): Promise<void> => {
         })
         if (!resp.ok) {
             const body = await resp.json().catch(() => ({}))
-            console.error('[DragEnd] backend error:', body.detail || resp.statusText)
+            logError('[DragEnd] 应力点没能同步', body.detail || resp.statusText)
             message.error(`同步失败：${body.detail || '更新应力点失败'}`, { duration: 5000 })
             return
         }
         imgCacheBuster.value = Date.now()
     } catch (e) {
-        console.error('[DragEnd] network error:', e)
+        logError('[DragEnd] 连不上后端', e)
         message.error('同步失败：无法连接后端服务', { duration: 5000 })
     }
 }

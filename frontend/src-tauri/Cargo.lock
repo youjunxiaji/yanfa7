@@ -5416,6 +5416,7 @@ dependencies = [
 name = "yanfa7"
 version = "2.2.1"
 dependencies = [
+ "chrono",
  "serde",
  "serde_json",
  "tauri",

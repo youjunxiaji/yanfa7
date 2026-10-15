@@ -34,7 +34,7 @@ from app_simpleLoad.serializers import (
     ReduceRequest,
 )
 from common import tmb_web
-from common.constants import LoadColumn
+from common.constants import LoadColumn, LogSource
 
 #: 预览读第一个 txt 的前几行，够看清列名、END_OF_HEADER 和头几行数据
 PREVIEW_LINES = 20
@@ -274,7 +274,8 @@ def describe_validation_error(error: ValidationError) -> str:
 
 
 async def send_error(ws: WebSocket, message: str):
-    """推一条 error；连接已经断了就算了，前端会按连接关闭处理。"""
+    """推一条 error，同一句话记进日志；连接已经断了就算了，前端会按连接关闭处理。"""
+    logger.bind(source=LogSource.REQUEST).warning(f"{ws.url.path}：{message}")
     try:
         await ws.send_json(ErrorMessage(message=message).model_dump(mode="json"))
     except Exception as e:

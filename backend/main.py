@@ -11,14 +11,21 @@ import threading
 
 from app_account.urls import router as account_router
 from app_edgeStress.urls import router as edge_stress_router
+from app_log.module.buffer import LogBuffer
+from app_log.urls import router as log_router
+from app_log.views import log_http_error, log_validation_error
 from app_pmax.urls import router as pmax_router
 from app_simpleLoad.urls import router as simple_load_router
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 import uvicorn
 import matplotlib
 matplotlib.use("Agg")
 
+# 先接上日志：后面 uvicorn 的输出、各模块写的日志都要进「日志」页
+LogBuffer.install()
 
 app = FastAPI(title="Edge Stress API")
 
@@ -29,8 +36,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 请求出错时把原因记进日志，响应照 FastAPI 默认的
+app.exception_handler(RequestValidationError)(log_validation_error)
+app.exception_handler(StarletteHTTPException)(log_http_error)
+
 app.include_router(account_router)
 app.include_router(edge_stress_router)
+app.include_router(log_router)
 app.include_router(pmax_router)
 app.include_router(simple_load_router)
 
@@ -55,11 +67,12 @@ def exit_with_parent() -> None:
 if __name__ == "__main__":
     # Nuitka 编译后的模块里有 __compiled__；它不设 sys.frozen，那是 PyInstaller 的。
     # 前端按同样的规则选端口，见 frontend/src/renderer/src/api/backend.ts。
+    # log_config=None：uvicorn 不装自己的 handler，输出全走 loguru（见 app_log/module/buffer.py）。
     if "__compiled__" in globals():
         # 打包后由 Tauri 外壳带 --sidecar 拉起，见 frontend/src-tauri/src/backend.rs。
         # 只听本机：不弹 Windows 防火墙提示，局域网里也连不进来。
         if "--sidecar" in sys.argv[1:]:
             exit_with_parent()
-        uvicorn.run(app, host="127.0.0.1", port=8000)
+        uvicorn.run(app, host="127.0.0.1", port=8000, log_config=None)
     else:
-        uvicorn.run("main:app", host="0.0.0.0", port=8006, reload=True)
+        uvicorn.run("main:app", host="0.0.0.0", port=8006, reload=True, log_config=None)

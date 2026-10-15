@@ -6,6 +6,7 @@ import {
     refreshTokens,
     type AccountUser
 } from '@renderer/api/account'
+import { logError, logWarning } from '@renderer/api/logs'
 
 // 存在本机的登录状态（Tauri store 的 account.json，经兼容垫片读写）
 interface Session {
@@ -77,7 +78,7 @@ export const useAccountStore = defineStore('account', {
                     this.setSession(saved.session)
                 }
             } catch (err) {
-                console.error('[account] 读取登录状态失败', err)
+                logError('[account] 读取登录状态失败', err)
             } finally {
                 this.ready = true
             }
@@ -87,7 +88,7 @@ export const useAccountStore = defineStore('account', {
                 await this.persist()
             } catch (err) {
                 // 连不上服务器时先留着登录状态，登录过期的话 withAccess 里已经退出了
-                console.warn('[account] 确认登录状态失败', err)
+                logWarning('[account] 确认登录状态失败', err)
             }
         },
 
@@ -119,7 +120,7 @@ export const useAccountStore = defineStore('account', {
             try {
                 await window.electronAPI.account.save({ username: this.lastUsername, session })
             } catch (err) {
-                console.error('[account] 保存登录状态失败', err)
+                logError('[account] 保存登录状态失败', err)
             }
         },
 
