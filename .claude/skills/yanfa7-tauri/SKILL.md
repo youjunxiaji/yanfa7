@@ -21,7 +21,7 @@ description: "修改研发七部工具包（yanfa7）的 Tauri 外壳或原生�
 | `window.electronAPI` | Tauri 实现 |
 |---|---|
 | `openFileDialog` / `openDir` / `openDirectoryDialog` | `@tauri-apps/plugin-dialog` 的 `open()` |
-| `saveFileDialog` | `@tauri-apps/plugin-dialog` 的 `save()`：只选路径，文件由后端写（齿轮载荷保存为 Excel） |
+| `saveFileDialog` | `@tauri-apps/plugin-dialog` 的 `save()`：只选路径，文件由后端写（齿轮载荷导出 Excel） |
 | `scanDir` | `invoke('scan_dir')`（Rust） |
 | `openPreviewWindow` | `WebviewWindow`（见多窗口） |
 | `onConfirmQuit` / `confirmQuit` | `getCurrentWindow().onCloseRequested` / `destroy()` |

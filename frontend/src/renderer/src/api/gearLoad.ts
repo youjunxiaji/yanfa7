@@ -3,7 +3,7 @@ import type { GearStage } from '@renderer/constants/gearLoad'
 
 // 齿轮载荷，后端 backend/app_gearLoad。输入表、多工况、计算结果都沿用网页版的写法，历史记录经后端转发 TMB 服务器
 
-// 输入表的一行：英文参数名和 4 级的值（输入框里的字符串，空串是没填）
+// 输入表的一行：英文参数名和各级的值（stageI、stageII……，字符串，空串是没填），级数不限
 export type InputRow = { parameter: string; editable: boolean } & Record<GearStage, string>
 
 // 多工况的一行：扭矩 T (kNm)、转速 n (rpm)
@@ -24,7 +24,7 @@ export interface StageResult {
     equivalent_diameter: StageValue[]
 }
 
-// 有几列 16 行都填了，就只有 Stage I 起的前几级
+// 有几列 16 行都填了，就只有 Stage I 起的前几级；键同输入表
 export type CalculateResult = Partial<Record<GearStage, StageResult>>
 
 export interface ExportParams {

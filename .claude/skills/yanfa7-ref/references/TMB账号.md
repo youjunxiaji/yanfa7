@@ -5,7 +5,7 @@
 网页版（tmb_web_v1）的载荷简化把每个项目的配置存在 TMB 服务器的数据库里。应用登录 TMB 账号后，
 载荷简化页的「保存配置」把现在的配置存成网页版的一条记录，「历史记录」按项目名查这些配置、点一条回填到参数栏；
 网页版和这边存的是同一种记录，两边都查得到。网页版存记录的规则不改，这边照着用。
-齿轮载荷页是从网页版照搬的，Ctrl+S、Ctrl+F 同样存、查网页版的齿轮计算历史，报文就是网页版发的那样。
+齿轮载荷页的「保存配置」「历史记录」同样存、查网页版的齿轮计算历史，报文就是网页版发的那样；网页版只认前 4 级。
 登录不是必需的：连不上内网时工具照常用，只有查、存历史记录要登录。
 
 ## 数据流
@@ -63,8 +63,9 @@
   确认框写明要存成的项目名和同名会被覆盖，确认后把 `simpleLoad` store 的 `historyConfig` 发给后端。
 - 「历史记录」打开 `SimpleLoadHistory.vue`：没登录显示登录入口，登录后边打边查，点一行调
   `simpleLoad` store 的 `applyHistory`。
-- 齿轮载荷页（`GearLoadView.vue`）：Ctrl+S 存，没填全三项基础设置先提示，没登录先打开登录弹窗、登录完接着存；
-  Ctrl+F 打开 `GearLoadHistory.vue`：没登录显示登录入口，登录后边打边查，点一行由页面取这一条回填。
+- 齿轮载荷页（`GearLoadView.vue`）标题栏右侧「保存配置」（Ctrl+S）：没填全三项先提示，没登录先打开登录弹窗、
+  登录完接着弹确认；确认框写明按三项存、同样三项会被覆盖。「历史记录」（Ctrl+F）打开 `GearLoadHistory.vue`：
+  没登录显示登录入口，登录后边打边查，点一行由页面取这一条回填。
 - 测试：`app_account/tests/test_views.py`、`app_simpleLoad/tests/test_history.py`（查和存，含存了再查回来一致）、
   `app_gearLoad/tests/test_history.py`，假 TMB 服务器 `tmb_server` 在 `backend/conftest.py`。
 

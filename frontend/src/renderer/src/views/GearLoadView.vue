@@ -1,590 +1,316 @@
 <template>
     <div class="page">
-        <PageHeader />
-        <div class="gear-scroll">
-            <section class="gear-card">
-                <div class="card-head">
-                    <span class="card-title">基础设置</span>
-                    <span class="toolbar-spacer" />
-                    <span class="shortcut">
-                        <Save :size="13" />
-                        <kbd>{{ modKey }}</kbd>
-                        <kbd>S</kbd>
-                        存储
-                    </span>
-                    <span class="shortcut">
-                        <Search :size="13" />
-                        <kbd>{{ modKey }}</kbd>
-                        <kbd>F</kbd>
-                        查找
-                    </span>
-                </div>
-                <div class="basic-form">
-                    <label class="basic-field">
-                        <span class="field-label">Gear unit:</span>
-                        <n-input v-model:value="formData.gearUnit" placeholder="" />
-                    </label>
-                    <label class="basic-field">
-                        <span class="field-label">Wind turbine:</span>
-                        <n-input v-model:value="formData.windTurbine" placeholder="" />
-                    </label>
-                    <label class="basic-field">
-                        <span class="field-label">Load spectrum:</span>
-                        <n-input v-model:value="formData.loadSpectrum" placeholder="" />
-                    </label>
-                </div>
-            </section>
-
-            <section class="gear-card">
-                <div class="card-head">
-                    <span class="card-title">Input data</span>
-                    <span class="toolbar-spacer" />
-                    <n-button size="small" :loading="exporting" @click="saveExcel">
-                        <template #icon><FileSpreadsheet :size="15" /></template>
-                        保存为Excel
+        <PageHeader>
+            <n-popconfirm
+                :show="saveConfirmVisible"
+                :show-icon="false"
+                positive-text="保存"
+                negative-text="取消"
+                :positive-button-props="{ loading: saving }"
+                @update:show="handleSaveConfirmShow"
+                @positive-click="saveConfig"
+            >
+                <template #trigger>
+                    <n-button size="small" :loading="saving">
+                        <template #icon><Save :size="15" /></template>
+                        保存配置
                     </n-button>
+                </template>
+                <div class="save-confirm">
+                    <div>存为历史记录「{{ store.historyLabel }}」？</div>
+                    <div class="save-confirm-note">
+                        按 Gear unit、Wind turbine、Load spectrum 三项存，你存过同样三项的会被覆盖
+                    </div>
+                </div>
+            </n-popconfirm>
+            <n-button size="small" @click="historyVisible = true">
+                <template #icon><History :size="15" /></template>
+                历史记录
+            </n-button>
+        </PageHeader>
+        <div class="tool-body">
+            <section class="param-pane">
+                <div class="param-scroll">
+                    <div class="param-section">
+                        <div class="section-head">
+                            <span class="section-title">项目</span>
+                            <span class="section-meta">历史记录按这三项存</span>
+                        </div>
+                        <div class="field wide-field">
+                            <span class="field-label">Gear unit</span>
+                            <n-input v-model:value="store.form.gearUnit" placeholder="" />
+                        </div>
+                        <div class="field wide-field">
+                            <span class="field-label">Wind turbine</span>
+                            <n-input v-model:value="store.form.windTurbine" placeholder="" />
+                        </div>
+                        <div class="field wide-field">
+                            <span class="field-label">Load spectrum</span>
+                            <n-input v-model:value="store.form.loadSpectrum" placeholder="" />
+                        </div>
+                    </div>
+
+                    <div class="param-section">
+                        <div class="section-head">
+                            <span class="section-title">工况</span>
+                        </div>
+                        <n-button block @click="pasteVisible = true">
+                            <template #icon><ClipboardPaste :size="16" /></template>
+                            {{ store.conditions.length ? '重新粘贴工况' : '粘贴工况' }}
+                        </n-button>
+                        <div class="section-note num">{{ conditionNote }}</div>
+                        <div class="field wide-field">
+                            <span class="field-label">{{ InputParam.POWER }}</span>
+                            <n-input-number
+                                :value="power"
+                                :show-button="false"
+                                placeholder=""
+                                @update:value="setPower"
+                            />
+                            <div class="field-hint">
+                                不参与计算，原样传给后面各级；和网页版一样，不填不算
+                            </div>
+                        </div>
+                    </div>
+
+                    <GearLoadStageEditor />
+                </div>
+
+                <div class="param-footer">
                     <n-button
-                        size="small"
                         type="primary"
-                        :loading="calculating"
-                        @click="sendDataToBackend"
+                        size="large"
+                        block
+                        :disabled="!!exportHint"
+                        :loading="store.exporting"
+                        @click="exportExcel"
                     >
-                        <template #icon><Play :size="15" /></template>
-                        计算结果
+                        <template #icon><FileSpreadsheet :size="16" /></template>
+                        {{ store.exporting ? '导出中…' : '导出 Excel' }}
                     </n-button>
-                </div>
-                <div class="table-scroll">
-                    <table class="input-table">
-                        <thead>
-                            <tr>
-                                <th class="col-param" />
-                                <th v-for="stage in GEAR_STAGES" :key="stage">
-                                    {{ STAGE_TITLES[stage] }}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="(row, rowIndex) in inputData" :key="rowIndex">
-                                <td class="col-param">
-                                    <button
-                                        v-if="isConditionParam(row)"
-                                        class="param-link"
-                                        @click="showTable"
-                                    >
-                                        {{ row.parameter }}
-                                    </button>
-                                    <template v-else>{{ row.parameter }}</template>
-                                </td>
-                                <td v-for="stage in GEAR_STAGES" :key="stage">
-                                    <n-select
-                                        v-if="row.parameter === InputParam.ARRANGEMENT"
-                                        :value="row[stage]"
-                                        :options="ARRANGEMENT_OPTIONS"
-                                        size="small"
-                                        @update:value="
-                                            (value: string) => changeArrangement(row, stage, value)
-                                        "
-                                    />
-                                    <n-select
-                                        v-else-if="row.parameter === InputParam.HELIX_HAND"
-                                        :value="row[stage]"
-                                        :options="HAND_OPTIONS"
-                                        size="small"
-                                        @update:value="
-                                            (value: string) => changeHand(row, stage, value)
-                                        "
-                                    />
-                                    <template v-else-if="stage === 'stageI'">
-                                        <n-select
-                                            v-if="row.parameter === InputParam.TORQUE"
-                                            :value="conditionValue('torque', row.stageI)"
-                                            :options="torqueOptions"
-                                            size="small"
-                                            @update:value="selectChanged"
-                                        />
-                                        <n-select
-                                            v-else-if="row.parameter === InputParam.SPEED"
-                                            :value="conditionValue('rpm', row.stageI)"
-                                            :options="rpmOptions"
-                                            size="small"
-                                            @update:value="selectChanged"
-                                        />
-                                        <n-input
-                                            v-else-if="
-                                                row.parameter === InputParam.POWER || row.editable
-                                            "
-                                            v-model:value="row.stageI"
-                                            size="small"
-                                            placeholder=""
-                                        />
-                                    </template>
-                                    <n-input
-                                        v-else-if="isChained(row)"
-                                        :value="row[stage]"
-                                        size="small"
-                                        placeholder=""
-                                        readonly
-                                    />
-                                    <n-input
-                                        v-else-if="row.editable"
-                                        v-model:value="row[stage]"
-                                        size="small"
-                                        placeholder=""
-                                    />
-                                    <template v-else>{{ row[stage] }}</template>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <p v-if="exportHint" class="action-hint">
+                        <Info :size="13" />
+                        {{ exportHint }}
+                    </p>
                 </div>
             </section>
 
-            <section class="gear-card">
-                <div class="card-head">
-                    <span class="card-title">Gear loads</span>
-                </div>
-                <n-data-table
-                    size="small"
-                    :bordered="false"
-                    :columns="gearLoadColumns"
-                    :data="gearLoadRows"
-                    :row-key="rowKey"
-                    :scroll-x="TABLE_WIDTH"
-                />
-            </section>
-
-            <section class="gear-card">
-                <div class="card-head">
-                    <span class="card-title">Speed of components</span>
-                </div>
-                <n-data-table
-                    size="small"
-                    :bordered="false"
-                    :columns="speedColumns"
-                    :data="speedRows"
-                    :row-key="rowKey"
-                    :scroll-x="TABLE_WIDTH"
-                />
-            </section>
-
-            <section class="gear-card" :class="{ 'is-collapsed': !show }">
-                <div class="card-head">
-                    <span class="card-title">
-                        Equivalent diameter - Input data for modelling planet wheel and pinions
+            <section class="result-pane">
+                <div class="result-toolbar">
+                    <span class="toolbar-title">计算结果</span>
+                    <span v-if="store.computedCount" class="count-pill">
+                        {{ store.computedCount }} / {{ store.stageCount }} 级
                     </span>
                     <span class="toolbar-spacer" />
-                    <button class="icon-btn" :class="{ 'is-open': show }" @click="show = !show">
-                        <ChevronRight :size="16" />
-                    </button>
-                </div>
-                <n-collapse-transition :show="show">
-                    <n-data-table
+                    <span
+                        v-if="store.pendingNote"
+                        class="toolbar-note is-warning"
+                        :title="store.pendingNote"
+                    >
+                        <TriangleAlert :size="13" />
+                        {{ store.pendingNote }}
+                    </span>
+                    <n-select
+                        v-if="store.conditions.length"
+                        :value="store.selected"
+                        :options="conditionOptions"
                         size="small"
-                        :bordered="false"
-                        :columns="diameterColumns"
-                        :data="diameterRows"
-                        :row-key="rowKey"
-                        :scroll-x="TABLE_WIDTH"
+                        class="condition-select"
+                        @update:value="(value: number) => store.selectCondition(value)"
                     />
-                </n-collapse-transition>
+                </div>
+                <div class="result-body">
+                    <EmptyState
+                        v-if="!store.conditions.length"
+                        :icon="ClipboardPaste"
+                        title="暂无工况"
+                        desc="从 Excel 复制扭矩、转速两列，粘贴进来后，改哪个参数结果都跟着重算"
+                        @click="pasteVisible = true"
+                    >
+                        <n-button @click="pasteVisible = true">
+                            <template #icon><ClipboardPaste :size="16" /></template>
+                            粘贴工况
+                        </n-button>
+                    </EmptyState>
+                    <EmptyState
+                        v-else-if="store.missing(0).length"
+                        :icon="Cog"
+                        title="Stage I 还有参数没填"
+                        :desc="missingNote"
+                        :clickable="false"
+                    />
+                    <EmptyState
+                        v-else-if="store.error"
+                        :icon="TriangleAlert"
+                        title="没能算出来"
+                        :desc="store.error"
+                        :clickable="false"
+                    />
+                    <GearLoadResultTable v-else-if="store.computedCount" />
+                    <EmptyState
+                        v-else-if="store.calculating || waiting"
+                        busy
+                        title="正在计算…"
+                        desc="从 Stage I 起逐级算到最后一级"
+                    />
+                    <EmptyState
+                        v-else
+                        :icon="Cog"
+                        title="没算出结果"
+                        desc="检查选中的这组工况：扭矩、转速都要有"
+                        :clickable="false"
+                    />
+                </div>
             </section>
         </div>
 
-        <n-modal
-            v-model:show="dialogVisible"
-            preset="card"
-            title="编辑多内容"
-            :style="{ width: '560px' }"
-            :bordered="false"
-            :mask-closable="false"
-        >
-            <div class="condition-head">
-                <span>扭矩T(kNm)</span>
-                <span>转速n(RPM)</span>
-            </div>
-            <div class="condition-list">
-                <div v-for="(row, index) in dialogTableData" :key="index" class="condition-row">
-                    <n-input
-                        :ref="(el) => setInputRef(`torque_${index}`, el)"
-                        v-model:value="row.torque"
-                        size="small"
-                        placeholder=""
-                        :input-props="{ onPaste: (event) => handlePaste(event, 'torque') }"
-                        @keydown.enter.prevent="handleEnterKey(index, 'torque')"
-                    />
-                    <n-input
-                        :ref="(el) => setInputRef(`rpm_${index}`, el)"
-                        v-model:value="row.rpm"
-                        size="small"
-                        placeholder=""
-                        :input-props="{ onPaste: (event) => handlePaste(event, 'rpm') }"
-                        @keydown.enter.prevent="handleEnterKey(index, 'rpm')"
-                    />
-                </div>
-            </div>
-            <p class="condition-note">
-                从 Excel
-                复制一列，点进扭矩或转速的任一格粘贴，整列从第一行填起；回车跳到下一行，最后一行回车加一行
-            </p>
-            <template #footer>
-                <div class="modal-actions">
-                    <n-button @click="resetDialogData">重置</n-button>
-                    <n-button type="primary" @click="checkDialogData">确定</n-button>
-                </div>
-            </template>
-        </n-modal>
-
+        <GearLoadConditionDialog v-model:show="pasteVisible" />
         <GearLoadHistory v-model:show="historyVisible" @select="handleHistorySelect" />
     </div>
 </template>
 
 <script setup lang="ts">
-// 齿轮载荷：照搬网页版（tmb_web_v1 的 gearLoadsView.vue）的页面和交互，输入表、多工况、计算、
-// 保存为 Excel、Ctrl+S 存 / Ctrl+F 查历史记录都和网页版一样；网页版下载的 Excel 这边改成选位置保存
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+// 齿轮载荷：左边填项目、工况和各级参数，右边是选中那组工况的各级结果，参数一改就重算；
+// 主按钮把全部工况导出成 Excel。参数名、结果的名称照网页版的英文原名
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
     NButton,
-    NCollapseTransition,
-    NDataTable,
     NInput,
-    NModal,
+    NInputNumber,
+    NPopconfirm,
     NSelect,
     useMessage,
-    type DataTableColumns,
-    type InputInst,
     type SelectOption
 } from 'naive-ui'
-import { ChevronRight, FileSpreadsheet, Play, Save, Search } from '@lucide/vue'
 import {
-    calculateGearLoads,
-    exportGearLoads,
-    fetchHistory,
-    saveHistory,
-    type ConditionRow,
-    type HistoryForm,
-    type HistoryItem,
-    type InputRow,
-    type StageResult,
-    type StageValue
-} from '@renderer/api/gearLoad'
-import {
-    CHAINED_PARAMS,
-    DIAMETER_ROWS,
-    GEAR_LOAD_ROWS,
-    GEAR_STAGES,
-    GearArrangement,
-    HelixHand,
-    InputParam,
-    NEXT_STAGE,
-    SPEED_ROWS,
-    STAGE_TITLES,
-    type GearStage
-} from '@renderer/constants/gearLoad'
+    ClipboardPaste,
+    Cog,
+    FileSpreadsheet,
+    History,
+    Info,
+    Save,
+    TriangleAlert
+} from '@lucide/vue'
+import { fetchHistory, saveHistory, type HistoryItem } from '@renderer/api/gearLoad'
+import { InputParam } from '@renderer/constants/gearLoad'
 import { useAccountStore } from '@renderer/stores/account'
+import { useGearLoadStore } from '@renderer/stores/gearLoad'
 import PageHeader from '@renderer/components/PageHeader.vue'
+import EmptyState from '@renderer/components/EmptyState.vue'
+import GearLoadStageEditor from '@renderer/components/GearLoadStageEditor.vue'
+import GearLoadResultTable from '@renderer/components/GearLoadResultTable.vue'
+import GearLoadConditionDialog from '@renderer/components/GearLoadConditionDialog.vue'
 import GearLoadHistory from '@renderer/components/GearLoadHistory.vue'
 
-type ConditionField = keyof ConditionRow
-// 结果表的一行带上行号：按行号取后端结果里的那一格，也当表格的 row-key
-type GearLoadRow = (typeof GEAR_LOAD_ROWS)[number] & { index: number }
-type SymbolRow = (typeof SPEED_ROWS)[number] & { index: number }
+// 参数停手 300 毫秒后再算，连着改只算最后一次
+const CALC_DELAY_MS = 300
 
-const ARRANGEMENT_OPTIONS: SelectOption[] = Object.values(GearArrangement).map((value) => ({
-    label: value,
-    value
-}))
-const HAND_OPTIONS: SelectOption[] = Object.values(HelixHand).map((value) => ({
-    label: value,
-    value
-}))
+// Windows 文件名里不能有的字符
+const UNSAFE_FILENAME = /[\\/:*?"<>|]/g
 
-// 同网页版：Stage I、II 改布置，Stage I 改旋向，马上重算；其他级改了要点「计算结果」
-const RECALC_ON_ARRANGEMENT: GearStage[] = ['stageI', 'stageII']
-const RECALC_ON_HAND: GearStage[] = ['stageI']
-
-// 结果表撑开的宽度，窗口窄时表格自己横向滚动
-const TABLE_WIDTH = 820
-
-const gearLoadRows: GearLoadRow[] = GEAR_LOAD_ROWS.map((row, index) => ({ ...row, index }))
-const speedRows: SymbolRow[] = SPEED_ROWS.map((row, index) => ({ ...row, index }))
-const diameterRows: SymbolRow[] = DIAMETER_ROWS.map((row, index) => ({ ...row, index }))
-
-const rowKey = (row: { index: number }): number => row.index
-
-const message = useMessage()
+const store = useGearLoadStore()
 const account = useAccountStore()
-const modKey = window.electron.process.platform === 'darwin' ? '⌘' : 'Ctrl'
+const message = useMessage()
 
-// 同网页版：数值转成字符串，空串、没算的格子留空
-const display = (value: StageValue | undefined): string => value?.toString() || ''
+const pasteVisible = ref(false)
+const historyVisible = ref(false)
 
-// ========== 基础设置与输入表 ==========
-const formData = ref<HistoryForm>({ gearUnit: '', windTurbine: '', loadSpectrum: '' })
+// ========== 工况与功率 ==========
+const conditionNote = computed(() => {
+    const count = store.conditions.length
+    if (!count) return '从 Excel 复制扭矩、转速两列后粘贴'
+    const torques = store.conditions.map((item) => Number(item.torque))
+    return `${count} 组 · 扭矩 ${Math.min(...torques)} ～ ${Math.max(...torques)} kNm`
+})
 
-const defaultValue = (parameter: InputParam): string => {
-    if (parameter === InputParam.ARRANGEMENT) return GearArrangement.PLANETARY
-    if (parameter === InputParam.HELIX_HAND) return HelixHand.LEFT
-    return ''
-}
-
-// 输入表初始的样子同网页版：布置默认 Planetary、旋向默认 L，其余空着
-const createInputData = (): InputRow[] =>
-    Object.values(InputParam).map((parameter) => {
-        const value = defaultValue(parameter)
-        return {
-            parameter,
-            stageI: value,
-            stageII: value,
-            stageIII: value,
-            stageIIII: value,
-            // 布置和旋向是下拉框，其余是输入框
-            editable: parameter !== InputParam.ARRANGEMENT && parameter !== InputParam.HELIX_HAND
-        }
-    })
-
-const inputData = ref<InputRow[]>(createInputData())
-
-// 各级最近一次算出的结果；这次没算到的级留着上次的，同网页版
-const results = ref<Partial<Record<GearStage, StageResult>>>({})
-
-// 多工况点了「确定」后的扭矩、转速，Stage I 的扭矩、转速从这里选
-const selectedData = ref<ConditionRow[]>([])
-
-const findRow = (parameter: InputParam): InputRow | undefined =>
-    inputData.value.find((row) => row.parameter === parameter)
-
-const setStageI = (parameter: InputParam, value: string): void => {
-    const row = findRow(parameter)
-    if (row) row.stageI = value
-}
-
-const isConditionParam = (row: InputRow): boolean =>
-    row.parameter === InputParam.TORQUE || row.parameter === InputParam.SPEED
-
-// 二级以后的功率、扭矩、转速只读，由上一级的结果填
-const isChained = (row: InputRow): boolean =>
-    CHAINED_PARAMS.some((parameter) => parameter === row.parameter)
-
-// ========== 计算 ==========
-const calculating = ref(false)
-
-const sendDataToBackend = async (): Promise<void> => {
-    calculating.value = true
-    try {
-        const response = await calculateGearLoads(inputData.value)
-        for (const stage of GEAR_STAGES) {
-            const result = response[stage]
-            if (!result) continue
-            results.value[stage] = result
-            const next = NEXT_STAGE[stage]
-            if (!next) continue
-            for (const row of inputData.value) {
-                const index = CHAINED_PARAMS.findIndex((parameter) => parameter === row.parameter)
-                if (index >= 0) row[next] = display(result.input_data[index])
-            }
-        }
-    } catch (err) {
-        message.error(`计算失败：${(err as Error).message}`, { duration: 5000 })
-    } finally {
-        calculating.value = false
-    }
-}
-
-const changeArrangement = (row: InputRow, stage: GearStage, value: string): void => {
-    row[stage] = value
-    if (RECALC_ON_ARRANGEMENT.includes(stage)) sendDataToBackend()
-}
-
-const changeHand = (row: InputRow, stage: GearStage, value: string): void => {
-    row[stage] = value
-    if (RECALC_ON_HAND.includes(stage)) sendDataToBackend()
-}
-
-// ========== Stage I 的扭矩、转速：从多工况里选一组 ==========
-// 网页版的下拉框绑扭矩、转速的值；这里绑工况的序号（#0、#1……），值相同的工况也分得开
-const conditionOptions = (field: ConditionField): SelectOption[] =>
-    selectedData.value.map((item, index) => ({ label: item[field], value: `#${index}` }))
-
-const torqueOptions = computed(() => conditionOptions('torque'))
-const rpmOptions = computed(() => conditionOptions('rpm'))
-
-// 显示第一个值对得上的工况；对不上的值（如历史记录里多工况是空的）照样显示，n-select 没有这个选项时显示值本身
-const conditionValue = (field: ConditionField, value: string): string | null => {
-    const index = selectedData.value.findIndex((item) => item[field] === value)
-    return index >= 0 ? `#${index}` : value || null
-}
-
-// 选了哪一组，扭矩、转速都换成这一组的，再重算
-const selectChanged = (value: string): void => {
-    const item = selectedData.value[Number(value.slice(1))]
-    if (!item) return
-    setStageI(InputParam.TORQUE, item.torque)
-    setStageI(InputParam.SPEED, item.rpm)
-    sendDataToBackend()
-}
-
-// ========== 多工况弹窗 ==========
-const dialogVisible = ref(false)
-const dialogTableData = ref<ConditionRow[]>([{ torque: '', rpm: '' }])
-const inputRefs: Record<string, InputInst | null> = {}
-
-const setInputRef = (key: string, el: unknown): void => {
-    inputRefs[key] = el as InputInst | null
-}
-
-const showTable = (): void => {
-    dialogVisible.value = true
-}
-
-// 回车跳到下一行的同一列；已经是最后一行就加一行
-const handleEnterKey = (currentIndex: number, currentField: ConditionField): void => {
-    const nextKey = `${currentField}_${currentIndex + 1}`
-    if (currentIndex >= dialogTableData.value.length - 1) {
-        dialogTableData.value.push({ torque: '', rpm: '' })
-    }
-    nextTick(() => inputRefs[nextKey]?.focus())
-}
-
-// 同网页版：只收一列，从第一行起填，行数跟着粘贴的走；不带数字的行跳过
-const handlePaste = (event: ClipboardEvent, column: ConditionField): void => {
-    event.preventDefault()
-    const pastedText = event.clipboardData?.getData('text')
-    if (!pastedText) return
-    const rows = pastedText.split('\n').filter((row) => /\d/.test(row))
-    if (pastedText.split('\t').length !== 1) {
-        message.error('粘贴的数据格式不正确，请按列粘贴')
-        return
-    }
-    dialogTableData.value = rows.map((value, index) => ({
-        ...(dialogTableData.value[index] ?? { torque: '', rpm: '' }),
-        [column]: value.trim().replace(/\r$/, '')
+const conditionOptions = computed<SelectOption[]>(() =>
+    store.conditions.map((item, index) => ({
+        label: `#${index + 1} · T ${item.torque} kNm · n ${item.rpm} rpm`,
+        value: index
     }))
-}
-
-// 扭矩、转速都填了的行才算一组；Stage I 先取第一组
-const checkDialogData = (): void => {
-    const filteredData = dialogTableData.value.filter((row) => row.torque !== '' && row.rpm !== '')
-    selectedData.value = filteredData
-    const first = filteredData[0]
-    if (!first) {
-        message.error('数据格式不正确，请检查')
-        return
-    }
-    setStageI(InputParam.TORQUE, first.torque)
-    setStageI(InputParam.SPEED, first.rpm)
-    dialogVisible.value = false
-}
-
-const resetDialogData = (): void => {
-    dialogTableData.value = [{ torque: '', rpm: '' }]
-}
-
-// ========== 结果表 ==========
-const show = ref(false)
-
-const isPlanetaryStageI = computed(
-    () => findRow(InputParam.ARRANGEMENT)?.stageI === GearArrangement.PLANETARY
 )
 
-// 4 级的结果列：第 index 行取这一级结果里的第 index 格，没算的级留空
-const stageColumns = <T extends { index: number }>(
-    pick: (result: StageResult) => StageValue[]
-): DataTableColumns<T> =>
-    GEAR_STAGES.map((stage) => ({
-        key: stage,
-        title: STAGE_TITLES[stage],
-        render: (row: T): string => {
-            const result = results.value[stage]
-            return result ? display(pick(result)[row.index]) : ''
-        }
-    }))
+const power = computed(() => {
+    const text = store.cell(InputParam.POWER, 'stageI').trim()
+    const value = Number(text)
+    return text && Number.isFinite(value) ? value : null
+})
 
-// 同网页版：符号按 Stage I 是行星级还是平行级取
-const symbolColumn: DataTableColumns<SymbolRow>[number] = {
-    key: 'symbol',
-    title: '',
-    width: 100,
-    render: (row) => (isPlanetaryStageI.value ? row.symbol[0] : row.symbol[1]) ?? ''
+const setPower = (value: number | null): void => {
+    store.setCell(InputParam.POWER, 'stageI', value === null ? '' : String(value))
 }
 
-const gearLoadColumns: DataTableColumns<GearLoadRow> = [
-    { key: 'parameter', title: '', width: 260 },
-    { key: 'symbol', title: '', width: 100 },
-    { key: 'unit', title: '', width: 80 },
-    ...stageColumns<GearLoadRow>((result) => result.gear_loads)
-]
+// ========== 计算：参数一改就重算 ==========
+let calcTimer: ReturnType<typeof setTimeout> | undefined
+// 改了参数、还没开始算：结果区先显示「正在计算」
+const waiting = ref(false)
 
-const speedColumns: DataTableColumns<SymbolRow> = [
-    { key: 'parameter', title: '', width: 340 },
-    symbolColumn,
-    ...stageColumns<SymbolRow>((result) => result.speed_of_components)
-]
+watch(
+    () => store.calcKey,
+    () => {
+        clearTimeout(calcTimer)
+        waiting.value = true
+        calcTimer = setTimeout(() => {
+            waiting.value = false
+            store.calculate()
+        }, CALC_DELAY_MS)
+    },
+    { immediate: true }
+)
 
-const diameterColumns: DataTableColumns<SymbolRow> = [
-    { key: 'parameter', title: '', width: 340 },
-    symbolColumn,
-    ...stageColumns<SymbolRow>((result) => result.equivalent_diameter)
-]
+const missingNote = computed(() => {
+    const missing = store.missing(0)
+    const names = missing.slice(0, 3).join('、')
+    return missing.length > 3 ? `还差 ${names} 等 ${missing.length} 项` : `还差 ${names}`
+})
 
-// ========== 保存为 Excel ==========
-const exporting = ref(false)
+// ========== 导出 Excel ==========
+const exportHint = computed(() => {
+    if (store.calcHint) return store.calcHint
+    return store.error ? '计算出错了，原因见右边' : ''
+})
 
-// 网页版在浏览器里生成后下载；这边先选保存位置，后端按多工况逐个算、写文件
-const saveExcel = async (): Promise<void> => {
-    if (exporting.value) return
+const defaultFileName = (): string => {
+    const parts = [store.form.gearUnit, store.form.windTurbine, store.form.loadSpectrum]
+        .map((part) => part.trim().replace(UNSAFE_FILENAME, '_'))
+        .filter(Boolean)
+    return `${parts.length ? parts.join('-') : '齿轮载荷'}.xlsx`
+}
+
+const exportExcel = async (): Promise<void> => {
+    if (exportHint.value || store.exporting) return
     const { canceled, filePath } = await window.electronAPI.saveFileDialog({
-        title: '保存为 Excel',
-        defaultPath: '齿轮载荷.xlsx',
+        title: '导出 Excel',
+        defaultPath: defaultFileName(),
         filters: [{ name: 'Excel', extensions: ['xlsx'] }]
     })
     if (canceled || !filePath) return
     const path = /\.xlsx$/i.test(filePath) ? filePath : `${filePath}.xlsx`
-    exporting.value = true
     try {
-        await exportGearLoads({
-            inputData: inputData.value,
-            selectedData: selectedData.value,
-            path
-        })
-        message.success(`Excel 文件已保存：${path}`)
+        await store.exportExcel(path)
+        message.success(`已导出：${path}`)
     } catch (err) {
         message.error(`导出失败：${(err as Error).message}`, { duration: 5000 })
-    } finally {
-        exporting.value = false
     }
 }
 
-// ========== 历史记录：Ctrl+S 存、Ctrl+F 查 ==========
+// ========== 保存配置：存成网页版的一条历史记录 ==========
 const saving = ref(false)
-// 按 Ctrl+S 时还没登录：登录完接着存，登录框关掉还没登录就算了
+const saveConfirmVisible = ref(false)
+// 点「保存配置」时还没登录：登录完接着弹确认框，登录框关掉还没登录就算了
 let saveAfterLogin = false
 
-const saveAsHistory = async (): Promise<void> => {
-    const form = formData.value
-    if (!form.gearUnit || !form.windTurbine || !form.loadSpectrum) {
-        message.error('请填写完整的基本信息')
-        return
-    }
-    if (!account.user) {
+// 三项没填全先提示，没登录先登录，都齐了才弹确认框
+const handleSaveConfirmShow = (show: boolean): void => {
+    if (!show || saving.value) {
+        saveConfirmVisible.value = false
+    } else if (store.saveHint) {
+        message.warning(store.saveHint)
+    } else if (!account.user) {
         saveAfterLogin = true
         account.loginVisible = true
-        return
-    }
-    if (saving.value) return
-    saving.value = true
-    try {
-        const { created } = await account.withAccess((access) =>
-            saveHistory(access, {
-                formData: { ...form },
-                inputData: inputData.value,
-                selectedData: selectedData.value
-            })
-        )
-        message.success(created ? '保存成功' : '保存成功，覆盖了之前存的同一条')
-    } catch (err) {
-        message.error(`保存失败：${(err as Error).message}`, { duration: 5000 })
-    } finally {
-        saving.value = false
+    } else {
+        saveConfirmVisible.value = true
     }
 }
 
@@ -593,31 +319,44 @@ watch(
     (visible) => {
         if (visible || !saveAfterLogin) return
         saveAfterLogin = false
-        if (account.user) saveAsHistory()
+        if (account.user) handleSaveConfirmShow(true)
     }
 )
 
-const historyVisible = ref(false)
+// 确认框等存完再关，存的时候「保存」按钮转圈
+const saveConfig = async (): Promise<void> => {
+    if (saving.value) return
+    const params = store.historyParams
+    saving.value = true
+    try {
+        const { created } = await account.withAccess((access) => saveHistory(access, params))
+        const label = `「${store.historyLabel}」`
+        message.success(created ? `已存为历史记录${label}` : `已覆盖历史记录${label}`)
+    } catch (err) {
+        message.error(`保存失败：${(err as Error).message}`, { duration: 5000 })
+    } finally {
+        saving.value = false
+        saveConfirmVisible.value = false
+    }
+}
 
-// 同网页版：基础设置、输入表、多工况换成记录里的，结果表不动，要再点「计算结果」
+// ========== 历史记录 ==========
 const handleHistorySelect = async (item: HistoryItem): Promise<void> => {
     try {
         const detail = await account.withAccess((access) => fetchHistory(access, item.id))
-        formData.value = { ...detail.formData }
-        inputData.value = detail.inputData ?? inputData.value
-        dialogTableData.value = detail.selectedData ?? dialogTableData.value
-        selectedData.value = detail.selectedData ?? selectedData.value
+        store.applyHistory(detail)
         message.success(`已回填「${item.label}」`)
     } catch (err) {
         message.error(`获取历史记录失败：${(err as Error).message}`, { duration: 5000 })
     }
 }
 
+// 同网页版：Ctrl+S 存、Ctrl+F 查历史记录
 const handleKeydown = (event: KeyboardEvent): void => {
     if (!event.ctrlKey && !event.metaKey) return
     if (event.key === 's') {
         event.preventDefault()
-        saveAsHistory()
+        handleSaveConfirmShow(true)
     } else if (event.key === 'f') {
         event.preventDefault()
         historyVisible.value = true
@@ -625,164 +364,40 @@ const handleKeydown = (event: KeyboardEvent): void => {
 }
 
 onMounted(() => window.addEventListener('keydown', handleKeydown))
-onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeydown)
+    clearTimeout(calcTimer)
+})
 </script>
 
 <style scoped>
-.gear-scroll {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 16px;
-    min-height: 0;
-    padding: 16px 20px 24px;
-    overflow-y: auto;
+/* 项目、功率的英文标签比默认的标签列宽 */
+.wide-field {
+    grid-template-columns: 104px minmax(0, 1fr);
 }
 
-.gear-card {
-    flex-shrink: 0;
-    overflow: hidden;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-}
-
-.card-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    padding: 6px 12px 6px 16px;
-    border-bottom: 1px solid var(--divider);
-}
-
-.gear-card.is-collapsed .card-head {
-    border-bottom-color: transparent;
-}
-
-.card-title {
+.toolbar-note.is-warning {
     min-width: 0;
     overflow: hidden;
-    font-weight: 600;
+    color: var(--warning);
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-.shortcut {
-    display: inline-flex;
+.condition-select {
     flex-shrink: 0;
-    align-items: center;
-    gap: 3px;
+    width: 250px;
+}
+
+/* 保存配置的确认框：三项很长时折行，不把弹层撑宽 */
+.save-confirm {
+    max-width: 300px;
+    overflow-wrap: anywhere;
+}
+
+.save-confirm-note {
+    margin-top: 2px;
     font-size: 12px;
     color: var(--text-3);
-}
-
-.shortcut + .shortcut {
-    margin-left: 6px;
-}
-
-.basic-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 640px;
-    padding: 16px;
-}
-
-.basic-field {
-    display: grid;
-    grid-template-columns: 120px minmax(0, 1fr);
-    align-items: center;
-    column-gap: 12px;
-}
-
-/* 窗口窄时输入表自己横向滚动 */
-.table-scroll {
-    overflow-x: auto;
-}
-
-.input-table {
-    width: 100%;
-    min-width: 820px;
-    border-collapse: collapse;
-}
-
-.input-table th,
-.input-table td {
-    padding: 5px 8px;
-    text-align: left;
-    border-bottom: 1px solid var(--divider);
-}
-
-.input-table th {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-3);
-}
-
-.input-table tbody tr:last-child td {
-    border-bottom: 0;
-}
-
-.input-table .col-param {
-    width: 340px;
-    padding-left: 16px;
-    color: var(--text-2);
-}
-
-.param-link {
-    padding: 0;
-    color: var(--accent);
-    text-align: left;
-    background: none;
-    border: 0;
-    cursor: pointer;
-}
-
-.param-link:hover {
-    text-decoration: underline;
-}
-
-.icon-btn .lucide {
-    transition: transform 0.15s;
-}
-
-.icon-btn.is-open .lucide {
-    transform: rotate(90deg);
-}
-
-/* ========== 多工况弹窗 ========== */
-.condition-head,
-.condition-row {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-}
-
-.condition-head {
-    padding-bottom: 6px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-3);
-}
-
-.condition-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: calc(100vh - 320px);
-    overflow-y: auto;
-}
-
-.condition-note {
-    margin: 12px 0 0;
-    font-size: 12px;
-    color: var(--text-3);
-}
-
-.modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
 }
 </style>

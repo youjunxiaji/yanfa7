@@ -42,9 +42,9 @@ Python FastAPI 后端作为独立进程，经 HTTP / WebSocket 提供解析、�
 - `backend/app_simpleLoad/` 是从 simple_load v1.3.1 搬进来的载荷简化，页面是 `SimpleLoadView.vue`，还没发版：
   同事们用的仍是网页版加 simple_load 的 exe，这期间 simple_load 冻结，要修的 bug 两边一起改。
   它的计算层 `module/cal_simpleLoad.py` 还是原来的命名和写法，新模块不照着它写。
-- `backend/app_gearLoad/` 是从网页版（tmb_web_v1）照搬来的齿轮载荷，页面是 `GearLoadView.vue`，还没发版：
-  同事们用的仍是网页版，两边要算得一样。计算层 `module/cal_gearLoads.py` 是网页版的原代码，页面照网页版的上下排布、
-  没套工具页骨架，新模块都不照着它们写；要改哪些见 `todo.md`。
+- `backend/app_gearLoad/` 是从网页版（tmb_web_v1）搬来的齿轮载荷，页面是 `GearLoadView.vue`，还没发版：
+  同事们用的仍是网页版，两边要算得一样。计算层 `module/cal_gearLoads.py` 是网页版的原代码（只放开了级数），
+  新模块不照着它写；要改哪些见 `todo.md`。
 
 ## 架构约束
 

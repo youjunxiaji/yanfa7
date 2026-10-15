@@ -1,23 +1,54 @@
-// 齿轮载荷：页面照搬网页版（tmb_web_v1 的 gearLoadsView.vue）。输入表的英文参数名、结果表的行原样保留：
-// 后端 backend/app_gearLoad/module/cal_gearLoads.py 按参数名取值、按这里的行序给结果，历史记录也存这些参数名
+// 齿轮载荷。输入表沿用网页版（tmb_web_v1 的 gearLoadsView.vue）的写法：一行一个参数，参数名是网页版的英文原名，
+// 各级的值放在 stageI、stageII…… 里。后端 backend/app_gearLoad 按参数名和这些键取值，历史记录存的也是它们，改了要两边一起改
 
-// 4 级的列；有几列 16 行都填了，后端就算 Stage I 起的前几级
-export const GEAR_STAGES = ['stageI', 'stageII', 'stageIII', 'stageIIII'] as const
+// 网页版页面固定 4 级；这边不限级数，新页面照旧先给 4 级
+export const WEB_STAGES = 4
 
-export type GearStage = (typeof GEAR_STAGES)[number]
+// 各级在输入表里的键
+export type GearStage = `stage${string}`
 
-export const STAGE_TITLES: Record<GearStage, string> = {
-    stageI: 'Stage I',
-    stageII: 'Stage II',
-    stageIII: 'Stage III',
-    stageIIII: 'Stage IIII'
+const ROMAN_NUMERALS: [number, string][] = [
+    [1000, 'M'],
+    [900, 'CM'],
+    [500, 'D'],
+    [400, 'CD'],
+    [100, 'C'],
+    [90, 'XC'],
+    [50, 'L'],
+    [40, 'XL'],
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I']
+]
+
+// 正整数写成罗马数字，如 4 是 IV
+export const roman = (value: number): string => {
+    let rest = value
+    return ROMAN_NUMERALS.map(([unit, letter]) => {
+        const count = Math.floor(rest / unit)
+        rest -= count * unit
+        return letter.repeat(count)
+    }).join('')
 }
 
-// 上一级算完，把它的功率、输出扭矩、输出转速填到下一级
-export const NEXT_STAGE: Partial<Record<GearStage, GearStage>> = {
-    stageI: 'stageII',
-    stageII: 'stageIII',
-    stageIII: 'stageIIII'
+// 第 index 级（从 0 数）的键：前 4 级沿用网页版的 stageI～stageIIII（第 4 级网页版写成 IIII），往后接 stageV、stageVI……，
+// 同后端 cal_gearLoads.py 的 stage_keys
+export const stageKey = (index: number): GearStage =>
+    index === 3 ? 'stageIIII' : `stage${roman(index + 1)}`
+
+// 页面上显示的级名：I、II、III、IV、V……，第 4 级显示成 IV，键还是 stageIIII
+export const stageName = (index: number): string => roman(index + 1)
+
+export enum GearArrangement {
+    PLANETARY = 'Planetary',
+    HELICAL = 'Helical'
+}
+
+export enum HelixHand {
+    LEFT = 'L',
+    RIGHT = 'R'
 }
 
 // 输入表的 16 行，顺序同网页版；值就是网页版的参数名，一个字都不能改
@@ -40,48 +71,63 @@ export enum InputParam {
     LOAD_FACTOR = 'Load factor KY'
 }
 
-// 后端结果 input_data 的顺序：二级以后这三行只读，由上一级的结果填
+// 后端结果 input_data 的顺序：功率、输出扭矩、输出转速。二级以后这三行由上一级的结果填，不让手改
 export const CHAINED_PARAMS: InputParam[] = [InputParam.POWER, InputParam.TORQUE, InputParam.SPEED]
 
-export enum GearArrangement {
-    PLANETARY = 'Planetary',
-    HELICAL = 'Helical'
-}
-
-export enum HelixHand {
-    LEFT = 'L',
-    RIGHT = 'R'
-}
-
-// 齿轮载荷的 9 行，顺序同后端的 gear_loads；符号、单位两列照网页版原样
-export const GEAR_LOAD_ROWS = [
-    { parameter: 'Tangential force 2Ftan (kN)', symbol: '', unit: '' },
-    { parameter: 'Tangential force (kN)', symbol: 'Ft,pl-sun', unit: '/ Ftan' },
-    { parameter: 'Radial force (kN)', symbol: 'Fr,pl-sun', unit: '/ Frad' },
-    { parameter: 'Axial force (kN)', symbol: 'Fa,pl-sun', unit: '/ Fax' },
-    { parameter: 'Tangential force ring (kN)', symbol: 'Ft,pl-ring', unit: '' },
-    { parameter: 'Radial force (kN)', symbol: 'Fr,pl-ring', unit: '' },
-    { parameter: 'Axial force (kN)', symbol: 'Fa,pl-ring', unit: '' },
-    { parameter: 'Torque T (kNm)', symbol: '', unit: '' },
-    { parameter: 'Axial force sunwheel (kN)', symbol: '', unit: '' }
+// 参数栏里逐级填的数值参数，顺序同网页版的输入表；布置、旋向用分段选择单独放
+export const NUMBER_PARAMS: InputParam[] = [
+    InputParam.PRESSURE_ANGLE,
+    InputParam.HELIX_ANGLE,
+    InputParam.MODULE,
+    InputParam.TEETH_RING,
+    InputParam.TEETH_PLANET,
+    InputParam.TEETH_SUN,
+    InputParam.CENTRE_DISTANCE,
+    InputParam.PLANETS,
+    InputParam.ROOT_DIAMETER,
+    InputParam.TIP_DIAMETER,
+    InputParam.LOAD_FACTOR
 ]
 
-// 部件转速、等效直径各 3 行，顺序同后端的 speed_of_components、equivalent_diameter。
-// 第二列有两种写法：Stage I 是行星级取前一个，是平行级取后一个（同网页版，不看各级自己的布置）
-export const SPEED_ROWS = [
-    { parameter: 'Speed (RPM)', symbol: ['LS-Sun', 'LS-S'] },
-    { parameter: 'Speed (RPM)', symbol: ['LS-P', 'LIS-S'] },
-    { parameter: 'Speed (RPM)', symbol: ['LS-R', ''] }
+// Helical 级用不到的参数：网页版也要填，不填这一级不算
+export const PLANETARY_ONLY_PARAMS: InputParam[] = [
+    InputParam.TEETH_SUN,
+    InputParam.PLANETS,
+    InputParam.LOAD_FACTOR
 ]
 
-export const DIAMETER_ROWS = [
+// 结果表的一行：参数名同网页版；符号前一个是 Planetary 级的、后一个是 Helical 级的
+export interface ResultLine {
+    parameter: string
+    symbol: string
+}
+
+// 后端 gear_loads 的 9 项，顺序不能变
+export const GEAR_LOAD_LINES: ResultLine[] = [
+    { parameter: 'Tangential force 2Ftan (kN)', symbol: '2Ftan' },
+    { parameter: 'Tangential force (kN)', symbol: 'Ft,pl-sun / Ftan' },
+    { parameter: 'Radial force (kN)', symbol: 'Fr,pl-sun / Frad' },
+    { parameter: 'Axial force (kN)', symbol: 'Fa,pl-sun / Fax' },
+    { parameter: 'Tangential force ring (kN)', symbol: 'Ft,pl-ring' },
+    { parameter: 'Radial force (kN)', symbol: 'Fr,pl-ring' },
+    { parameter: 'Axial force (kN)', symbol: 'Fa,pl-ring' },
+    { parameter: 'Torque T (kNm)', symbol: 'T' },
+    { parameter: 'Axial force sunwheel (kN)', symbol: '' }
+]
+
+// 后端 speed_of_components 的 3 项
+export const SPEED_LINES: ResultLine[] = [
+    { parameter: 'Speed (RPM)', symbol: 'LS-Sun / LS-S' },
+    { parameter: 'Speed (RPM)', symbol: 'LS-P / LIS-S' },
+    { parameter: 'Speed (RPM)', symbol: 'LS-R' }
+]
+
+// 后端 equivalent_diameter 的 3 项
+export const DIAMETER_LINES: ResultLine[] = [
     {
         parameter: 'Operating pitch planet radius or pinion diameter (mm)',
-        symbol: ['Plan/Sun', 'Pinion']
+        symbol: 'Plan/Sun / Pinion'
     },
-    {
-        parameter: 'Operating pitch planet radius or pinion diameter (mm)',
-        symbol: ['Plan/Ring', '']
-    },
-    { parameter: 'Average of root & tip diameter (mm)', symbol: ['', ''] }
+    { parameter: 'Operating pitch planet radius or pinion diameter (mm)', symbol: 'Plan/Ring' },
+    { parameter: 'Average of root & tip diameter (mm)', symbol: '' }
 ]
