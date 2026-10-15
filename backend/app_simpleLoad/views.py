@@ -1,4 +1,4 @@
-"""载荷简化接口：预览载荷文件夹、加载数据、载荷缩减、清空数据、查网页版的历史记录
+"""载荷简化接口：预览载荷文件夹、加载数据、载荷缩减、清空数据、查和存网页版的历史记录
 
 加载和缩减各走一条 WebSocket：连上后前端发一条参数，后端边算边推 progress，最后推 done 或 error，
 再关掉连接。加载完的实例存在 LoadedDataCache，改了区间、坐标映射或缩减参数可以直接再缩减。
@@ -24,6 +24,8 @@ from app_simpleLoad.serializers import (
     ComponentStats,
     ErrorMessage,
     HistoryRecord,
+    HistorySaveRequest,
+    HistorySaveResponse,
     LoadDoneMessage,
     LoadRequest,
     PreviewRequest,
@@ -49,6 +51,9 @@ HISTOGRAM_COLUMNS = (
 
 #: savePic 给的柱用 pandas 区间的写法作键，如 "(-1000, -990]"
 INTERVAL_LABEL = re.compile(r"^\(\s*([^,\s]+)\s*,\s*([^\]\s]+)\s*\]$")
+
+#: 网页版载荷简化历史记录的接口，查和存是同一个地址
+TMB_HISTORIES = "/shanghai_yanfa7/simple-load-calculation-histories/"
 
 
 # ─── HTTP ────────────────────────────────────────────────────
@@ -88,20 +93,31 @@ async def clear() -> None:
 async def histories(
     query: str = "", authorization: Annotated[str | None, Header()] = None
 ) -> list[HistoryRecord]:
-    """查网页版存在 TMB 服务器上的载荷简化配置，换成这边的字段给前端回填。
+    """查 TMB 服务器上存的载荷简化配置（网页版和这边存的都在），换成这边的字段给前端回填。
 
     要先登录，令牌经 Authorization 头带过来。服务器只给自己存的，按项目名模糊匹配，一次最多 10 条，
-    不排序；这里按存的先后倒过来排，新存的在前。
+    不排序；这里按 id 倒过来排，新建的在前。覆盖不改 id，覆盖过的记录还在原来的位置。
     """
     token = tmb_web.bearer_token(authorization)
-    data = await tmb_web.request(
-        "GET",
-        "/shanghai_yanfa7/simple-load-calculation-histories/",
-        token=token,
-        params={"query": query},
-    )
+    data = await tmb_web.request("GET", TMB_HISTORIES, token=token, params={"query": query})
     records = sorted(data["results"], key=lambda record: record.get("id") or 0, reverse=True)
     return [HistoryRecord.from_tmb(record) for record in records]
+
+
+async def save_history(
+    req: HistorySaveRequest, authorization: Annotated[str | None, Header()] = None
+) -> HistorySaveResponse:
+    """把现在的配置存成网页版的一条历史记录，网页版和这边都查得到。
+
+    网页版按「登录的人 + 项目名」存，项目名取输出目录的最后一级：没存过就新建，存过同名的就整条覆盖，
+    服务器只回「保存成功」，不说是哪种。
+    """
+    token = tmb_web.bearer_token(authorization)
+    if not req.proj_name:
+        raise HTTPException(status_code=400, detail="请先选择输出目录：历史记录按它的最后一级文件夹名存")
+    await tmb_web.request("POST", TMB_HISTORIES, token=token, json=req.to_tmb())
+    logger.info(f"已存载荷简化历史记录：{req.proj_name}")
+    return HistorySaveResponse(projName=req.proj_name)
 
 
 # ─── WebSocket ───────────────────────────────────────────────

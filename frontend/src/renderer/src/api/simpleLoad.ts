@@ -99,10 +99,8 @@ export const previewLoadDir = (loadDir: string): Promise<PreviewResult> =>
 // 丢掉后端加载过的数据，把内存还回去
 export const clearLoadedData = (): Promise<void> => postJson('/api/simple-load/clear', {})
 
-// 网页版存在 TMB 服务器上的一条配置，后端已换成这边的字段
-export interface HistoryRecord {
-    // 网页版保存时取输出目录的最后一级
-    projName: string
+// 一套配置：从历史记录查回来回填的、存成历史记录的都是它。TMB 服务器上存的是网页版的写法，后端两头换算
+export interface HistoryConfig {
     loadDir: string
     freqTablePath: string
     outputDir: string
@@ -120,10 +118,29 @@ export interface HistoryRecord {
     intervals: Partial<Record<LoadColumn, (number | null)[]>>
 }
 
-// 要登录：只查得到自己存的，按项目名模糊匹配，服务器一次最多给 10 条，新存的在前
+// TMB 服务器上存的一条配置（网页版和这边存的都在），后端已换成这边的字段
+export interface HistoryRecord extends HistoryConfig {
+    // 保存时取输出目录的最后一级
+    projName: string
+}
+
+export interface HistorySaved {
+    // 存成的项目名：输出目录的最后一级
+    projName: string
+}
+
+// 要登录：只查得到自己存的，按项目名模糊匹配，服务器一次最多给 10 条，新建的在前
 export const fetchHistories = (access: string, query: string): Promise<HistoryRecord[]> =>
     requestJson(`/api/simple-load/histories?${new URLSearchParams({ query })}`, {
         headers: { Authorization: `Bearer ${access}` }
+    })
+
+// 要登录：存成网页版的一条记录。服务器按项目名（输出目录的最后一级）存，自己存过同名的就整条覆盖
+export const saveHistory = (access: string, config: HistoryConfig): Promise<HistorySaved> =>
+    requestJson('/api/simple-load/histories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${access}` },
+        body: JSON.stringify(config)
     })
 
 // 加载和缩减各走一条 WebSocket：连上后发一条参数，后端推 progress，最后推 done 或 error 再关掉连接。

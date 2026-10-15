@@ -1,6 +1,28 @@
 <template>
     <div class="page">
         <PageHeader>
+            <n-popconfirm
+                :show="saveConfirmVisible"
+                :show-icon="false"
+                positive-text="保存"
+                negative-text="取消"
+                :positive-button-props="{ loading: saving }"
+                @update:show="handleSaveConfirmShow"
+                @positive-click="saveConfig"
+            >
+                <template #trigger>
+                    <n-button size="small" :loading="saving">
+                        <template #icon><Save :size="15" /></template>
+                        保存配置
+                    </n-button>
+                </template>
+                <div class="save-confirm">
+                    <div>存为历史记录「{{ store.historyName }}」？</div>
+                    <div class="save-confirm-note">
+                        项目名取输出目录的文件夹名，你存过同名的会被覆盖
+                    </div>
+                </div>
+            </n-popconfirm>
             <n-button size="small" :disabled="store.isBusy" @click="historyVisible = true">
                 <template #icon><History :size="15" /></template>
                 历史记录
@@ -425,9 +447,12 @@ import {
     History,
     Info,
     Play,
+    Save,
     TriangleAlert
 } from '@lucide/vue'
+import { saveHistory } from '@renderer/api/simpleLoad'
 import { SOURCE_AXES } from '@renderer/constants/simpleLoad'
+import { useAccountStore } from '@renderer/stores/account'
 import { useSimpleLoadStore } from '@renderer/stores/simpleLoad'
 import PageHeader from '@renderer/components/PageHeader.vue'
 import EmptyState from '@renderer/components/EmptyState.vue'
@@ -441,11 +466,56 @@ import SimpleLoadHistory from '@renderer/components/SimpleLoadHistory.vue'
 const AXIS_OPTIONS: SelectOption[] = SOURCE_AXES.map((axis) => ({ label: axis, value: axis }))
 
 const store = useSimpleLoadStore()
+const account = useAccountStore()
 const message = useMessage()
 
 const formatVisible = ref(false)
 const reduceVisible = ref(false)
 const historyVisible = ref(false)
+
+// ========== 保存配置：存成网页版的一条历史记录 ==========
+const saving = ref(false)
+const saveConfirmVisible = ref(false)
+// 点「保存配置」时还没登录：登录完接着弹确认框，登录框关掉还没登录就算了
+let saveAfterLogin = false
+
+// 没选输出目录先提示，没登录先登录，都齐了才弹确认框
+const handleSaveConfirmShow = (show: boolean): void => {
+    if (!show || saving.value) {
+        saveConfirmVisible.value = false
+    } else if (store.saveHint) {
+        message.warning(store.saveHint)
+    } else if (!account.user) {
+        saveAfterLogin = true
+        account.loginVisible = true
+    } else {
+        saveConfirmVisible.value = true
+    }
+}
+
+watch(
+    () => account.loginVisible,
+    (visible) => {
+        if (visible || !saveAfterLogin) return
+        saveAfterLogin = false
+        if (account.user) handleSaveConfirmShow(true)
+    }
+)
+
+// 确认框等存完再关，存的时候「保存」按钮转圈
+const saveConfig = async (): Promise<void> => {
+    if (saving.value) return
+    const config = store.historyConfig
+    saving.value = true
+    try {
+        const { projName } = await account.withAccess((access) => saveHistory(access, config))
+        message.success(`已存为历史记录「${projName}」`)
+    } catch (err) {
+        message.error(`保存失败：${(err as Error).message}`, { duration: 5000 })
+    } finally {
+        saving.value = false
+    }
+}
 
 const formatRows = (n: number): string => (n >= 10000 ? `${Math.round(n / 10000)} 万` : String(n))
 
@@ -604,6 +674,18 @@ watch(
 
 <style scoped>
 .input-prefix {
+    color: var(--text-3);
+}
+
+/* 保存配置的确认框：文件夹名很长时折行，不把弹层撑宽 */
+.save-confirm {
+    max-width: 300px;
+    overflow-wrap: anywhere;
+}
+
+.save-confirm-note {
+    margin-top: 2px;
+    font-size: 12px;
     color: var(--text-3);
 }
 

@@ -1,13 +1,14 @@
-"""载荷简化 Pydantic 序列化模型：预览、加载、缩减的请求，WebSocket 推送的报文，以及历史记录
+"""载荷简化 Pydantic 序列化模型：预览、加载、缩减的请求，WebSocket 推送的报文，以及历史记录的查和存
 
 字段名用 camelCase，和前端 `api/simpleLoad.ts` 一致。请求模型负责换成计算层收的 dataclass
 （PathConfig、ConversionConfig、AxisMapping），`cal_simpleLoad` 不依赖 Pydantic。
 """
 
 import math
+from itertools import count
 from typing import Any, ClassVar, Literal, Self
 
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from app_simpleLoad.module.config import AxisMapping, ConversionConfig, PathConfig
 from common.constants import LoadColumn
@@ -167,21 +168,16 @@ class ErrorMessage(BaseModel):
     message: str
 
 
-class HistoryRecord(BaseModel):
-    """网页版存在 TMB 服务器上的一条载荷简化配置，换成这边的字段，前端拿到直接回填
+class HistoryConfig(BaseModel):
+    """一套载荷简化配置：从历史记录查回来回填的、存成历史记录的都是它
 
-    来源是 tmb_web_v1 的 `SimpleLoadCalculationHistoryModel`，几个 JSON 字段是网页版页面的写法：列对应是带
-    「占位符」的列名列表，区间表一行一个分量、11 格里数字和字符串都有。缺的字段按网页版的默认值补。
+    TMB 服务器上存的是网页版页面的写法（tmb_web_v1 的 `SimpleLoadCalculationHistoryModel`）：列对应是带
+    「占位符」的列名列表，区间表一行一个分量、11 格里数字和字符串都有。查的时候 `HistoryRecord.from_tmb`
+    换过来，存的时候 `HistorySaveRequest.to_tmb` 换回去，网页版照样能回填这边存的。
     """
 
     INTERVAL_SLOTS: ClassVar[int] = 11  # 区间表每行：下界、9 个分段点、上界
-    DEFAULT_AXIS_MAPPING: ClassVar[list[dict[str, str]]] = [
-        {"romax": "x", "origin": "-y"},
-        {"romax": "y", "origin": "-z"},
-        {"romax": "z", "origin": "x"},
-    ]
 
-    projName: str  # 网页版保存时取输出目录的最后一级
     loadDir: str
     freqTablePath: str
     outputDir: str
@@ -196,6 +192,18 @@ class HistoryRecord(BaseModel):
     temperature: float
     tol: float
     intervals: dict[LoadColumn, list[float | None]]  # 分量 → 11 格，没填的是 None
+
+
+class HistoryRecord(HistoryConfig):
+    """TMB 服务器上存的一条载荷简化配置，换成这边的字段，前端拿到直接回填。缺的字段按网页版的默认值补。"""
+
+    DEFAULT_AXIS_MAPPING: ClassVar[list[dict[str, str]]] = [
+        {"romax": "x", "origin": "-y"},
+        {"romax": "y", "origin": "-z"},
+        {"romax": "z", "origin": "x"},
+    ]
+
+    projName: str  # 保存时取输出目录的最后一级
 
     @classmethod
     def from_tmb(cls, record: dict[str, Any]) -> Self:
@@ -279,3 +287,73 @@ class HistoryRecord(BaseModel):
                 continue
             intervals[component] = [cls.number(row.get(str(i))) for i in range(cls.INTERVAL_SLOTS)]
         return intervals
+
+
+class HistorySaveRequest(HistoryConfig):
+    """POST /api/simple-load/histories：把现在的配置存成网页版的一条历史记录
+
+    网页版的规则不改，照着用：按「登录的人 + 项目名」存，项目名是输出目录的最后一级，没存过就新建，
+    存过同名的就整条覆盖。区间表前端只给参与分组的分量，和网页版存的一样。
+    """
+
+    PLACEHOLDER: ClassVar[str] = "占位符"  # 网页版不用的列叫「占位符1」「占位符2」……
+
+    @field_validator("outputDir")
+    @classmethod
+    def strip_trailing_separator(cls, value: str) -> str:
+        """去掉首尾空白和末尾的斜杠：网页版取最后一段当项目名，末尾带斜杠就取成了空串。"""
+        return value.strip().rstrip("\\/")
+
+    @property
+    def proj_name(self) -> str:
+        """网页版存的项目名，和 tmb_web_v1 一样取输出目录的最后一段。"""
+        return self.outputDir.replace("\\", "/").split("/")[-1]
+
+    def to_tmb(self) -> dict[str, Any]:
+        """换成网页版「存储」发的报文。
+
+        Returns:
+            tmb_web_v1 的 `SimpleLoadCalculationHistoryView.post` 收的五块：路径、列对应、转换系数、坐标映射、区间表。
+        """
+        placeholders = count(1)
+        return {
+            "file_path": {
+                "result_folder_save_path": self.outputDir,
+                "load_file_folder_path": self.loadDir,
+                "freq_table_path": self.freqTablePath,
+                "keep_torque_component": self.keepTorque,
+            },
+            "draggable_elements": [
+                {"name": column.value if column is not None else f"{self.PLACEHOLDER}{next(placeholders)}"}
+                for column in self.columns
+            ],
+            "conversion_factors": {
+                "unit_moment": self.unitMoment,
+                "unit_force": self.unitForce,
+                "unit_speed": self.unitSpeed,
+                # 网页版存标题行的行号：跳过的最后一行是标题行，一行都不跳就是没有标题行
+                "title_row": self.skipRows - 1 if self.skipRows > 0 else None,
+                "temperature": self.temperature,
+                "translate_factor": self.slope,
+                "tol": self.tol,
+            },
+            "romax_origin": [mapping.model_dump() for mapping in self.axisMapping],
+            # 行的顺序同网页版：Fx、Fy、Fz、Mx、My、Mz
+            "table_data": [
+                {"component": column.value, **self.interval_cells(self.intervals[column])}
+                for column in LoadColumn
+                if column in self.intervals
+            ],
+        }
+
+    @classmethod
+    def interval_cells(cls, edges: list[float | None]) -> dict[str, float | str]:
+        """一行区间按「列序号: 值」排开，补齐 11 格，没填的写空串，和网页版的空格子一样。"""
+        cells = (edges + [None] * cls.INTERVAL_SLOTS)[: cls.INTERVAL_SLOTS]
+        return {str(index): "" if edge is None else edge for index, edge in enumerate(cells)}
+
+
+class HistorySaveResponse(BaseModel):
+    """存好了：存成的项目名，同一个人同名的记录只留这一条"""
+
+    projName: str

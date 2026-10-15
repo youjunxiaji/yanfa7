@@ -10,13 +10,12 @@ simple_load v1.3.1 搬进了 `backend/app_simpleLoad/`，页面是 `SimpleLoadVi
   网页版的「划分区间」也有这个问题。修法是落在最上边的值算进最后一格，simple_load 冻结期间两边一起改。
 - **删区间表按位置对齐的兼容分支**：新接口总按分量名发区间表，这个分支走不到了。算法用例的 `table_data()` 还在用它造数，
   删分支要连这些用例一起改成带分量名的写法，超出「只改 import」，先定下来再动。
-- **历史配置存本机**：路径、列对应、单位换算、坐标映射、缩减参数和区间表按项目存进 Tauri store，怎么存、怎么找到时再定。
 - **打包验证，下次发版前必须做**：sidecar 启动就导入 polars，漏收模块会连边缘应力、Pmax 一起起不来。
   在 Windows 上先在 `backend/` 跑一遍 `uv run pytest`（这套测试还没在 Windows 上跑过），再用 `build.cmd` 打包，
-  装上确认应用能打开，边缘应力、Pmax 照常可用，载荷简化能加载、缩减；sidecar 新带了 httpx，再确认能登录、能查历史记录。
+  装上确认应用能打开，边缘应力、Pmax 照常可用，载荷简化能加载、缩减；sidecar 新带了 httpx，再确认能登录、能查和存历史记录。
 - **文档**：`yanfa7-ref` 加「载荷简化」参考（取 simple_load 的 README 算法公式、CLAUDE.md 约定、测试 skill）。
 - **下线旧软件**：simple_load 停止发版、GitHub 仓库归档；`tmb_web_v1` 删载荷简化页面、路由和
-  `useSimpleLoadSocket.ts`，`shanghai_yanfa7` 的载荷简化历史接口和模型留着，这边的「历史记录」靠它回填；
+  `useSimpleLoadSocket.ts`，`shanghai_yanfa7` 的载荷简化历史接口和模型留着，这边查、存历史记录都靠它；
   删掉项目规则「项目边界」里载荷简化那条。
 
 ## 载荷简化降内存

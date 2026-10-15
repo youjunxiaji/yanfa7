@@ -37,7 +37,7 @@
                 </template>
             </n-data-table>
             <p class="history-note">
-                网页版存的配置，只查得到自己的，一次最多 10
+                网页版和这边存的配置都在，只查得到自己的，一次最多 10
                 条；点一行，把它的路径、文件格式、参数和区间表填到左边
             </p>
         </div>
@@ -54,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-// 载荷简化的历史记录：查网页版存在 TMB 服务器上的配置，点一行回填；没登录时先登录
+// 载荷简化的历史记录：查 TMB 服务器上存的配置（网页版和「保存配置」存的都在），点一行回填；没登录时先登录
 import { h, ref, watch, type HTMLAttributes, type VNode } from 'vue'
 import {
     NButton,

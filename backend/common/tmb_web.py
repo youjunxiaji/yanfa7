@@ -1,7 +1,8 @@
 """TMB 服务器（tmb_web_v1）的 HTTP 客户端
 
-账号登录、续期经它转发给 TMB 服务器。渲染层不直连：webview 的源不在 tmb_web_v1 的 CORS 白名单里，
-业务数据也按项目规则只走本地后端。JWT 存在渲染层，要登录的接口经 Authorization 头带过来，这里只转发、不留存。
+账号登录、续期，载荷简化历史记录的查和存，都经它转发给 TMB 服务器。渲染层不直连：webview 的源不在
+tmb_web_v1 的 CORS 白名单里，业务数据也按项目规则只走本地后端。JWT 存在渲染层，要登录的接口经 Authorization
+头带过来，这里只转发、不留存。
 """
 
 from typing import Any
@@ -51,7 +52,10 @@ def bearer_token(authorization: str | None) -> str:
 
 
 def first_message(value: Any) -> str | None:
-    """取 DRF 报错里给人看的第一句话：优先 `detail`，其次第一个字段错误。
+    """取报错里给人看的第一句话：优先 `detail`，其次 `message`，再其次第一个字段错误。
+
+    DRF 的报错是 `detail` 或字段错误；网页版自己写的接口（如存载荷简化历史记录）回
+    `{"status": "error", "message": ...}`，不先取 `message` 就会取到 "error"。
 
     Args:
         value: 响应体 JSON，或其中的一部分。
@@ -64,8 +68,10 @@ def first_message(value: Any) -> str | None:
     if isinstance(value, list):
         return next((text for item in value if (text := first_message(item))), None)
     if isinstance(value, dict):
-        return first_message(value.get("detail")) or next(
-            (text for item in value.values() if (text := first_message(item))), None
+        return (
+            first_message(value.get("detail"))
+            or first_message(value.get("message"))
+            or next((text for item in value.values() if (text := first_message(item))), None)
         )
     return None
 

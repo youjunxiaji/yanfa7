@@ -6,6 +6,7 @@ import {
     reduceLoad,
     type AxisMapping,
     type ComponentStats,
+    type HistoryConfig,
     type HistoryRecord,
     type LoadParams,
     type PreviewResult,
@@ -330,6 +331,43 @@ export const useSimpleLoadStore = defineStore('simpleLoad', {
 
         canReduce(): boolean {
             return !this.isBusy && !this.reduceHint
+        },
+
+        // 存历史记录时的项目名：和网页版一样取输出目录的最后一级，末尾的斜杠先去掉（后端也这样去）
+        historyName: (state): string =>
+            state.outputDir
+                .trim()
+                .replace(/[\\/]+$/, '')
+                .split(/[\\/]/)
+                .pop() ?? '',
+
+        saveHint(): string {
+            return this.historyName ? '' : '请先选择输出目录：历史记录按它的最后一级文件夹名存'
+        },
+
+        // 存成历史记录的配置：区间表只带参与分组的分量，和网页版存的一样
+        historyConfig(): HistoryConfig {
+            return {
+                loadDir: this.loadDir,
+                freqTablePath: this.freqTablePath,
+                outputDir: this.outputDir,
+                skipRows: this.skipRows,
+                columns: [...this.columns],
+                unitForce: this.unitForce,
+                unitMoment: this.unitMoment,
+                unitSpeed: this.unitSpeed,
+                axisMapping: this.axisMapping.map((mapping) => ({ ...mapping })),
+                keepTorque: this.keepTorque,
+                slope: this.slope,
+                temperature: this.temperature,
+                tol: this.tol,
+                intervals: Object.fromEntries(
+                    this.participating.map((component) => [
+                        component,
+                        [...(this.intervals[component] ?? emptyRow())]
+                    ])
+                )
+            }
         }
     },
 
@@ -360,7 +398,8 @@ export const useSimpleLoadStore = defineStore('simpleLoad', {
             }
         },
 
-        // 回填网页版存的一条配置：路径、文件格式、转换系数、缩减参数和区间表都换成记录里的，再读一遍载荷文件夹
+        // 回填历史记录里的一条配置：路径、文件格式、转换系数、缩减参数和区间表都换成记录里的，再读一遍载荷文件夹。
+        // 文件格式先照记录填上，载荷文件夹读不到时也是记录里的，这时再保存不会存成回填前的
         applyHistory(record: HistoryRecord) {
             this.loadDir = record.loadDir
             this.freqTablePath = record.freqTablePath
@@ -382,6 +421,8 @@ export const useSimpleLoadStore = defineStore('simpleLoad', {
                     ]
                 })
             )
+            this.skipRows = record.skipRows
+            this.columns = [...record.columns]
             this.previewFolder({ skipRows: record.skipRows, columns: record.columns })
         },
 
