@@ -78,9 +78,12 @@ const formatBytes = (n: number): string => {
 
 const store = useSimpleLoadStore()
 
-const options: SelectOption[] = [
+// 一个分量只对一列：别的列选了的分量不在这一列的下拉里列出，这一列自己选的和「不使用」一直在
+const optionsFor = (own: LoadColumn | null): SelectOption[] => [
     { label: '不使用', value: UNUSED },
-    ...Object.values(LoadColumn).map((column) => ({ label: column, value: column }))
+    ...Object.values(LoadColumn)
+        .filter((column) => column === own || !store.columns.includes(column))
+        .map((column) => ({ label: column, value: column }))
 ]
 
 const emptyNote = computed(() => {
@@ -96,7 +99,7 @@ const rawLines = computed(() =>
         .map((text, index) => ({ no: index + 1, text, skipped: index < store.skipRows }))
 )
 
-// 同一个分量对了不止一列时，这几列的下拉都标红
+// 下拉里选不出重复的分量，只有回填的历史记录可能带重复：这时这几列的下拉都标红
 const repeated = computed(() => {
     const used = store.columns.filter((column): column is LoadColumn => column !== null)
     return new Set(used.filter((column, index) => used.indexOf(column) !== index))
@@ -112,7 +115,7 @@ const renderSelect = (row: PreviewColumn): VNode => {
     const value = store.columns[row.index] ?? null
     return h(NSelect, {
         value: value ?? UNUSED,
-        options,
+        options: optionsFor(value),
         size: 'small',
         disabled: store.isBusy,
         status: value !== null && repeated.value.has(value) ? 'error' : undefined,
